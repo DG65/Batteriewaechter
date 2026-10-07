@@ -1,0 +1,18 @@
+{
+  "id": "{B98CE6F5-3E54-412E-88C4-4CA9E7FA28AF}",
+  "library": "{68C5991B-8E85-23AC-C254-B446AF035AF8}",
+  "name": "Batteriewaechter",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "Batteriewächter",
+    "DG65 Toolkit Batteriewächter",
+    "Batteriemonitor",
+    "Batterie"
+  ],
+  "url": "https://github.com/DG65/Batteriewaechter",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "BWACH"
+}
