@@ -289,6 +289,37 @@ final class BWACHMeldung
         return ['title' => '🔋 Batterie-Wochenbericht', 'text' => implode("\n", $lines), 'sound' => 'bell', 'anyProblem' => $shown > 0];
     }
 
+    /**
+     * Macht aus der Meldung des SMTP-Moduls (PHP-Warnungen, z. B. „Login denied“) einen Satz, der sagt,
+     * was zu tun ist. Unbekanntes wird unverändert (und als solches kenntlich) durchgereicht.
+     *
+     * @param string[] $warnings
+     */
+    public static function explainMailError(array $warnings, string $exception = ''): string
+    {
+        $raw = trim(implode(' / ', array_filter(array_map('trim', $warnings))) . ($exception !== '' ? ' / ' . $exception : ''));
+        if ($raw === '') {
+            return 'das SMTP-Modul nennt keinen Grund (Debug der SMTP-Instanz einschalten zeigt den Dialog mit dem Server)';
+        }
+        $h = mb_strtolower($raw);
+        if (strpos($h, 'login denied') !== false || strpos($h, 'authentication') !== false || strpos($h, 'auth failed') !== false || strpos($h, '535') !== false) {
+            $why = 'Anmeldung abgelehnt: Benutzername oder Passwort der SMTP-Instanz stimmen nicht (bei iCloud und anderen Anbietern mit Zwei-Faktor-Anmeldung braucht es ein App-spezifisches Passwort)';
+        } elseif (strpos($h, 'resolve') !== false || strpos($h, 'getaddrinfo') !== false) {
+            $why = 'Server nicht gefunden: Servername der SMTP-Instanz prüfen';
+        } elseif (strpos($h, 'timed out') !== false || strpos($h, 'timeout') !== false) {
+            $why = 'Zeitüberschreitung: der Mailserver antwortet nicht (Server, Port und Netzwerk prüfen)';
+        } elseif (strpos($h, 'refused') !== false) {
+            $why = 'Verbindung abgelehnt: Server oder Port der SMTP-Instanz prüfen';
+        } elseif (strpos($h, 'certificate') !== false || strpos($h, 'ssl') !== false || strpos($h, 'tls') !== false) {
+            $why = 'Verschlüsselung oder Zertifikat: SSL-Einstellung und Port der SMTP-Instanz prüfen';
+        } elseif (strpos($h, 'recipient') !== false || strpos($h, 'rcpt') !== false) {
+            $why = 'Empfänger abgelehnt: Empfängeradresse prüfen';
+        } else {
+            $why = 'Meldung des SMTP-Moduls';
+        }
+        return $why . ' („' . $raw . '“)';
+    }
+
     /** Kürzt UTF-8-sicher auf eine Byte-Grenze (WFC_PushNotification/VISU_PostNotificationEx, SUITE.md Stolperstein 22). */
     public static function truncateBytes(string $str, int $maxBytes): string
     {

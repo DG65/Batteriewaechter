@@ -60,7 +60,7 @@ function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INST
 function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
 function VISU_PostNotificationEx($id, $t, $x, $icon, $sound, $target) { $GLOBALS['SENT'][] = ['visu', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
 function WFC_PushNotification($id, $t, $x, $sound, $target) { $GLOBALS['SENT'][] = ['wfc', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
-function SMTP_SendMailEx($id, $to, $subj, $body) { $GLOBALS['SENT'][] = ['mailex', $id, $subj, $body, $to]; return $GLOBALS['SEND_OK']; }
+function SMTP_SendMailEx($id, $to, $subj, $body) { if (!empty($GLOBALS['SMTP_WARN'])) { trigger_error($GLOBALS['SMTP_WARN'], E_USER_WARNING); } if (!empty($GLOBALS['SMTP_THROW'])) { throw new RuntimeException($GLOBALS['SMTP_THROW']); } $GLOBALS['SENT'][] = ['mailex', $id, $subj, $body, $to]; return $GLOBALS['SEND_OK']; }
 function SMTP_SendMail($id, $subj, $text) { $GLOBALS['SENT'][] = ['mail', $id, $subj, $text]; return $GLOBALS['SEND_OK']; }
 function IPS_GetLibrary(string $guid): array { $lib = json_decode(file_get_contents($GLOBALS['ROOT'] . '/library.json'), true); return ['Version' => $lib['version'] . '-beta.1', 'Build' => (int)$lib['build']]; }
 
@@ -471,7 +471,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.3.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.3.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -495,9 +495,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.3.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.3.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.3.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.3.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 9);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -941,6 +941,42 @@ if (trim((string)shell_exec('command -v node')) !== '') {
     echo "  ⏭  Node nicht installiert: JavaScript-Prüfung übersprungen\n";
 }
 @unlink($tmp);
+
+
+// ===========================================================================
+heading('9 Fehlerursache beim E-Mail-Versand');
+// ===========================================================================
+check('„Login denied“ → Anmeldung abgelehnt mit Hinweis auf Passwort und App-Passwort', (function () { $s = BWACHMeldung::explainMailError(['Login denied']); return strpos($s, 'Anmeldung abgelehnt') === 0 && strpos($s, 'App-spezifisches Passwort') !== false && strpos($s, '„Login denied“') !== false; })());
+check('„535 5.7.8 authentication failed“ ebenfalls', strpos(BWACHMeldung::explainMailError(['535 5.7.8 Error: authentication failed']), 'Anmeldung abgelehnt') === 0);
+check('Server nicht gefunden / Zeitüberschreitung / abgelehnt / Zertifikat / Empfänger', strpos(BWACHMeldung::explainMailError(['Could not resolve host: x']), 'Server nicht gefunden') === 0
+    && strpos(BWACHMeldung::explainMailError(['Connection timed out after 10001 ms']), 'Zeitüberschreitung') === 0
+    && strpos(BWACHMeldung::explainMailError(['Connection refused']), 'Verbindung abgelehnt') === 0
+    && strpos(BWACHMeldung::explainMailError(['SSL certificate problem']), 'Verschlüsselung oder Zertifikat') === 0
+    && strpos(BWACHMeldung::explainMailError(['RCPT TO rejected']), 'Empfänger abgelehnt') === 0);
+check('Unbekannte Meldung wird durchgereicht und als Meldung des SMTP-Moduls gekennzeichnet', BWACHMeldung::explainMailError(['Etwas Neues']) === 'Meldung des SMTP-Moduls („Etwas Neues“)');
+check('Ohne jede Meldung: ehrlicher Hinweis auf das Debug der SMTP-Instanz', strpos(BWACHMeldung::explainMailError([]), 'nennt keinen Grund') !== false && strpos(BWACHMeldung::explainMailError([]), 'Debug') !== false);
+check('Ausnahme statt Warnung wird ebenfalls erklärt', strpos(BWACHMeldung::explainMailError([], 'Connection refused'), 'Verbindung abgelehnt') === 0);
+
+$m = freshModule(['NotificationsActive' => false, 'NotifyPush' => false, 'NotifyMail' => true, 'MailInstance' => 14223, 'MailTo' => 'a@example.org']);
+mkinst(14223, 'SMTP', 'SMTP');
+$GLOBALS['SMTP_WARN'] = 'Login denied'; $GLOBALS['SEND_OK'] = false; $GLOBALS['LOG'] = [];
+$res = $m->SendTest();
+check('Testmeldung nennt die Ursache direkt: „nicht gesendet — Anmeldung abgelehnt …“', strpos($res, 'E-Mail: ⚠️ nicht gesendet — Anmeldung abgelehnt') === 0 && strpos($res, 'Login denied') !== false, $res);
+check('Dieselbe Ursache steht im Meldungslog', (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'E-Mail-Versand fehlgeschlagen: Anmeldung abgelehnt') !== false; }));
+check('Die Testmeldung zeigt die Ursache auch im offenen Formular (Statuszeile)', (bool)array_filter($m->fieldUpdates, function ($u) { return $u[0] === 'NotifyStatus' && strpos($u[2], 'Anmeldung abgelehnt') !== false; }));
+$GLOBALS['SMTP_WARN'] = ''; $GLOBALS['SMTP_THROW'] = 'Connection refused'; $GLOBALS['LOG'] = [];
+check('Ausnahme des SMTP-Moduls bringt die Testmeldung nicht zum Absturz und wird erklärt', strpos($m->SendTest(), 'Verbindung abgelehnt') !== false);
+$GLOBALS['SMTP_THROW'] = ''; $GLOBALS['SEND_OK'] = true;
+check('Nach Behebung: „gesendet“, kein alter Fehlertext', strpos($m->SendTest(), 'E-Mail: ✅ gesendet') !== false);
+$set = set_error_handler(function () { return false; }); restore_error_handler();
+$GLOBALS['SMTP_WARN'] = 'Login denied'; $GLOBALS['SEND_OK'] = false; $m->SendTest(); $GLOBALS['SMTP_WARN'] = ''; $GLOBALS['SEND_OK'] = true;
+$handlerAfter = set_error_handler(function () { return false; }); restore_error_handler();
+check('Der Fehler-Handler wird nach dem Versand wieder zurückgesetzt (kein Dauerfang von Warnungen)', $handlerAfter === $set);
+$m->props['MailInstance'] = 0;
+check('Ohne SMTP-Instanz: Testmeldung sagt, dass keine ausgewählt ist', strpos($m->SendTest(), 'keine SMTP-Instanz ausgewählt') !== false);
+// Meldungs-Zustellung nennt die Ursache im Log
+$m = freshModule(['NotificationsActive' => true, 'NotifyPush' => false, 'NotifyMail' => true, 'MailInstance' => 14223, 'MailTo' => 'a@example.org'], false);
+check('Meldung ohne Zustellweg: Meldungslog nennt auch den E-Mail-Grund', (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'konnte über keinen Weg zugestellt werden') !== false; }));
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

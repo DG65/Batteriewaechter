@@ -34,10 +34,16 @@ require_once __DIR__ . '/BWACHMeldung.php';
 
 class Batteriewaechter extends IPSModule
 {
+    /** Grund des letzten fehlgeschlagenen E-Mail-Versands (für Testmeldung und Meldungslog). */
+    private string $lastMailError = '';
+
     private const LIBRARY_GUID = '{68C5991B-8E85-23AC-C254-B446AF035AF8}';
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.3.1' => [
+            '• Testmeldung nennt bei einem fehlgeschlagenen E-Mail-Versand die Ursache, z. B. „Anmeldung abgelehnt: Benutzername oder Passwort der SMTP-Instanz stimmen nicht“, statt auf das Meldungslog zu verweisen. Die Ursache steht auch im Meldungslog.',
+        ],
         '0.3.0' => [
             '• Kachel für die Kachel-Visualisierung: Geräte nach Dringlichkeit, Filter (Handlungsbedarf, leer, schwach, Funkstille, Daten prüfen), Batterietagebuch und Quittieren per Antippen. Instanz einfach als Kachel hinzufügen.',
             '• Gerätewahl beim Quittieren nennt den Befund kurz („leer, Funkstille“), Tagebuch- und „Außer Betrieb“-Zeile frischen sich nach dem Quittieren sofort auf.',
@@ -501,7 +507,7 @@ class Batteriewaechter extends IPSModule
                 : 'Push: ' . ($r['ok'] === $r['targets'] ? '✅ ' : '⚠️ ') . $r['ok'] . ' von ' . $r['targets'] . ' Zielen';
         }
         if ($this->ReadPropertyBoolean('NotifyMail')) {
-            $parts[] = 'E-Mail: ' . ($this->sendMail($m['title'], $m['text']) ? '✅ gesendet' : '⚠️ nicht gesendet (SMTP-Instanz und Empfänger prüfen, Details im Meldungslog)');
+            $parts[] = 'E-Mail: ' . ($this->sendMail($m['title'], $m['text']) ? '✅ gesendet' : '⚠️ nicht gesendet — ' . $this->lastMailError);
         }
         $out = $parts ? implode(' · ', $parts) : 'ℹ️ Kein Zustellweg ausgewählt (Push oder E-Mail unter „Meldungen“ ankreuzen).';
         $this->UpdateFormField('NotifyStatus', 'caption', $out);
@@ -657,7 +663,7 @@ class Batteriewaechter extends IPSModule
             $ok++;
         }
         if ($ok === 0) {
-            IPS_LogMessage('Batteriewächter', 'Meldung „' . $title . '“ konnte über keinen Weg zugestellt werden (Push-Ziele und E-Mail unter „Meldungen“ prüfen).');
+            IPS_LogMessage('Batteriewächter', 'Meldung „' . $title . '“ konnte über keinen Weg zugestellt werden (Push-Ziele und E-Mail unter „Meldungen“ prüfen).' . (!empty($channels['mail']) && $this->lastMailError !== '' ? ' E-Mail: ' . $this->lastMailError : ''));
         }
         return $ok;
     }
@@ -711,36 +717,53 @@ class Batteriewaechter extends IPSModule
 
     protected function sendMail(string $title, string $text): bool
     {
+        $this->lastMailError = '';
         $inst = $this->ReadPropertyInteger('MailInstance');
         if ($inst <= 0 || !IPS_InstanceExists($inst)) {
+            $this->lastMailError = 'keine SMTP-Instanz ausgewählt (oder die Instanz gibt es nicht mehr)';
             return false;
         }
         $to = trim($this->ReadPropertyString('MailTo'));
+        $warnings  = [];
+        $exception = '';
+        // Das SMTP-Modul meldet den Grund (z. B. „Login denied“) als PHP-Warnung und gibt nur false zurück.
+        set_error_handler(function ($no, $str) use (&$warnings) {
+            $warnings[] = (string)$str;
+            return true;
+        });
+        $sent = false;
         try {
             if ($to === '') {
                 // Ohne Empfänger gilt der in der SMTP-Instanz eingestellte
                 if (!function_exists('SMTP_SendMail')) {
-                    return false;
-                }
-                return (bool)SMTP_SendMail($inst, $title, $text);
-            }
-            if (!function_exists('SMTP_SendMailEx')) {
-                return false;
-            }
-            $body = '<html><body>' . nl2br(htmlspecialchars($text)) . '</body></html>';
-            $sent = false;
-            foreach (array_filter(array_map('trim', preg_split('/[,;]+/', $to))) as $addr) {
-                if (SMTP_SendMailEx($inst, $addr, $title, $body)) {
-                    $sent = true;
+                    $this->lastMailError = 'die Funktion SMTP_SendMail gibt es nicht (SMTP-Modul fehlt?)';
                 } else {
-                    IPS_LogMessage('Batteriewächter', 'E-Mail an „' . $addr . '“ fehlgeschlagen.');
+                    $sent = (bool)SMTP_SendMail($inst, $title, $text);
+                }
+            } elseif (!function_exists('SMTP_SendMailEx')) {
+                $this->lastMailError = 'die Funktion SMTP_SendMailEx gibt es nicht (SMTP-Modul fehlt?)';
+            } else {
+                $body = '<html><body>' . nl2br(htmlspecialchars($text)) . '</body></html>';
+                foreach (array_filter(array_map('trim', preg_split('/[,;]+/', $to))) as $addr) {
+                    if (SMTP_SendMailEx($inst, $addr, $title, $body)) {
+                        $sent = true;
+                    } else {
+                        IPS_LogMessage('Batteriewächter', 'E-Mail an „' . $addr . '“ fehlgeschlagen.');
+                    }
                 }
             }
-            return $sent;
         } catch (\Throwable $e) {
-            IPS_LogMessage('Batteriewächter', 'E-Mail-Versand fehlgeschlagen: ' . $e->getMessage());
-            return false;
+            $exception = $e->getMessage();
+        } finally {
+            restore_error_handler();
         }
+        if (!$sent && $this->lastMailError === '') {
+            $this->lastMailError = BWACHMeldung::explainMailError($warnings, $exception);
+        }
+        if (!$sent) {
+            IPS_LogMessage('Batteriewächter', 'E-Mail-Versand fehlgeschlagen: ' . $this->lastMailError);
+        }
+        return $sent;
     }
 
     private function renderDiary(): string

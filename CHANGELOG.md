@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.3.1] - 2026-10-08
+
+### Changed
+- Schlägt der E-Mail-Versand fehl, nennt die **Testmeldung** die Ursache, statt auf das Meldungslog zu verweisen: z. B. „Anmeldung abgelehnt: Benutzername oder Passwort der SMTP-Instanz stimmen nicht (bei iCloud … App-spezifisches Passwort)“. Erkannt werden Anmeldung, Servername, Zeitüberschreitung, Verbindung abgelehnt, Zertifikat und Empfänger; alles andere wird unverändert als Meldung des SMTP-Moduls durchgereicht. Dieselbe Ursache steht im Meldungslog, auch wenn eine echte Meldung nicht zugestellt werden konnte.
+
 ## [0.3.0] - 2026-10-08
 
 ### Added
