@@ -99,6 +99,9 @@ class IPSModule
     public function UnregisterMessage(int $sender, int $msg): void { unset($this->messages[$sender][$msg]); if (empty($this->messages[$sender])) { unset($this->messages[$sender]); } }
     public function GetMessageList(): array { $o = []; foreach ($this->messages as $s => $m) { $o[$s] = array_keys($m); } return $o; }
     public function UpdateFormField(string $n, string $p, $v): void { $this->fieldUpdates[] = [$n, $p, $v]; }
+    public int $visType = 0; public array $visUpdates = [];
+    public function SetVisualizationType(int $t): void { $this->visType = $t; }
+    public function UpdateVisualizationValue(string $v): void { $this->visUpdates[] = $v; }
     public function MaintainVariable(string $ident, string $name, int $type, string $profile, int $pos, bool $keep): void
     {
         if ($keep && IPS_GetObjectIDByIdent($ident, $this->InstanceID) === false) {
@@ -162,6 +165,7 @@ foreach (['Batterieladung', 'Batterieentladung Gesamt', 'Batterieleistung (W)', 
 }
 check('Sammelwert-Namen erkannt', BWACHLogik::isAggregateName('Schwächste Batterie') && BWACHLogik::isAggregateName('Batterie Aktoren - Gesamt') && !BWACHLogik::isAggregateName('Batteriestand'));
 check('Zahlenformat deutsch: 4,71 / 100 / −20', BWACHLogik::num(4.71) === '4,71' && BWACHLogik::num(100.0) === '100' && BWACHLogik::num(-20.0) === '-20');
+check('Dativ nach „vor“/„seit“: 1 Tag, 16 Tagen, 5 Stunden, 40 Minuten', BWACHLogik::daysDat(86400) === '1 Tag' && BWACHLogik::daysDat(16 * 86400) === '16 Tagen' && BWACHLogik::daysDat(5 * 3600) === '5 Stunden' && BWACHLogik::daysDat(2400) === '40 Minuten');
 check('Dauer: 1 Tag / 16 Tage / 5 Stunden / 40 Minuten', BWACHLogik::days(86400) === '1 Tag' && BWACHLogik::days(16 * 86400) === '16 Tage' && BWACHLogik::days(5 * 3600) === '5 Stunden' && BWACHLogik::days(2400) === '40 Minuten');
 
 // ===========================================================================
@@ -303,7 +307,7 @@ check('Ohne Altersprüfung: nicht veraltet', !in_array('veraltet', ev(pctSig(82,
 check('Alter genau an der Schwelle (90 Tage) noch nicht veraltet, 91 Tage veraltet', !in_array('veraltet', ev(pctSig(50, $n - 90 * $d), $n)['quality'], true) && in_array('veraltet', ev(pctSig(50, $n - 91 * $d), $n)['quality'], true));
 // Funkstille
 $r = ev(pctSig(100, ts('2026-09-20 19:37')), ts('2026-09-21 01:23'));
-check('Funkstille 16 Tage (Standard 7): still, Dringlichkeit 600', $r['funk'] === 'still' && $r['urgency'] === 600 && $r['status'] === 'ok');
+check('Funkstille 16 Tage (Standard 7): still, Dringlichkeit 600', $r['funk'] === 'still' && $r['urgency'] === 600 && $r['status'] === 'ok' && strpos(implode(' ', $r['reasons']), 'seit 16 Tagen kein Lebenszeichen') !== false);
 check('Funkstille Grenze: 7 Tage aktiv, 8 Tage still', ev(pctSig(100, $n), $n - 7 * $d)['funk'] === 'aktiv' && ev(pctSig(100, $n), $n - 8 * $d)['funk'] === 'still');
 check('Ereignismelder: 20 Tage still-frei, 31 Tage still', ev(pctSig(100, $n), $n - 20 * $d, ['group' => 'ereignis'])['funk'] === 'aktiv' && ev(pctSig(100, $n), $n - 31 * $d, ['group' => 'ereignis'])['funk'] === 'still');
 check('Kein Lebenszeichen bekannt → „unbekannt“, nie „still“', ev(pctSig(100, $n), 0)['funk'] === 'unbekannt');
@@ -467,7 +471,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.2.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.3.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -491,9 +495,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.2.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.3.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.2.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.3.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 9);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -766,7 +770,7 @@ check('„Außer Betrieb“: Gerät verschwindet aus Zählung und Tabelle', $m->
 check('Außer-Betrieb-Gerät taucht in der Quittieren-Liste auf', strpos(json_encode(json_decode($m->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Außer Betrieb (1)') !== false);
 check('Quittieren-Auswahl nennt Geräte mit Befund zuerst und den Befund', (function () use ($m) {
     $f = json_decode($m->GetConfigurationForm(), true);
-    foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'AckDevice') { return $it['options'][0]['value'] === '' && strpos($it['options'][1]['caption'], '—') !== false; } } }
+    foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'AckDevice') { return $it['options'][0]['value'] === '' && preg_match('/ \((leer|schwach|Funkstille|Daten prüfen)/u', $it['options'][1]['caption']) === 1; } } }
     return false;
 })());
 $r = $m->Unretire('103');
@@ -815,6 +819,128 @@ check('Wochenbericht nicht noch einmal in derselben Woche', count(array_filter(a
 $m = freshModule(['NotificationsActive' => true]);
 check('Zweifelhafte Daten allein (Staubsauger: Wert 328 Tage alt, Gerät aktiv) lösen keine Meldung aus', !array_filter($GLOBALS['SENT'], function ($s) { return strpos($s[3], 'Staubsauger') !== false; }));
 check('…tauchen aber im Wochenbericht-Zähler auf', $m->GetValue('Check') >= 1);
+
+
+// ===========================================================================
+heading('8 Kachel');
+// ===========================================================================
+$m = freshModule(['NotificationsActive' => false, 'DeviceSettings' => $crit]);
+check('Instanz ist als Kachel-Visualisierung angemeldet (Typ 1)', $m->visType === 1);
+check('Jede Prüfung schickt neue Kachel-Daten', count($m->visUpdates) >= 1);
+if (getenv('BWACH_DUMP_TILE')) { file_put_contents(getenv('BWACH_DUMP_TILE'), end($m->visUpdates)); }   // für die Sichtprüfung im Browser
+$pl = json_decode(end($m->visUpdates), true);
+check('Kachel-Daten: Kennzahlen, Geräteliste, Tagebuch, Stand', isset($pl['summary']['total'], $pl['devices'], $pl['diary'], $pl['asOf']) && $pl['summary']['total'] === 11 && count($pl['devices']) === 11);
+check('Geräte nach Dringlichkeit sortiert, kritisches schwaches Gerät zuerst', $pl['devices'][0]['name'] === 'Rauchmelder Heizung' && $pl['devices'][0]['urgency'] >= $pl['devices'][1]['urgency']);
+$ok0 = array_values(array_filter($pl['devices'], function ($d) { return $d['name'] === 'Sensor Schlafzimmer'; }))[0];
+$est = array_values(array_filter($pl['devices'], function ($d) { return $d['name'] === 'Thermostat Esszimmer'; }))[0];
+check('Unterzeile nennt den Hauptbefund (Funkstille), nicht den nachrangigen (veralteter Wert)', strpos($est['headline'], 'Funkstille') === 0 && strpos($est['headline'], 'Tagen') !== false, $est['headline']);
+check('Unterzeile bei leerer Batterie: „Batterie leer“ vor allem anderen', (function () { $r = BWACHLogik::evaluate(['percent' => ['value' => 2, 'updated' => 1, 'scale' => 1.0]], 1, 5000000, ['valueOldDays' => 1]); return strpos($r['reasons'][0], 'Batterie leer') === 0; })());
+check('Gerät ohne Befund: Prozent als Zahl und Text, Alter und Lebenszeichen formuliert', $ok0['percent'] == 100 && $ok0['percentText'] === '100 %' && strpos($ok0['valueAgeText'], 'vor 2 Tagen') === 0 && strpos($ok0['lifeText'], 'vor ') === 0 && $ok0['urgency'] === 0);
+$shel = array_values(array_filter($pl['devices'], function ($d) { return $d['name'] === 'Shelly H&T'; }))[0];
+check('Prozentgerät mit Spannung zeigt Prozent; Gerät ohne Prozent zeigt Spannung', $shel['percentText'] === '35 %' && $shel['place'] === 'Sensoren');
+check('Kachel liefert KEINE fertige Überschrift (Titel liefert der Instanzname)', !isset($pl['title']) && strpos(file_get_contents($MODDIR . '/module.html'), '<h1') === false && strpos(file_get_contents($MODDIR . '/module.html'), '<h2') === false);
+
+$GLOBALS['OBJ'][101]['name'] = 'Evil </script><!--<script>alert(1)</script> & "x"';
+$m->Check();
+$tile = $m->GetVisualizationTile();
+$after = substr($tile, strrpos($tile, '<script>handleMessage('));
+$payloadPart = substr($after, strlen('<script>handleMessage('));
+check('Gerätename mit </script> und <!--<script> bricht die Kachel nicht auf (nichts davon roh im Skript)', substr_count($after, '</script>') === 1 && strpos($payloadPart, '<!--') === false && substr_count($payloadPart, '<script') === 0 && strpos($payloadPart, 'alert(1)') !== false);
+check('Tile-HTML enthält module.html und den ersten handleMessage-Aufruf mit Daten', strpos($tile, 'function handleMessage') !== false && preg_match('/handleMessage\("\{.*devices/s', $after) === 1, substr($after, 0, 120));
+$GLOBALS['OBJ'][101]['name'] = 'Sensor Schlafzimmer';
+
+// Rückkanal
+$m->visUpdates = [];
+$m->RequestAction('ack', json_encode(['key' => '114', 'action' => 'getauscht']));
+$pl = json_decode(end($m->visUpdates), true);
+check('Quittieren aus der Kachel: Rückmeldung steht in den Kachel-Daten', strpos($pl['message'], 'Batteriewechsel bei „Rauchmelder Heizung“ eingetragen') !== false && count($pl['diary']) === 1, $pl['message']);
+check('Kachel-Tagebuch: Datum TT.MM.JJJJ, Art', preg_match('/^\d\d\.\d\d\.\d{4}$/', $pl['diary'][0]['when']) === 1 && $pl['diary'][0]['type'] === 'eingetragen');
+$GLOBALS['CLOCK'] += 31; $m->RequestAction('refresh', '');
+check('Rückmeldung verschwindet nach 30 Sekunden', json_decode(end($m->visUpdates), true)['message'] === '');
+$m->RequestAction('ack', 'kein json');
+check('Ungültige Anfrage aus der Kachel: freundliche Rückmeldung statt Absturz', strpos(json_decode(end($m->visUpdates), true)['message'], 'Ungültige Anfrage') !== false);
+$m->RequestAction('ack', json_encode(['key' => '../../x', 'action' => 'getauscht']));
+check('Unbekannter Schlüssel aus der Kachel wird abgelehnt', strpos(json_decode(end($m->visUpdates), true)['message'], 'nicht gefunden') !== false);
+$m->RequestAction('ack', json_encode(['key' => '114', 'action' => 'loeschen']));
+check('Unbekannte Aktion aus der Kachel wird abgelehnt', strpos(json_decode(end($m->visUpdates), true)['message'], 'Unbekannte Aktion') !== false);
+$m->props['TileAllowAck'] = false;
+$cnt = count(json_decode($m->GetValue('Diary'), true));
+$m->RequestAction('ack', json_encode(['key' => '103', 'action' => 'ausser_betrieb']));
+$pl = json_decode(end($m->visUpdates), true);
+check('Quittieren aus der Kachel ausgeschaltet: nichts passiert, Kachel zeigt keine Schaltflächen', strpos($pl['message'], 'ausgeschaltet') !== false && $pl['allowAck'] === false && count($pl['devices']) === 11);
+$m->props['TileAllowAck'] = true;
+$m->RequestAction('ack', json_encode(['key' => '103', 'action' => 'ausser_betrieb']));
+check('Außer Betrieb aus der Kachel: Gerät verschwindet aus der Kachel-Liste', count(json_decode(end($m->visUpdates), true)['devices']) === 10);
+$m->RequestAction('ack', json_encode(['key' => '105-1051', 'action' => 'zurueckgestellt']));
+check('Zurückgestellt aus der Kachel: Gerät trägt 💤', (bool)array_filter(json_decode(end($m->visUpdates), true)['devices'], function ($d) { return $d['id'] === '105-1051' && strpos($d['note'], '💤 bis') === 0; }));
+
+// Formular-Aufwertungen
+$form = json_decode($m->GetConfigurationForm(), true); $fj = json_encode($form, JSON_UNESCAPED_UNICODE);
+check('Gerätewahl nennt den Befund kurz (z. B. „(schwach)“) statt eines langen Satzes', strpos($fj, 'Rauchmelder Heizung (schwach)') !== false && strpos($fj, 'Batterie schwach (25') === false);
+$m->fieldUpdates = []; $m->Acknowledge('114', 'getauscht');
+$upd = array_column($m->fieldUpdates, 0);
+check('Nach dem Quittieren frischen sich Tagebuch- und Außer-Betrieb-Zeile im offenen Formular auf', in_array('DiaryLine', $upd, true) && in_array('RetiredLine', $upd, true) && in_array('AckStatus', $upd, true));
+check('Tagebuch-Zeile zeigt den neuen Eintrag', strpos($m->GetConfigurationForm(), 'Zuletzt im Tagebuch') !== false);
+
+// JavaScript der Kachel: Syntax und Verhalten mit einem Minimal-DOM
+$html = file_get_contents($MODDIR . '/module.html');
+preg_match('/<script>(.*)<\/script>/s', $html, $mjs);
+$tmp = sys_get_temp_dir() . '/bw-tile-' . getmypid() . '.js';
+$domJs = <<<'JS'
+function El(tag){ this.tag=tag; this.children=[]; this.className=''; this.textContent=''; this.style={}; this.onclick=null; this.type=''; }
+El.prototype.appendChild=function(c){ this.children.push(c); c.parent=this; return c; };
+El.prototype.removeChild=function(c){ this.children.splice(this.children.indexOf(c),1); };
+Object.defineProperty(El.prototype,'firstChild',{get:function(){ return this.children[0]||null; }});
+global.document={ createElement:function(t){return new El(t);}, createTextNode:function(s){var e=new El('#text'); e.textContent=s; return e;}, getElementById:function(){ return global.ROOT; } };
+global.ROOT=new El('div'); global.sent=[]; global.requestAction=function(i,v){ global.sent.push([i,v]); };
+function all(e,out){ out=out||[]; out.push(e); e.children.forEach(function(c){all(c,out);}); return out; }
+function texts(e){ return all(e).map(function(x){return x.textContent;}).filter(Boolean).join(' | '); }
+function click(pred){ var t=all(global.ROOT).filter(pred)[0]; if(!t||!t.onclick) throw new Error('kein Klickziel'); t.onclick(); }
+JS;
+$testJs = <<<'JS'
+var P = {summary:{total:3},asOf:'10:00 Uhr',allowAck:true,message:'',diary:[{when:'07.10.2026',name:'A',type:'erkannt',note:'x'}],
+ devices:[
+ {id:'1',name:'Alpha <b>',place:'Flur',module:'Z',status:'leer',funk:'aktiv',percent:3,percentText:'3 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 5 Minuten',critical:true,quality:[],urgency:1100,reasons:['Batterie leer (3 %)'],note:''},
+ {id:'2',name:'Beta',place:'',module:'',status:'ok',funk:'still',percent:80,percentText:'80 %',voltageText:'',valueAgeText:'—',lifeText:'vor 9 Tage',critical:false,quality:['veraltet'],urgency:600,reasons:['Funkstille'],note:'💤 bis 15.10.2026'},
+ {id:'3',name:'Gamma',place:'Bad',module:'',status:'ok',funk:'aktiv',percent:100,percentText:'100 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 1 Minute',critical:false,quality:[],urgency:0,reasons:[],note:''}]};
+handleMessage(JSON.stringify(P));
+var ok = true; function chk(n,c){ if(!c){ ok=false; console.log('FAIL '+n); } }
+var t = texts(global.ROOT);
+chk('Standardfilter zeigt Handlungsbedarf (2 Geräte, nicht Gamma)', t.indexOf('Alpha <b>')>=0 && t.indexOf('Beta')>=0 && t.indexOf('Gamma')<0);
+chk('Name wird als Text gesetzt (kein HTML)', all(global.ROOT).every(function(e){ return e.tag!=='b'; }));
+chk('Zähler an den Filtern', t.indexOf('Handlungsbedarf')>=0 && t.indexOf('Alle')>=0);
+click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='Alle'; });
+chk('Filter Alle zeigt auch Gamma', texts(global.ROOT).indexOf('Gamma')>=0);
+click(function(e){ return e.className==='bw-top' && texts(e).indexOf('Alpha')>=0; });
+t = texts(global.ROOT);
+chk('Aufklappen zeigt Gründe, Alter und Schaltflächen', t.indexOf('Batterie leer (3 %)')>=0 && t.indexOf('Batteriewert gemeldet: vor 1 Tag')>=0 && t.indexOf('✔ Habe ich getauscht')>=0);
+click(function(e){ return e.textContent==='✔ Habe ich getauscht'; });
+chk('„getauscht“ sendet ack an den Rückkanal', global.sent.length===1 && global.sent[0][0]==='ack' && JSON.parse(global.sent[0][1]).key==='1' && JSON.parse(global.sent[0][1]).action==='getauscht');
+click(function(e){ return e.textContent==='⏹ Außer Betrieb'; });
+chk('„Außer Betrieb“ braucht einen zweiten Klick (nichts gesendet)', global.sent.length===1 && texts(global.ROOT).indexOf('Wirklich außer Betrieb?')>=0);
+click(function(e){ return e.textContent==='Wirklich außer Betrieb?'; });
+chk('Zweiter Klick sendet ausser_betrieb', global.sent.length===2 && JSON.parse(global.sent[1][1]).action==='ausser_betrieb');
+P.allowAck=false; handleMessage(P);
+click(function(e){ return e.className==='bw-top' && texts(e).indexOf('Alpha')>=0; });
+chk('Ohne Quittier-Erlaubnis keine Schaltflächen', texts(global.ROOT).indexOf('Habe ich getauscht')<0);
+P.message='✅ erledigt'; handleMessage(P);
+chk('Rückmeldung wird angezeigt', texts(global.ROOT).indexOf('✅ erledigt')>=0);
+click(function(e){ return e.textContent==='📓 Tagebuch'; });
+chk('Tagebuch-Ansicht zeigt Einträge', texts(global.ROOT).indexOf('07.10.2026')>=0 && texts(global.ROOT).indexOf('erkannt')>=0);
+P.devices=[]; P.summary.total=0; handleMessage(P); click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='Alle'; });
+chk('Ohne Geräte: ehrlicher Leer-Text', texts(global.ROOT).indexOf('noch keine Geräte überwacht')>=0);
+P.devices=[P.devices[0]]; 
+console.log(ok ? 'JS-OK' : 'JS-FEHLER'); process.exit(ok?0:1);
+JS;
+file_put_contents($tmp, $domJs . "\n" . $mjs[1] . "\n" . $testJs);
+$out = []; $rc = 0;
+if (trim((string)shell_exec('command -v node')) !== '') {
+    exec('node ' . escapeshellarg($tmp) . ' 2>&1', $out, $rc);
+    check('Kachel-JavaScript: Syntax und Verhalten (Minimal-DOM unter Node)', $rc === 0, implode(' / ', $out));
+} else {
+    echo "  ⏭  Node nicht installiert: JavaScript-Prüfung übersprungen\n";
+}
+@unlink($tmp);
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

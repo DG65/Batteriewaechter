@@ -76,6 +76,13 @@ $mutations = [
     ['module.php', "unset(\$state[\$key]);\n                \$changed = true;", "\$changed = true;", 'Wechsel erledigt den alten Befund nicht'],
     ['module.php', "if (\$prev === null || \$prev['p'] !== \$cur['p'] || \$prev['f'] !== \$cur['f']) {", "if (\$prev === null) {", 'Zuletzt-gesehen wird nie aktualisiert'],
     ['module.php', "IPS_SetHidden(\$id, true);", '', 'Zustandsvariablen bleiben sichtbar'],
+    // --- Meilenstein 3: Kachel
+    ['module.php', "} elseif (is_array(\$d) && isset(\$d['key'], \$d['action'])) {", "} elseif (true) {\n                \$d = \$d ?: ['key' => '', 'action' => ''];", 'Ungültige Kachel-Anfrage wird nicht abgefangen'],
+    ['module.php', "if (!\$this->ReadPropertyBoolean('TileAllowAck')) {", "if (false) {", 'Quittieren aus der Kachel nicht abschaltbar'],
+    ['module.php', "JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS", "JSON_UNESCAPED_UNICODE", 'Gerätename kann die Kachel aufbrechen'],
+    ['module.php', "\$now - (int)\$meta['ack']['t'] <= 30", "true", 'Rückmeldung bleibt ewig stehen'],
+    ['module.php', "if (\$want !== '' && strpos(\$reason, \$want) === 0) {", "if (false) {", 'Unterzeile zeigt nie den Hauptbefund'],
+    ['BWACHLogik.php', "preg_replace('/ Tage\$/', ' Tagen', \$s)", "\$s", 'Dativ „seit 16 Tagen“ entfällt'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],
     ['module.php', 'htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, \'UTF-8\')', '(string)$s', 'HTML-Maskierung entfällt'],

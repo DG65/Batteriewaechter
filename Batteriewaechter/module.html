@@ -1,0 +1,257 @@
+<style>
+    .bw-wrap {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--ui-text, #e8eaed);
+        padding: 4px 2px 8px;
+        box-sizing: border-box;
+    }
+    .bw-wrap button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    /* Filterzeile */
+    .bw-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .bw-chip {
+        background: var(--ui-elevation-1, rgba(255, 255, 255, .07));
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 4px 11px;
+        font-size: .82em;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+    .bw-chip:hover { background: var(--ui-elevation-2, rgba(255, 255, 255, .12)); }
+    .bw-chip.on { border-color: var(--ui-primary, #4fc3f7); background: var(--ui-elevation-2, rgba(79, 195, 247, .16)); }
+    .bw-chip .n { font-weight: 700; margin-left: 4px; }
+
+    /* Zeilen */
+    .bw-list { display: flex; flex-direction: column; gap: 6px; }
+    .bw-row {
+        background: var(--ui-elevation-1, rgba(255, 255, 255, .06));
+        border-radius: 10px;
+        border-left: 4px solid transparent;
+        overflow: hidden;
+    }
+    .bw-row.s-leer { border-left-color: #e53935; }
+    .bw-row.s-schwach { border-left-color: #fb8c00; }
+    .bw-row.s-still { border-left-color: #8e8e93; }
+    .bw-row.s-check { border-left-color: #fdd835; }
+    .bw-row.s-ok { border-left-color: #43a047; }
+    .bw-top {
+        display: grid;
+        grid-template-columns: 26px 1fr auto;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+        background: none;
+        border: 0;
+        padding: 8px 10px;
+        text-align: left;
+    }
+    .bw-ico { font-size: 1.15em; text-align: center; }
+    .bw-main { min-width: 0; }
+    .bw-name { font-weight: 600; font-size: .95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bw-sub { font-size: .78em; opacity: .7; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .bw-val { font-size: .9em; font-weight: 600; text-align: right; white-space: nowrap; }
+    .bw-bar { height: 4px; border-radius: 2px; background: rgba(128, 128, 128, .3); margin-top: 3px; min-width: 56px; }
+    .bw-bar i { display: block; height: 100%; border-radius: 2px; background: #43a047; }
+    .s-schwach .bw-bar i { background: #fb8c00; }
+    .s-leer .bw-bar i { background: #e53935; }
+
+    /* Aufgeklappt */
+    .bw-detail { padding: 2px 12px 10px 44px; font-size: .84em; }
+    .bw-detail .why { margin: 0 0 6px; padding-left: 16px; }
+    .bw-detail .facts { opacity: .75; margin-bottom: 8px; }
+    .bw-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .bw-acts button {
+        background: var(--ui-elevation-2, rgba(255, 255, 255, .12));
+        border: 0;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: .95em;
+    }
+    .bw-acts button:hover { background: var(--ui-elevation-3, rgba(255, 255, 255, .2)); }
+    .bw-acts button.sure { background: #c62828; color: #fff; }
+
+    /* Rückmeldung, leer, Fuß */
+    .bw-msg { margin-top: 10px; font-size: .85em; padding: 7px 10px; border-radius: 8px; background: var(--ui-elevation-1, rgba(255, 255, 255, .07)); }
+    .bw-empty { padding: 18px 8px; text-align: center; opacity: .75; font-size: .92em; }
+    .bw-foot { margin-top: 8px; font-size: .72em; opacity: .55; text-align: right; }
+
+    /* Tagebuch */
+    .bw-dia { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: .86em; padding: 2px 4px; }
+    .bw-dia .d { opacity: .65; white-space: nowrap; }
+</style>
+
+<div class="bw-wrap" id="bw-root"></div>
+
+<script>
+    var BW = null;
+    var bwFilter = 'problems';
+    var bwOpen = null;
+    var bwSure = null;
+
+    function bwEl(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) { e.className = cls; }
+        if (text !== undefined && text !== null) { e.textContent = text; }
+        return e;
+    }
+
+    function bwHasCheck(d) { return d.quality && d.quality.length > 0; }
+
+    var BW_FILTERS = [
+        { id: 'problems', label: 'Handlungsbedarf', test: function (d) { return d.urgency > 0; }, always: true },
+        { id: 'all',      label: 'Alle',            test: function () { return true; },           always: true },
+        { id: 'empty',    label: '🪫 leer',          test: function (d) { return d.status === 'leer'; } },
+        { id: 'low',      label: '⚠️ schwach',       test: function (d) { return d.status === 'schwach'; } },
+        { id: 'silent',   label: '🔇 Funkstille',    test: function (d) { return d.funk === 'still'; } },
+        { id: 'check',    label: '❔ Daten prüfen',   test: bwHasCheck }
+    ];
+
+    function bwIcon(d) {
+        if (d.status === 'leer') { return '🪫'; }
+        if (d.status === 'schwach') { return '⚠️'; }
+        if (d.funk === 'still') { return '🔇'; }
+        if (bwHasCheck(d) || d.status === 'unbekannt') { return '❔'; }
+        return '✅';
+    }
+
+    function bwClass(d) {
+        if (d.status === 'leer') { return 's-leer'; }
+        if (d.status === 'schwach') { return 's-schwach'; }
+        if (d.funk === 'still') { return 's-still'; }
+        if (bwHasCheck(d) || d.status === 'unbekannt') { return 's-check'; }
+        return 's-ok';
+    }
+
+    function bwAct(d, action) {
+        if (action === 'ausser_betrieb' && bwSure !== d.id) {
+            bwSure = d.id;   // erst beim zweiten Klick wirklich
+            bwRender();
+            return;
+        }
+        bwSure = null;
+        requestAction('ack', JSON.stringify({ key: d.id, action: action }));
+    }
+
+    function bwRow(d) {
+        var row = bwEl('div', 'bw-row ' + bwClass(d));
+        var top = bwEl('button', 'bw-top');
+        top.type = 'button';
+        top.appendChild(bwEl('span', 'bw-ico', bwIcon(d)));
+
+        var main = bwEl('div', 'bw-main');
+        main.appendChild(bwEl('div', 'bw-name', d.name + (d.critical ? ' ❗' : '') + (d.note ? ' ' + d.note : '')));
+        var sub = d.place ? d.place : '';
+        var why = d.headline || (d.reasons && d.reasons.length ? d.reasons[0] : '');
+        if (why) { sub = sub ? sub + ' · ' + why : why; }
+        main.appendChild(bwEl('div', 'bw-sub', sub));
+        top.appendChild(main);
+
+        var val = bwEl('div', 'bw-val');
+        if (d.percent !== null) {
+            val.appendChild(document.createTextNode(d.percentText));
+            var bar = bwEl('div', 'bw-bar');
+            var fill = document.createElement('i');
+            fill.style.width = Math.max(0, Math.min(100, d.percent)) + '%';
+            bar.appendChild(fill);
+            val.appendChild(bar);
+        } else if (d.voltageText) {
+            val.textContent = d.voltageText;
+        } else {
+            val.textContent = '—';
+        }
+        top.appendChild(val);
+        top.onclick = function () { bwOpen = (bwOpen === d.id) ? null : d.id; bwSure = null; bwRender(); };
+        row.appendChild(top);
+
+        if (bwOpen === d.id) {
+            var det = bwEl('div', 'bw-detail');
+            if (d.reasons && d.reasons.length) {
+                var ul = bwEl('ul', 'why');
+                d.reasons.forEach(function (r) { ul.appendChild(bwEl('li', '', r)); });
+                det.appendChild(ul);
+            }
+            det.appendChild(bwEl('div', 'facts',
+                'Batteriewert gemeldet: ' + d.valueAgeText + ' · Lebenszeichen: ' + d.lifeText + (d.module ? ' · ' + d.module : '')));
+            if (BW.allowAck) {
+                var acts = bwEl('div', 'bw-acts');
+                var b1 = bwEl('button', '', '✔ Habe ich getauscht'); b1.type = 'button';
+                b1.onclick = function () { bwAct(d, 'getauscht'); };
+                var b2 = bwEl('button', '', '💤 Erinnere mich später'); b2.type = 'button';
+                b2.onclick = function () { bwAct(d, 'zurueckgestellt'); };
+                var b3 = bwEl('button', bwSure === d.id ? 'sure' : '', bwSure === d.id ? 'Wirklich außer Betrieb?' : '⏹ Außer Betrieb'); b3.type = 'button';
+                b3.onclick = function () { bwAct(d, 'ausser_betrieb'); };
+                acts.appendChild(b1); acts.appendChild(b2); acts.appendChild(b3);
+                det.appendChild(acts);
+            }
+            row.appendChild(det);
+        }
+        return row;
+    }
+
+    function bwDiary(root) {
+        if (!BW.diary || BW.diary.length === 0) {
+            root.appendChild(bwEl('div', 'bw-empty', 'Noch keine Batteriewechsel erfasst. Der Wächter erkennt sie selbst, oder du trägst sie über „Habe ich getauscht“ ein.'));
+            return;
+        }
+        var g = bwEl('div', 'bw-dia');
+        BW.diary.forEach(function (e) {
+            g.appendChild(bwEl('span', 'd', e.when));
+            g.appendChild(bwEl('span', '', e.name + ' (' + e.type + ') — ' + e.note));
+        });
+        root.appendChild(g);
+    }
+
+    function bwRender() {
+        var root = document.getElementById('bw-root');
+        if (!root || !BW) { return; }
+        while (root.firstChild) { root.removeChild(root.firstChild); }
+
+        var chips = bwEl('div', 'bw-chips');
+        BW_FILTERS.forEach(function (f) {
+            var n = BW.devices.filter(f.test).length;
+            if (!f.always && n === 0) { return; }
+            var c = bwEl('button', 'bw-chip' + (bwFilter === f.id ? ' on' : ''));
+            c.type = 'button';
+            c.appendChild(document.createTextNode(f.label));
+            c.appendChild(bwEl('span', 'n', String(n)));
+            c.onclick = function () { bwFilter = f.id; bwOpen = null; bwSure = null; bwRender(); };
+            chips.appendChild(c);
+        });
+        var dia = bwEl('button', 'bw-chip' + (bwFilter === 'diary' ? ' on' : ''), '📓 Tagebuch');
+        dia.type = 'button';
+        dia.onclick = function () { bwFilter = 'diary'; bwOpen = null; bwSure = null; bwRender(); };
+        chips.appendChild(dia);
+        root.appendChild(chips);
+
+        if (bwFilter === 'diary') {
+            bwDiary(root);
+        } else {
+            var f = BW_FILTERS.filter(function (x) { return x.id === bwFilter; })[0] || BW_FILTERS[0];
+            var shown = BW.devices.filter(f.test);
+            if (BW.devices.length === 0) {
+                root.appendChild(bwEl('div', 'bw-empty', 'Es werden noch keine Geräte überwacht. In der Instanz „Jetzt neu suchen“ drücken.'));
+            } else if (shown.length === 0) {
+                root.appendChild(bwEl('div', 'bw-empty', bwFilter === 'problems' ? '✅ Alles in Ordnung — kein Gerät braucht Aufmerksamkeit.' : 'Kein Gerät in dieser Ansicht.'));
+            } else {
+                var list = bwEl('div', 'bw-list');
+                shown.forEach(function (d) { list.appendChild(bwRow(d)); });
+                root.appendChild(list);
+            }
+        }
+
+        if (BW.message) { root.appendChild(bwEl('div', 'bw-msg', BW.message)); }
+        root.appendChild(bwEl('div', 'bw-foot', BW.summary.total + ' Geräte überwacht · Stand ' + BW.asOf));
+    }
+
+    function handleMessage(payload) {
+        var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
+        if (!data) { return; }
+        BW = data;
+        bwRender();
+    }
+</script>

@@ -346,7 +346,7 @@ final class BWACHLogik
             $funk = 'unbekannt';
         } elseif ($lifeAge > $stillDays * 86400) {
             $funk = 'still';
-            $reasons[] = 'Funkstille: seit ' . self::days($lifeAge) . ' kein Lebenszeichen (Schwelle ' . $stillDays . ' Tage)';
+            $reasons[] = 'Funkstille: seit ' . self::daysDat($lifeAge) . ' kein Lebenszeichen (Schwelle ' . $stillDays . ' Tage)';
         } else {
             $funk = 'aktiv';
         }
@@ -414,6 +414,13 @@ final class BWACHLogik
     {
         $s = rtrim(rtrim(number_format($v, 2, ',', ''), '0'), ',');
         return $s === '' || $s === '-' ? '0' : $s;
+    }
+
+    /** Wie days(), aber nach „vor“/„seit“ (Dativ): „16 Tagen“, sonst unverändert. */
+    public static function daysDat(int $seconds): string
+    {
+        $s = self::days($seconds);
+        return preg_replace('/ Tage$/', ' Tagen', $s);
     }
 
     /** „3 Tage“, „5 Stunden“, „40 Minuten“ — ganze Einheiten, deutsch. */

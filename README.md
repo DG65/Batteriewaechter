@@ -2,7 +2,7 @@
 
 Überwacht die Batterien der Geräte im Haus (Funksensoren, Thermostate, Fenster- und Rauchmelder …) für IP-Symcon. Findet die Batteriewerte selbst, führt mehrere Signale eines Geräts zusammen und sagt ehrlich dazu, **wie verlässlich** der Wert ist.
 
-> Status: **0.2.0, Beta** (Meilenstein 2). Kachel, Prognose, Spannungskurven und Statistik folgen in den nächsten Versionen.
+> Status: **0.3.0, Beta** (Meilenstein 3). Prognose, Spannungskurven, Einkaufsliste und Statistik folgen in den nächsten Versionen.
 
 ## Was es anders macht
 
@@ -18,6 +18,10 @@
 3. „🔎 Jetzt neu suchen“, dann „📋 Was würde gefunden?“ prüfen.
 4. Ereignismelder (Fenster-/Rauchmelder), kritische Geräte und Geräte ohne Altersprüfung unter „Geräte-Einstellungen“ eintragen.
 5. Die Variablen „Handlungsbedarf“ und „Alle Geräte“ (HTML-Tabellen) per Verknüpfung ins WebFront legen.
+
+## Kachel
+
+Die Instanz lässt sich in der Kachel-Visualisierung als Kachel hinzufügen. Sie zeigt die Geräte nach Dringlichkeit; die Filterzeile oben blendet nur ein, was gerade wichtig ist (Handlungsbedarf, leer, schwach, Funkstille, Daten prüfen), „📓 Tagebuch“ zeigt die erfassten Batteriewechsel. Antippen einer Zeile klappt sie auf: Gründe, Alter des Batteriewerts, Lebenszeichen und die Schaltflächen zum Quittieren (abschaltbar unter „Zustand“). Die Kachel hat keinen eigenen Titel, den liefert der Instanzname. Zusätzlich liegen „Handlungsbedarf“, „Alle Geräte“ und „Batterietagebuch“ als HTML-Variablen unter der Instanz im Objektbaum.
 
 ## Meldungen (standardmäßig aus)
 

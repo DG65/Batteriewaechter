@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.3.0] - 2026-10-08
+
+### Added
+- **Kachel** für die Kachel-Visualisierung (Meilenstein 3): Geräte nach Dringlichkeit, Filter (Handlungsbedarf, Alle, leer, schwach, Funkstille, Daten prüfen), Batterietagebuch, Quittieren per Antippen („Habe ich getauscht“, „Erinnere mich später“, „Außer Betrieb“ mit zweitem Klick zur Sicherheit). Ohne eigenen Titel. Quittieren aus der Kachel lässt sich abschalten.
+
+### Changed
+- Gerätewahl beim Quittieren nennt den Befund kurz („leer, Funkstille“); Tagebuch- und „Außer Betrieb“-Zeile frischen sich nach dem Quittieren sofort auf (waren bis zum Neuöffnen veraltet).
+- Dativ nach „vor“ und „seit“ („seit 16 Tagen“ statt „seit 16 Tage“). Die Kachel zeigt als Unterzeile den Hauptbefund statt des ersten Grundes in der Liste.
+
 ## [0.2.0] - 2026-10-08
 
 ### Added

@@ -224,3 +224,7 @@ Gebaut: Meldungen (Push an Kachel-Visualisierung und WebFront, E-Mail), Erinneru
 Lebenszeichen zählt nur noch Variablen ohne Aktion (Gegenprobe am Privat-Symcon: ausgebaute Thermostate bekamen täglich einen Sollwert von der Heizungssteuerung).
 
 **Offen aus Stufe 2/3:** Spannungskurven, Prognose, Einkaufsliste, Tauschrunde, Lebensdauerstatistik, Gleichartigen-Vergleich, aktive Abfrage schlafender Geräte (Z-Wave: `ZW_RequestStatus` getestet, Wirkung nicht belegbar), Kachel. **Formular-Werte im `onClick`** (`$AckDevice`): laut Symcon-Dokumentation für benannte Felder im selben Bereich verfügbar, im Modul noch nicht an einer echten Instanz erprobt.
+
+## 13. Stand Meilenstein 3 (08.10.2026)
+
+Kachel gebaut (`module.html`, gleiche Instanz, `SetVisualizationType(1)`). Live-Test von 0.2.0 durch Dietmar am 08.10.2026: Instanz gefunden 48 Geräte, Quittieren per Formular funktioniert (`$AckDevice` kommt an), Push kommt an, E-Mail noch nicht geprüft. Dabei fiel auf: Tagebuch- und „Außer Betrieb“-Zeile blieben bis zum Neuöffnen alt (behoben), Dietmar fand die „Tabellen“ nicht (HTML-Variablen im Objektbaum, keine Kachel) — daher die echte Kachel. Kachel-JavaScript wird im Prüfstand unter Node mit einem Minimal-DOM geprüft und wurde im Browser in Desktop- und Handybreite angesehen; in der echten Kachel-Visualisierung noch nicht gesehen.
