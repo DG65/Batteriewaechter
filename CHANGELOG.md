@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.6.2] - 2026-10-08
+
+### Added
+- „Gefundene Geräte“ (und der Trockenlauf) nennt Matter-Knoten, die nur Funktionsinstanzen haben (Kontakt, Sensor), aber keine Instanz für die Stromversorgung (Endpunkt 0). Symcon legt diese Instanz nicht von allein an, ohne sie gibt es keinen Batteriewert. Der Hinweis nennt die Geräte (höchstens 8, dann „und N weitere“) und sagt, dass netzbetriebene Geräte keine Batterie haben, weil der Wächter von hier aus nicht sehen kann, ob ein Gerät eine hat.
+
 ## [0.6.1] - 2026-10-08
 
 ### Changed

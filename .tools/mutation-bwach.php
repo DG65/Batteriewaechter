@@ -163,6 +163,8 @@ $mutations = [
     ['BWACHZelle.php', "'shop' => 'RCR123A (Akku)',", "'shop' => 'CR123A',", 'RCR123A-Akku wird als CR123A eingekauft'],
     ['BWACHLogik.php', "if (count(\$functionNames) === 1) {", "if (count(\$functionNames) >= 1) {", 'Matter-Name: bei mehreren Funktionsinstanzen zufällig die erste'],
     ['BWACHLogik.php', "'/\\s*Stromversorgung\\s*\$/iu'", "'/\\s*XStromversorgung\\s*\$/iu'", 'Matter-Name: Zusatz „Stromversorgung“ bleibt stehen'],
+    ['BWACHLogik.php', "if (!isset(\$power[\$node])) {", "if (true) {", 'Matter-Hinweis nennt auch Knoten mit Endpunkt 0'],
+    ['BWACHLogik.php', "\$i['endpoint'] < \$first[\$node][0]", "\$i['endpoint'] > \$first[\$node][0]", 'Matter-Hinweis: nicht die erste Funktionsinstanz'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],

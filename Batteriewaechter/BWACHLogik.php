@@ -155,6 +155,35 @@ final class BWACHLogik
         return $ownName;
     }
 
+    /**
+     * Matter-Knoten, die nur Funktionsinstanzen haben, aber keine Instanz für die Stromversorgung (Endpunkt 0).
+     * Dort kann keine Batterie gelesen werden, auch wenn das Gerät eine hat.
+     *
+     * @param array $insts Liste von ['node'=>string,'endpoint'=>int,'name'=>string]
+     * @return string[] je Knoten der Name der ersten Funktionsinstanz, alphabetisch
+     */
+    public static function matterNodesWithoutPowerSource(array $insts): array
+    {
+        $first = [];   // Knoten => [Endpunkt, Name] der ersten Funktionsinstanz
+        $power = [];
+        foreach ($insts as $i) {
+            $node = (string)$i['node'];
+            if ((int)$i['endpoint'] === 0) {
+                $power[$node] = true;
+            } elseif (!isset($first[$node]) || (int)$i['endpoint'] < $first[$node][0]) {
+                $first[$node] = [(int)$i['endpoint'], (string)$i['name']];
+            }
+        }
+        $names = [];
+        foreach ($first as $node => $f) {
+            if (!isset($power[$node])) {
+                $names[] = $f[1];
+            }
+        }
+        sort($names, SORT_NATURAL | SORT_FLAG_CASE);
+        return $names;
+    }
+
     /** Namen, die einen Sammelwert über mehrere Geräte beschreiben („Schwächste Batterie“ eines Raums). */
     public static function isAggregateName(string $name): bool
     {

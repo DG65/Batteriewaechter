@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.6.2' => [
+            '• Matter: Das Formular „Gefundene Geräte“ nennt Matter-Geräte, für die es noch keine Instanz für die Stromversorgung (Endpunkt 0) gibt. Symcon legt sie nicht von allein an, ohne sie fehlt der Batteriewert. Netzbetriebene Geräte brauchen keine.',
+        ],
         '0.6.1' => [
             '• Matter: Hat ein Knoten mehrere Funktionsinstanzen (z. B. Licht- und Anwesenheitssensor), heißt das Gerät wie die Stromversorgungs-Instanz ohne den Zusatz „Stromversorgung“ („Anwesenheitssensor“), statt zufällig wie die erste Funktionsinstanz („Lichtsensor“).',
         ],
@@ -1571,7 +1574,31 @@ class Batteriewaechter extends IPSModule
         $when = date('H:i:s', $t > 0 ? $t : $this->now());
         $icon = $n > 0 ? '✅' : ($t > 0 ? '⚠️' : 'ℹ️');
         $tail = $n === 0 ? ' Unter „Weitere Variablen“ lässt sich ein Signal von Hand ergänzen.' : '';
-        return $icon . ' ' . $n . ' ' . ($n === 1 ? 'Gerät' : 'Geräte') . ' gefunden (zuletzt ' . $when . ' Uhr).' . $tail;
+        return $icon . ' ' . $n . ' ' . ($n === 1 ? 'Gerät' : 'Geräte') . ' gefunden (zuletzt ' . $when . ' Uhr).' . $tail . $this->matterHint();
+    }
+
+    /**
+     * Hinweis auf Matter-Geräte ohne Instanz für die Stromversorgung (Endpunkt 0). Symcon legt sie nicht von
+     * allein an; ohne sie gibt es keinen Batteriewert. Ob das Gerät überhaupt eine Batterie hat, ist von hier aus
+     * nicht zu sehen (netzbetriebene haben keine), deshalb steht der Hinweis als Frage.
+     */
+    private function matterHint(): string
+    {
+        $insts = [];
+        foreach (IPS_GetInstanceList() as $i) {
+            $m = $this->matterNode((int)$i);
+            if ($m !== null) {
+                $insts[] = ['node' => $m['node'], 'endpoint' => $m['endpoint'], 'name' => IPS_GetName((int)$i)];
+            }
+        }
+        $names = BWACHLogik::matterNodesWithoutPowerSource($insts);
+        if (!$names) {
+            return '';
+        }
+        $shown = array_slice($names, 0, 8);
+        $more  = count($names) - count($shown);
+        return "\n\nℹ️ Matter: Für " . count($names) . ($more === 0 && count($names) === 1 ? ' Gerät gibt es' : ' Geräte gibt es') . ' keine Instanz für die Stromversorgung (Endpunkt 0): '
+            . implode(', ', $shown) . ($more > 0 ? ' und ' . $more . ' weitere' : '') . '. Hat ein Gerät eine Batterie, fehlt dem Wächter ihr Wert, bis im Matter Konfigurator die Instanz „Stromversorgung“ (Endpunkt 0) dafür angelegt ist. Netzbetriebene Geräte haben keine Batterie.';
     }
 
     private function summaryLine(array $sum, int $now): string
