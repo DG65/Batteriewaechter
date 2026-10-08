@@ -56,7 +56,7 @@ Spannungswerte werden angezeigt, aber noch nicht in Prozent umgerechnet (die Aus
 
 ## Skripte
 
-`BWACH_Search`, `BWACH_Check`, `BWACH_Preview`, `BWACH_SendTest`, `BWACH_UnretireAll` (je `<InstanzID>`), `BWACH_Acknowledge(<InstanzID>, '<Schlüssel>', 'getauscht'|'zurueckgestellt'|'ausser_betrieb')`, `BWACH_Unretire(<InstanzID>, '<Schlüssel>')` — alle liefern einen Text. Die Schlüssel der Geräte nennt „📋 Was würde gefunden?“ nicht; einfacher ist die Auswahl im Formular.
+`BWACH_Search`, `BWACH_Check`, `BWACH_Preview`, `BWACH_SendTest`, `BWACH_UnretireAll` (je `<InstanzID>`), `BWACH_Acknowledge(<InstanzID>, '<Schlüssel>', 'getauscht'|'zurueckgestellt'|'ausser_betrieb')`, `BWACH_Unretire(<InstanzID>, '<Schlüssel>')` — alle liefern einen Text. Die Schlüssel der Geräte nennt „📋 Was würde gefunden?“; einfacher ist die Auswahl im Formular.
 
 ## Prüfstand
 

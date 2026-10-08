@@ -452,6 +452,7 @@ check('Profil nur in der Darstellung (leere Profilfelder) wird gefunden', $m8->G
 buildWorld($GLOBALS['CLOCK']);
 $m6 = new BWTest(); $m6->Create(); $m6->ApplyChanges();
 $pv = $m6->Preview();
+check('Trockenlauf nennt den Geräteschlüssel (für BWACH_Acknowledge)', strpos($pv, 'Schlüssel 114') !== false && strpos($pv, 'Schlüssel 105-1051') !== false);
 check('Trockenlauf nennt Geräte, Ausschlüsse mit Grund und Namensvorschläge', strpos($pv, 'GERÄTE (11)') !== false && strpos($pv, 'AUSGESCHLOSSEN') !== false && strpos($pv, 'Sammelwert über mehrere Geräte') !== false && strpos($pv, 'NUR NACH NAMEN VORGESCHLAGEN (1)') !== false);
 $GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter');
 mkinst(120, 'Matter Sensor', 'Matter Device', 0);

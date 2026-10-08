@@ -268,7 +268,7 @@ class Batteriewaechter extends IPSModule
                 }
                 $parts[] = $this->kindLabel($kind) . ' ' . implode(', ', $labels);
             }
-            $out[] = '  • ' . $d['name'] . ' [' . ($d['module'] !== '' ? $d['module'] : 'Variable') . ']: ' . implode('; ', $parts);
+            $out[] = '  • ' . $d['name'] . ' [' . ($d['module'] !== '' ? $d['module'] : 'Variable') . ', Schlüssel ' . $id . ']: ' . implode('; ', $parts);
         }
 
         $out[] = '';
