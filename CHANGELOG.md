@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.5.2] - 2026-10-08
+
+### Added
+- Zelltyp **„RCR123A / 16340 Akku (Li-Ion, 3,7 V)“** mit der Li-Ion-Spannungskurve (4,2 V voll, 3,0 V leer), in der Einkaufsliste als „RCR123A (Akku)“ getrennt von der **CR123A-Batterie** (3 V, nicht wiederaufladbar, Anzeige jetzt mit diesem Zusatz). Beide Typen haben völlig verschiedene Spannungen: 3,7 V sind für die Batterie unmöglich, für den Akku 35 %.
+- Der Vorschlag aus der Spannung nennt CR123A und RCR123A auch zu zweit oder zu dritt in Reihe (z. B. 6 V = 2× CR123A); Knopfzellen, 9-V-Block und fest eingebaute Akkus nur einzeln.
+
 ## [0.5.1] - 2026-10-08
 
 ### Changed

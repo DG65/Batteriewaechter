@@ -158,6 +158,9 @@ $mutations = [
     ['module.php', "'expanded' => \$dr['added'] > 0,", "'expanded' => false,", 'Panel mit neuen Zeilen bleibt zu'],
     ['module.php', "'Cell'      => BWACHZelle::isKnown((string)(\$r['Cell'] ?? '')) ? (string)\$r['Cell'] : BWACHZelle::UNKNOWN,\n                    'Cells'     => max(1, min(12, (int)(\$r['Cells'] ?? 1))),\n                    'Poll'      => (bool)(\$r['Poll'] ?? false),\n                ];", "'Cell'      => BWACHZelle::UNKNOWN,\n                    'Cells'     => 1,\n                    'Poll'      => false,\n                ];", 'Gespeicherter Zelltyp geht beim Öffnen verloren'],
     ['module.php', "'where'   => 'Instanz „' . IPS_GetName(\$this->InstanceID) . '“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“',", "'where'   => '',", 'Hinweis nennt den Ort nicht'],
+    // --- 0.5.2: CR123A-Batterie und RCR123A-Akku
+    ['BWACHZelle.php', "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 3 :", "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 1 :", 'Vorschlag nennt keine CR123A in Reihe'],
+    ['BWACHZelle.php', "'shop' => 'RCR123A (Akku)',", "'shop' => 'CR123A',", 'RCR123A-Akku wird als CR123A eingekauft'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],
     ['module.php', 'htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, \'UTF-8\')', '(string)$s', 'HTML-Maskierung entfällt'],

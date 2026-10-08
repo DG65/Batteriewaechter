@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.5.2' => [
+            '• Neuer Zelltyp „RCR123A / 16340 Akku (Li-Ion, 3,7 V)“ neben der nicht wiederaufladbaren CR123A-Batterie (3 V): die beiden haben völlig verschiedene Spannungen, die Einkaufsliste führt sie getrennt.',
+        ],
         '0.5.1' => [
             '• „Geräte-Einstellungen“ listet jetzt jedes erkannte Gerät schon auf (neutrale Standardwerte). Je Gerät nur noch Zelltyp und Anzahl Zellen wählen und „Übernehmen“ klicken — kein Hinzufügen von Hand mehr.',
             '• Der Hinweis „Zelltyp fehlt“ in der Kachel und in der Tabelle sagt jetzt genau, wo man den Zelltyp einträgt.',

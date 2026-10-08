@@ -28,8 +28,10 @@ final class BWACHZelle
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
         'cr2450' => ['label' => 'CR2450 (Knopfzelle, 3 V)', 'shop' => 'CR2450',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr123a' => ['label' => 'CR123A (Lithium, 3 V)', 'shop' => 'CR123A',
+        'cr123a' => ['label' => 'CR123A Batterie (Lithium, 3 V, nicht wiederaufladbar)', 'shop' => 'CR123A',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'rcr123a' => ['label' => 'RCR123A / 16340 Akku (Li-Ion, 3,7 V)', 'shop' => 'RCR123A (Akku)',
+            'curve' => [[4.20, 100], [4.10, 90], [3.95, 70], [3.80, 50], [3.70, 35], [3.60, 20], [3.50, 10], [3.30, 3], [3.00, 0]]],
         'aa_alkali' => ['label' => 'AA Alkali (1,5 V)', 'shop' => 'AA',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
         'aaa_alkali' => ['label' => 'AAA Alkali (1,5 V)', 'shop' => 'AAA',
@@ -112,8 +114,9 @@ final class BWACHZelle
         $cand = [];
         foreach (self::TYPES as $id => $t) {
             foreach ([1, 2, 3, 4] as $n) {
-                if (self::percentFromVoltage($id, $n, $volt) !== null && ($id !== 'block9v' || $n === 1) && ($id !== 'liion' || $n === 1)
-                    && (strpos($id, 'cr') !== 0 || $n === 1)) {
+                // Knopfzellen, 9-V-Block und fest eingebaute Akkus kommen einzeln vor; CR123A/RCR123A auch zu zweit oder zu dritt
+                $maxCells = in_array($id, ['cr123a', 'rcr123a'], true) ? 3 : (in_array($id, ['cr2032', 'cr2450', 'block9v', 'liion'], true) ? 1 : 4);
+                if ($n <= $maxCells && self::percentFromVoltage($id, $n, $volt) !== null) {
                     $cand[] = ($n > 1 ? $n . '× ' : '') . $t['shop'];
                 }
             }

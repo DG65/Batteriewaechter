@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.2', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.2' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.2', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -1013,9 +1013,15 @@ check('Kurven fallen monoton (keine Stützpunkt-Verwechslung)', (function () {
 })());
 check('Vorschlag aus der Spannung nennt Kandidaten, wählt nichts: 4,71 V → 3× AA/AAA, auch 4× Akku', strpos(BWACHZelle::suggest(4.71), '3× AA') !== false && strpos(BWACHZelle::suggest(4.71), 'passt zu:') === 0);
 check('Vorschlag bei 3,0 V nennt Knopfzellen UND 2× AA (mehrdeutig)', strpos(BWACHZelle::suggest(3.0), 'CR2032') !== false && strpos(BWACHZelle::suggest(3.0), '2× AA') !== false);
+check('RCR123A-Akku: 4,2 V = 100 %, 3,7 V = 35 %, 3,0 V = 0 %; als Einkauf „RCR123A (Akku)“', BWACHZelle::percentFromVoltage('rcr123a', 1, 4.2) === 100.0 && BWACHZelle::percentFromVoltage('rcr123a', 1, 3.7) === 35.0 && BWACHZelle::percentFromVoltage('rcr123a', 1, 3.0) === 0.0 && BWACHZelle::shopLabel('rcr123a') === 'RCR123A (Akku)');
+check('CR123A-Batterie (nicht wiederaufladbar) und RCR123A-Akku sind verschiedene Typen: 3,7 V ist für die Batterie unmöglich, für den Akku 35 %', BWACHZelle::percentFromVoltage('cr123a', 1, 3.7) === null && BWACHZelle::percentFromVoltage('rcr123a', 1, 3.7) === 35.0);
+check('CR123A-Batterie: 3,0 V = 100 %, 2,7 V = 40 %; Einkauf „CR123A“; Auswahl nennt „nicht wiederaufladbar“', BWACHZelle::percentFromVoltage('cr123a', 1, 3.0) === 100.0 && BWACHZelle::percentFromVoltage('cr123a', 1, 2.7) === 40.0 && BWACHZelle::shopLabel('cr123a') === 'CR123A' && strpos(BWACHZelle::label('cr123a'), 'nicht wiederaufladbar') !== false);
+check('Zwei CR123A in Reihe (6,0 V) = 100 %, 5,4 V = 40 %', BWACHZelle::percentFromVoltage('cr123a', 2, 6.0) === 100.0 && BWACHZelle::percentFromVoltage('cr123a', 2, 5.4) === 40.0);
+check('Vorschlag bei 4,0 V nennt den RCR123A-Akku; bei 6,0 V auch 2× CR123A; Knopfzellen nie zu zweit', strpos(BWACHZelle::suggest(4.0), 'RCR123A (Akku)') !== false && strpos(BWACHZelle::suggest(6.0), '2× CR123A') !== false && strpos(BWACHZelle::suggest(6.0), '2× CR2032') === false);
+check('Einkaufsliste trennt CR123A-Batterien und RCR123A-Akkus', (function () { $r = BWACHPrognose::shopping([['name' => 'A', 'place' => '', 'cell' => 'cr123a', 'cells' => 2, 'status' => 'leer', 'days' => null], ['name' => 'B', 'place' => '', 'cell' => 'rcr123a', 'cells' => 1, 'status' => 'schwach', 'days' => null]], 30); sort($r['lines']); return $r['lines'] === ['1× RCR123A (Akku)', '2× CR123A']; })());
 check('Vorschlag bei unmöglicher Spannung (20 V)', BWACHZelle::suggest(20.0) === 'passt zu keinem bekannten Zelltyp');
 check('Einkaufsbezeichnungen: CR2032, AAA, AA (Akku)', BWACHZelle::shopLabel('cr2032') === 'CR2032' && BWACHZelle::shopLabel('aaa_alkali') === 'AAA' && BWACHZelle::shopLabel('aa_nimh') === 'AA (Akku)' && BWACHZelle::shopLabel('unbekannt') === null);
-check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 11);
+check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 12);
 
 $n = $NOW;
 $volt = ['voltage' => ['value' => 4.71, 'updated' => $n - 60]];
