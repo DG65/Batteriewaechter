@@ -40,7 +40,7 @@ function mkinst(int $id, string $name, string $module, int $parent = 0): void { 
 function mkvar(int $id, int $parent, string $ident, string $name, int $type, $value, int $updated, string $profile = '', array $extra = []): void
 {
     $GLOBALS['OBJ'][$id] = ['type' => 2, 'parent' => $parent, 'ident' => $ident, 'name' => $name,
-        'var' => array_merge(['VariableType' => $type, 'VariableProfile' => $profile, 'VariableCustomProfile' => '', 'VariableUpdated' => $updated, 'VariableChanged' => $updated, 'value' => $value], $extra)];
+        'var' => array_merge(['VariableType' => $type, 'VariableProfile' => $profile, 'VariableCustomProfile' => '', 'VariableUpdated' => $updated, 'VariableChanged' => $updated, 'VariableAction' => 0, 'VariableCustomAction' => 0, 'value' => $value], $extra)];
 }
 function IPS_GetKernelRunlevel(): int { return KR_READY; }
 function IPS_GetVariableList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 2) { $o[] = $id; } } return $o; }
@@ -174,10 +174,11 @@ function buildWorld(int $now): void
     mkvar(1012, 101, 'BatteryLowVariable', 'Batteriestatus', 0, false, $now - 700 * $d, '~Battery');
     mkvar(1013, 101, 'SensorMultilevel01Variable', 'Temperatur', 2, 21.5, $now - 600);
 
-    // B: Z-Wave-Thermostat: Batteriewert drei Jahre alt, Gerät lebt
+    // B: ausgebautes Z-Wave-Thermostat: Batteriewert drei Jahre alt, nur Symcon schreibt noch den Sollwert
     mkinst(102, 'Thermostat Esszimmer', 'Z-Wave Module', 901);
     mkvar(1021, 102, 'BatteryVariable', 'Batterie', 1, 82, ts('2024-01-07 07:22'), '~Battery.100');
-    mkvar(1022, 102, 'ThermostatSetPoint1', 'Soll', 2, 21.0, $now - 600);
+    // Sollwert hat eine Aktion und wird täglich von Symcon (Heizungssteuerung) geschrieben: KEIN Lebenszeichen
+    mkvar(1022, 102, 'ThermostatSetPoint1', 'Soll', 2, 21.0, $now - 600, '', ['VariableAction' => 102]);
 
     // C: Funkstille seit 16 Tagen
     mkinst(103, 'Sensor Heizung', 'Z-Wave Module', 902);
@@ -344,7 +345,7 @@ check('Nach ApplyChanges ist bereits gesucht und geprüft', $m->ReadAttributeInt
 check('Geräte überwacht: 11', $val('Total') === 11, (string)$val('Total'));
 check('Batterie leer: 0', $val('Empty') === 0);
 check('Batterie schwach: 1 (kritischer Rauchmelder mit 25 %)', $val('Low') === 1, (string)$val('Low'));
-check('Funkstille: 1 (Sensor Heizung)', $val('Silent') === 1, (string)$val('Silent'));
+check('Funkstille: 2 (Sensor Heizung und das ausgebaute Thermostat, dessen Sollwert nur Symcon schreibt)', $val('Silent') === 2, (string)$val('Silent'));
 check('Daten prüfen: 4 (Thermostat veraltet, Widerspruch, −20 %, Staubsauger veraltet)', $val('Check') === 4, (string)$val('Check'));
 check('Status unbekannt: 1 (−20 %)', $val('Unknown') === 1, (string)$val('Unknown'));
 
@@ -408,7 +409,7 @@ buildWorld($GLOBALS['CLOCK']);
 $m3 = new BWTest(); $m3->Create();
 $m3->props['DeviceSettings'] = json_encode([['Instance' => 103, 'Group' => 'ereignis', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false]]);
 $m3->ApplyChanges();
-check('Ereignismelder-Gruppe: 16 Tage ohne Lebenszeichen sind keine Funkstille', $m3->GetValue('Silent') === 0, (string)$m3->GetValue('Silent'));
+check('Ereignismelder-Gruppe: 16 Tage ohne Lebenszeichen sind keine Funkstille (nur das ausgebaute Thermostat bleibt still)', $m3->GetValue('Silent') === 1, (string)$m3->GetValue('Silent'));
 
 // Resync (Modulverwaltung löscht Attribute)
 buildWorld($GLOBALS['CLOCK']);

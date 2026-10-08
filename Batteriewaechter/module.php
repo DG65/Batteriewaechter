@@ -14,7 +14,7 @@
 //              Widerspruch zwischen Flag und Prozent, Werte außerhalb 0–100 %,
 //              Batteriewert veraltet. Ein dreijahre alter „OK“-Wert ist kein OK.
 //   Drei Zeiten — Alter des Batteriewerts, Lebenszeichen des Geräts (jüngste
-//              Aktualisierung irgendeiner Variable des Geräts) und das Gerät
+//              Aktualisierung einer Messwert-Variable ohne Aktion) und das Gerät
 //              selbst. Tote Funkverbindung und schwache Batterie sind
 //              verschiedene Befunde.
 //
@@ -487,7 +487,7 @@ class Batteriewaechter extends IPSModule
         return !empty($flag['reversed']) ? !(bool)$flag['value'] : (bool)$flag['value'];
     }
 
-    /** Jüngste Aktualisierung irgendeiner Variable der Geräteinstanz. */
+    /** Jüngste Aktualisierung einer Variable der Geräteinstanz, die NICHT schaltbar ist (also vom Gerät kommt). */
     private function lifeSign(int $id, bool $isInstance, array $signals): int
     {
         $max = 0;
@@ -497,7 +497,14 @@ class Batteriewaechter extends IPSModule
                 if ((int)($o['ObjectType'] ?? 0) !== 2) {
                     continue;
                 }
-                $max = max($max, (int)(IPS_GetVariable($c)['VariableUpdated'] ?? 0));
+                $var = IPS_GetVariable($c);
+                // Variablen mit Aktion (Sollwert, Schalter) schreibt oft Symcon selbst, z. B. eine
+                // Heizungssteuerung — das ist kein Lebenszeichen des Geräts. Live gefunden: ausgebaute
+                // Thermostate meldeten täglich „Sollwert aktualisiert“.
+                if ((int)($var['VariableAction'] ?? 0) > 0 || (int)($var['VariableCustomAction'] ?? 0) > 0) {
+                    continue;
+                }
+                $max = max($max, (int)($var['VariableUpdated'] ?? 0));
             }
         } else {
             foreach ($signals as $list) {
@@ -703,7 +710,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => $verTxt],
                 ['type' => 'Label', 'caption' => 'Was gefunden wird: Variablen mit den Symcon-Profilen ~Battery („schwach“-Flag), ~Battery.Reversed („in Ordnung“-Flag) und ~Battery.100 (Prozent) sowie Variablen mit typischen Bezeichnern (z. B. battery, battery_low, LOWBAT, battery_percent, battery_voltage). Mehrere Signale eines Geräts (z. B. Prozent und Flag) werden zu EINEM Gerät zusammengeführt.'],
                 ['type' => 'Label', 'caption' => 'Was bewusst nicht gefunden wird: Heimspeicher und Fahrzeugakkus (Modulliste „Ausgeschlossene Module“), Sammelwerte wie „Schwächste Batterie“ eines Raums und Variablen, die zu keiner Geräteinstanz gehören. Der Trockenlauf nennt zu jedem Ausschluss den Grund.'],
-                ['type' => 'Label', 'caption' => 'Die drei Zeiten: (1) Alter des Batteriewerts — wann das Gerät seinen Batteriestand zuletzt gemeldet hat; manche Geräte tun das nur alle paar Monate. (2) Lebenszeichen — die jüngste Aktualisierung irgendeiner Variable des Geräts; bleibt sie aus, ist es Funkstille, keine schwache Batterie. (3) Das Gerät selbst mit seinem Status.'],
+                ['type' => 'Label', 'caption' => 'Die drei Zeiten: (1) Alter des Batteriewerts — wann das Gerät seinen Batteriestand zuletzt gemeldet hat; manche Geräte tun das nur alle paar Monate. (2) Lebenszeichen — die jüngste Aktualisierung einer Messwert-Variable des Geräts (Variablen mit Aktion wie Sollwerte zählen nicht, die schreibt oft Symcon selbst); bleibt sie aus, ist es Funkstille, keine schwache Batterie. (3) Das Gerät selbst mit seinem Status.'],
                 ['type' => 'Label', 'caption' => 'Status: „leer“ und „schwach“ aus dem Prozentwert (Schwellen unten) oder dem Flag des Geräts; „unbekannt“, wenn nichts Auswertbares da ist (z. B. nur eine Spannung — die Auswertung nach Zelltyp folgt in einer späteren Version). Meldet ein Gerät Flag und Prozent und beide widersprechen sich, zeigt der Wächter den Widerspruch und bewertet nach dem neueren Signal; bei kritischen Geräten gilt die schlechtere Aussage.'],
                 ['type' => 'Label', 'caption' => 'Funkstille: Standard 7 Tage ohne Lebenszeichen. Geräte, die nur bei Ereignissen senden (Fenster-, Rauchmelder), gehören unter „Geräte-Einstellungen“ in die Gruppe „Ereignismelder“ (Standard 30 Tage).'],
                 ['type' => 'Label', 'caption' => 'Ergebnis: Kennzahlen-Variablen (leer, schwach, Funkstille …) und zwei Tabellen-Variablen („Handlungsbedarf“, „Alle Geräte“), die sich per Verknüpfung ins WebFront legen lassen.'],
