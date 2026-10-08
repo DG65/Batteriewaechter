@@ -42,6 +42,10 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.5.1' => [
+            '• „Geräte-Einstellungen“ listet jetzt jedes erkannte Gerät schon auf (neutrale Standardwerte). Je Gerät nur noch Zelltyp und Anzahl Zellen wählen und „Übernehmen“ klicken — kein Hinzufügen von Hand mehr.',
+            '• Der Hinweis „Zelltyp fehlt“ in der Kachel und in der Tabelle sagt jetzt genau, wo man den Zelltyp einträgt.',
+        ],
         '0.5.0' => [
             '• Vergleich mit Gleichartigen: Ein Gerät, das mehr als doppelt so schnell entlädt wie seine Gruppe (gleiches System, gleicher Zelltyp, mindestens 4 Geräte), wird als auffällig markiert — mit möglichen Ursachen.',
             '• Funkqualität (Zigbee linkquality, RSSI) wird angezeigt, ein schwaches Signal als möglicher Grund genannt.',
@@ -479,7 +483,7 @@ class Batteriewaechter extends IPSModule
         }
         $out .= '<div style="padding:4px 2px">' . ($sh['lines'] ? $e(implode(', ', $sh['lines'])) : 'Keine Zelltypen bekannt.') . '</div>';
         if ($sh['missing']) {
-            $out .= '<div style="padding:4px 2px;opacity:.8">ℹ️ Zelltyp fehlt bei: ' . $e(implode(', ', $sh['missing'])) . ' (unter „Geräte-Einstellungen“ eintragen, dann zählt die Liste mit).</div>';
+            $out .= '<div style="padding:4px 2px;opacity:.8">ℹ️ Zelltyp fehlt bei: ' . $e(implode(', ', $sh['missing'])) . ' (in der Instanz „' . $e(IPS_GetName($this->InstanceID)) . '“ unter „Geräte-Einstellungen“ in der Spalte „Zelltyp“ wählen, dann zählt die Liste mit).</div>';
         }
         $r = $v['round'];
         $out .= '<div style="padding:10px 2px 4px"><b>🔧 Tauschrunde</b>' . ($r['until'] !== null ? ' — am besten bis ' . date('d.m.Y', $r['until']) : '') . ' (' . $r['count'] . ($r['count'] === 1 ? ' Gerät' : ' Geräte') . ')</div>';
@@ -1784,6 +1788,7 @@ class Batteriewaechter extends IPSModule
         }
         return [
             'horizon' => $v['horizon'],
+            'where'   => 'Instanz „' . IPS_GetName($this->InstanceID) . '“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“',
             'lines'   => $v['shopping']['lines'],
             'missing' => $v['shopping']['missing'],
             'count'   => $v['round']['count'],
@@ -1927,15 +1932,71 @@ class Batteriewaechter extends IPSModule
         ];
     }
 
+    /**
+     * Zeilen der Geräteliste: die gespeicherten Einstellungen UND jede erkannte Geräteinstanz, die noch fehlt
+     * (mit neutralen Standardwerten). So steht jedes erkannte Gerät schon in der Liste, und es fehlt nur noch
+     * der Zelltyp. Gespeichert wird erst, wenn der Nutzer „Übernehmen“ klickt.
+     *
+     * @return array ['rows'=>array[], 'added'=>int]
+     */
+    private function deviceRows(): array
+    {
+        $saved = json_decode((string)$this->ReadPropertyString('DeviceSettings'), true);
+        $rows  = [];
+        $have  = [];
+        if (is_array($saved)) {
+            foreach ($saved as $r) {
+                $id = (int)($r['Instance'] ?? 0);
+                if ($id > 0 && isset($have[$id])) {
+                    continue;   // doppelte Zeilen derselben Instanz: die erste gilt, wie bei der Auswertung
+                }
+                if ($id > 0) {
+                    $have[$id] = true;
+                }
+                $rows[] = [
+                    'Instance'  => $id,
+                    'Group'     => (string)($r['Group'] ?? BWACHLogik::GROUP_STANDARD),
+                    'Critical'  => (bool)($r['Critical'] ?? false),
+                    'IgnoreAge' => (bool)($r['IgnoreAge'] ?? false),
+                    'Excluded'  => (bool)($r['Excluded'] ?? false),
+                    'Cell'      => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
+                    'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
+                    'Poll'      => (bool)($r['Poll'] ?? false),
+                ];
+            }
+        }
+        $new = [];
+        $found = $this->found();
+        if ($found !== null) {
+            foreach ($found['devices'] as $key => $d) {
+                $id = (int)($d['parent'] ?? $key);
+                if ($id > 0 && !isset($have[$id]) && IPS_InstanceExists($id)) {
+                    $have[$id] = true;
+                    $new[$id] = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
+                        'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false];
+                }
+            }
+            uasort($new, function ($a, $b) { return strcasecmp(IPS_GetName($a['Instance']), IPS_GetName($b['Instance'])); });
+        }
+        return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new)];
+    }
+
     private function DevicesPanel(): array
     {
+        $dr = $this->deviceRows();
+        $line = $dr['added'] > 0
+            ? '✅ Alle erkannten Geräte stehen schon in der Liste (' . $dr['added'] . ' neu, noch nicht gespeichert). Je Gerät nur den Zelltyp und die Anzahl Zellen wählen, dann unten „Übernehmen“ klicken.'
+            : (count($dr['rows']) > 0 ? '✅ Alle erkannten Geräte stehen in der Liste.' : 'ℹ️ Noch keine Geräte erkannt: zuerst oben „Jetzt neu suchen“ drücken.');
         return [
-            'type' => 'ExpansionPanel', 'expanded' => false,
+            'type' => 'ExpansionPanel', 'expanded' => $dr['added'] > 0,
             'caption' => '🏷️  Geräte-Einstellungen',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Nur nötig für Geräte, die vom Standard abweichen: Ereignismelder (Fenster-, Rauchmelder), kritische Geräte (früher und dringlicher), Geräte ohne Altersprüfung oder Geräte, die ganz ausgenommen werden sollen. Mit dem Zelltyp (z. B. CR2032, AAA) und der Anzahl Zellen rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen.'],
+                ['type' => 'Label', 'name' => 'DeviceRowsLine', 'caption' => $line],
+                ['type' => 'Label', 'caption' => 'Hier steht jedes erkannte Gerät mit neutralen Standardwerten. Nur ändern, was abweicht: den Zelltyp (z. B. CR2032, AAA) und die Anzahl Zellen — damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen —, Ereignismelder (Fenster-, Rauchmelder), kritische Geräte (früher und dringlicher), Geräte ohne Altersprüfung oder Geräte, die ganz ausgenommen werden sollen. Die Spalte „Geräteinstanz“ zeigt den Namen der Instanz.'],
                 [
-                    'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Geräte', 'rowCount' => 8, 'add' => true, 'delete' => true,
+                    'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Geräte', 'rowCount' => 12, 'add' => true, 'delete' => true,
+                    'loadValuesFromConfiguration' => false,
+                    'values' => $dr['rows'],
                     'columns' => [
                         ['caption' => 'Geräteinstanz', 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
                         ['caption' => 'Gruppe', 'name' => 'Group', 'width' => '170px', 'add' => BWACHLogik::GROUP_STANDARD, 'edit' => ['type' => 'Select', 'options' => [

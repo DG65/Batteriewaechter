@@ -212,12 +212,12 @@
         var box = bwEl('div', 'bw-sec');
         box.appendChild(bwEl('div', 'bw-h', '🛒 Einkauf für die nächsten ' + s.horizon + ' Tage'));
         if (!s.lines || s.lines.length === 0) {
-            box.appendChild(bwEl('div', 'bw-empty', s.count === 0 ? '✅ Nichts zu besorgen.' : 'Keine Zelltypen bekannt. Den Zelltyp je Gerät in der Instanz eintragen.'));
+            box.appendChild(bwEl('div', 'bw-empty', s.count === 0 ? '✅ Nichts zu besorgen.' : 'Keine Zelltypen bekannt. Zelltyp je Gerät eintragen: ' + s.where + '.'));
         } else {
             box.appendChild(bwEl('div', 'bw-big', s.lines.join(', ')));
         }
         if (s.missing && s.missing.length) {
-            box.appendChild(bwEl('div', 'bw-note', 'ℹ️ Zelltyp fehlt bei: ' + s.missing.join(', ')));
+            box.appendChild(bwEl('div', 'bw-note', 'ℹ️ Zelltyp fehlt bei: ' + s.missing.join(', ') + '. Eintragen: ' + s.where + '.'));
         }
         root.appendChild(box);
         var rd = bwEl('div', 'bw-sec');

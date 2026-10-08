@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.5.1] - 2026-10-08
+
+### Changed
+- **Geräte-Einstellungen listet jedes erkannte Gerät schon auf** (neutrale Standardwerte: Standard, nicht kritisch, Zelltyp unbekannt, 1 Zelle, keine Abfrage). Je Gerät nur noch Zelltyp und Anzahl Zellen wählen und „Übernehmen“ klicken, statt jede Zeile von Hand hinzuzufügen. Gespeicherte Zeilen bleiben unverändert und vorn, doppelte werden nicht verdoppelt, Zeilen verschwundener Instanzen bleiben erhalten. Gespeichert wird erst mit „Übernehmen“. Geräte ohne Geräteinstanz (manuell ergänzte Variablen) gehören nicht in die Liste.
+- Der Hinweis „Zelltyp fehlt“ in Kachel und Tabelle sagt jetzt genau, wo man den Zelltyp einträgt (Instanzname, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“).
+
 ## [0.5.0] - 2026-10-08
 
 ### Added

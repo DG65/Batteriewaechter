@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -1439,6 +1439,52 @@ check('Anderes System als Z-Wave: keine Anfrage (nur dort ist die Funktion beleg
 $GLOBALS['LOG'] = [];
 $mg = pollWorld(30, true, 'Z-Wave Module', false); $GLOBALS['ZW_OK'] = true;
 check('Nicht angenommene Anfrage: kein Zustand, Meldungslog nennt es', (json_decode($mg->GetValue('Poll'), true) ?: []) === [] && (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'wurde nicht angenommen') !== false; }));
+
+
+// ===========================================================================
+heading('15 Geräteliste mit erkannten Geräten vorbelegt');
+// ===========================================================================
+$list = function (BWTest $m) { $f = json_decode($m->GetConfigurationForm(), true); foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { return [$it, $p]; } } } return [null, null]; };
+$mDev = freshModule(['NotificationsActive' => false, 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'cr2032', 'Cells' => 2, 'Poll' => false]])]);
+[$el, $panel] = $list($mDev);
+$ids = array_column($el['values'], 'Instance');
+check('Liste enthält jede erkannte Geräteinstanz genau einmal (Instanzen 101–107, 111, 112, 114; 105 trotz zweier Sensoren nur einmal)', count($ids) === count(array_unique($ids)) && count($ids) === 10 && in_array(105, $ids, true) && in_array(101, $ids, true), json_encode($ids));
+check('Die bereits gespeicherte Zeile bleibt unverändert vorn (kritisch, CR2032, 2 Zellen)', $el['values'][0]['Instance'] === 114 && $el['values'][0]['Critical'] === true && $el['values'][0]['Cell'] === 'cr2032' && $el['values'][0]['Cells'] === 2);
+check('Neue Zeilen tragen neutrale Standardwerte (Standard, nicht kritisch, Zelltyp unbekannt, 1 Zelle, keine Abfrage)', (function () use ($el) { foreach (array_slice($el['values'], 1) as $r) { if ($r['Group'] !== 'standard' || $r['Critical'] || $r['IgnoreAge'] || $r['Excluded'] || $r['Cell'] !== 'unbekannt' || $r['Cells'] !== 1 || $r['Poll']) { return false; } } return true; })());
+check('Jede Zeile hat alle Spalten (nichts geht beim Speichern verloren)', (function () use ($el) { foreach ($el['values'] as $r) { if (array_keys($r) !== ['Instance', 'Group', 'Critical', 'IgnoreAge', 'Excluded', 'Cell', 'Cells', 'Poll']) { return false; } } return true; })());
+check('Neue Zeilen nach Instanzname sortiert', (function () use ($el) { $names = array_map(function ($r) { return IPS_GetName($r['Instance']); }, array_slice($el['values'], 1)); $s = $names; usort($s, 'strcasecmp'); return $names === $s; })());
+check('Liste liest nicht aus der Konfiguration, sondern aus den eingesetzten Werten (loadValuesFromConfiguration=false)', $el['loadValuesFromConfiguration'] === false);
+check('Panel ist aufgeklappt, solange es neue Zeilen gibt; Hinweis nennt Zahl und „noch nicht gespeichert“', $panel['expanded'] === true && strpos(json_encode($panel, JSON_UNESCAPED_UNICODE), '9 neu, noch nicht gespeichert') !== false, '');
+check('Es wird NICHTS gespeichert: die Eigenschaft bleibt wie sie war', count(json_decode($mDev->props['DeviceSettings'], true)) === 1);
+// vollständig gespeichert
+$all = []; foreach ($ids as $i) { $all[] = ['Instance' => $i, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false]; }
+$mDev->props['DeviceSettings'] = json_encode($all);
+[$el2, $panel2] = $list($mDev);
+check('Nach „Übernehmen“: keine Doppelten, nichts Neues, Panel eingeklappt, Hinweis „alle stehen in der Liste“', count($el2['values']) === 10 && $panel2['expanded'] === false && strpos(json_encode($panel2, JSON_UNESCAPED_UNICODE), 'Alle erkannten Geräte stehen in der Liste') !== false);
+// doppelte gespeicherte Zeilen derselben Instanz
+$mDev->props['DeviceSettings'] = json_encode([$all[0], $all[0], $all[1]]);
+[$el3] = $list($mDev);
+check('Doppelte gespeicherte Zeilen derselben Instanz werden nicht verdoppelt', count(array_filter(array_column($el3['values'], 'Instance'), function ($i) use ($all) { return $i === $all[0]['Instance']; })) === 1);
+// Geräte, die es nicht mehr gibt, bleiben (Einstellungen gehen nicht verloren)
+$mDev->props['DeviceSettings'] = json_encode([['Instance' => 99999, 'Group' => 'ereignis', 'Critical' => true, 'IgnoreAge' => true, 'Excluded' => false, 'Cell' => 'aa_alkali', 'Cells' => 2, 'Poll' => true]]);
+[$el4] = $list($mDev);
+check('Gespeicherte Zeile einer verschwundenen Instanz bleibt erhalten, nichts wird still gelöscht', $el4['values'][0]['Instance'] === 99999 && $el4['values'][0]['Cell'] === 'aa_alkali' && $el4['values'][0]['Poll'] === true);
+// Variablen ohne Instanz
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Skripte');
+mkvar(1700, 900, 'Battery', 'Batterie', 1, 50, $GLOBALS['CLOCK'] - 60);
+$mV = new BWTest(); $mV->Create(); $mV->props['ManualVariables'] = json_encode([['Variable' => 1700, 'Kind' => 'percent']]); $mV->ApplyChanges();
+[$elV, $pV] = $list($mV);
+check('Ein Gerät ohne Instanz (manuelle Variable) gehört nicht in die Instanzliste', $elV['values'] === [] && strpos(json_encode($pV, JSON_UNESCAPED_UNICODE), 'Alle erkannten Geräte stehen in der Liste') === false);
+$mE = new BWTest(); $mE->Create(); [$elE, $pE] = $list($mE);
+check('Noch nicht gesucht: Hinweis „zuerst Jetzt neu suchen“', $elE['values'] === [] && strpos(json_encode($pE, JSON_UNESCAPED_UNICODE), 'zuerst oben „Jetzt neu suchen“') !== false);
+
+// Hinweis in Kachel und Tabelle sagt genau, wo
+$mH = freshModule(['NotificationsActive' => false]);
+$plH = json_decode(end($mH->visUpdates), true);
+check('Kachel-Daten nennen den Ort für den Zelltyp: Instanzname, Panel, Spalte', $plH['shopping']['where'] === 'Instanz „Batteriewächter“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“', $plH['shopping']['where']);
+check('Die Kachel zeigt diesen Ort beim fehlenden Zelltyp', strpos(file_get_contents($MODDIR . '/module.html'), "'Keine Zelltypen bekannt. Zelltyp je Gerät eintragen: ' + s.where") !== false && strpos(file_get_contents($MODDIR . '/module.html'), "'. Eintragen: ' + s.where") !== false);
+$mH2 = freshModule(['NotificationsActive' => false, 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1]])]);
+check('Tabelle nennt Instanz, Panel und Spalte', strpos($mH2->GetValue('TableShopping'), 'in der Instanz „Batteriewächter“ unter „Geräte-Einstellungen“ in der Spalte „Zelltyp“ wählen') !== false, strip_tags($mH2->GetValue('TableShopping')));
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);
