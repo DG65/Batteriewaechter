@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.2', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.3', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.2' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.3' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.2', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.3', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -1364,6 +1364,18 @@ $mp2 = new BWTest(); $mp2->Create(); $mp2->ApplyChanges();
 $hist = []; foreach ([[201, 0.10], [202, 0.11], [203, 0.12], [204, 0.50]] as [$iid, $rt]) { $pts = []; for ($i = 0; $i <= 8; $i++) { $pts[] = [$nowT - (80 - $i * 10) * 86400, round(100 - $rt * $i * 10, 2), null]; } $hist[(string)$iid] = $pts; $GLOBALS['OBJ'][$iid * 10 + 1]['var']['value'] = (int)round(100 - $rt * 80); }
 $mp2->SetValue('History', json_encode($hist)); $mp2->Check();
 check('Vergleich nur innerhalb desselben Systems: zwei Gruppen zu je 2 Geräten → niemand auffällig', strpos(implode(' ', array_merge(...array_column(json_decode(end($mp2->visUpdates), true)['devices'], 'reasons'))), 'schneller als vergleichbare') === false);
+
+
+// Matter: Batteriespannung in Millivolt
+check('Matter PowerSource_BatVoltage wird als Spannung erkannt (laut Dokumentation, ungetestet)', kindOf(det('PowerSource_BatVoltage', 'Batteriespannung', 1)) === 'voltage/ident');
+check('Matter PowerSource_BatPercentRemaining wird erkannt (Halbprozent, ungetestet)', ($mp = det('PowerSource_BatPercentRemaining', 'x', 1)) !== null && $mp['kind'] === 'percent' && $mp['scale'] === 0.5 && $mp['unverified'] === true);
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Sensoren');
+mkinst(401, 'Matter Kontakt', 'Matter Device', 900);
+mkvar(4011, 401, 'BooleanState_State', 'Kontakt', 0, true, $GLOBALS['CLOCK'] - 60);
+mkvar(4012, 401, 'PowerSource_BatVoltage', 'Batteriespannung', 1, 2950, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = []; $mm = new BWTest(); $mm->Create(); $mm->props['DeviceSettings'] = json_encode([['Instance' => 401, 'Group' => 'ereignis', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'cr2032', 'Cells' => 1, 'Poll' => false]]); $mm->ApplyChanges();
+$plm = json_decode(end($mm->visUpdates), true);
+check('Matter-Gerät mit 2950 mV und Zelltyp CR2032: 2,95 V → 95 % (nicht „2950 V“)', count($plm['devices']) === 1 && $plm['devices'][0]['derived'] === true && $plm['devices'][0]['percent'] == 95 && $plm['devices'][0]['status'] === 'ok', json_encode($plm['devices'][0], JSON_UNESCAPED_UNICODE));
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

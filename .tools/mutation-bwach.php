@@ -161,6 +161,7 @@ $mutations = [
     // --- 0.5.2: CR123A-Batterie und RCR123A-Akku
     ['BWACHZelle.php', "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 3 :", "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 1 :", 'Vorschlag nennt keine CR123A in Reihe'],
     ['BWACHZelle.php', "'shop' => 'RCR123A (Akku)',", "'shop' => 'CR123A',", 'RCR123A-Akku wird als CR123A eingekauft'],
+    ['module.php', "\$sig['voltage'] = ['value' => \$volt > 100 ? \$volt / 1000 : \$volt, 'updated' => \$upd];", "\$sig['voltage'] = ['value' => \$volt, 'updated' => \$upd];", 'Millivolt werden als Volt gelesen'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],
     ['module.php', 'htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, \'UTF-8\')', '(string)$s', 'HTML-Maskierung entfällt'],

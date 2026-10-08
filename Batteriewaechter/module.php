@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.5.3' => [
+            '• Batteriespannungen über 100 V (Matter meldet Millivolt, z. B. 3000) werden als Millivolt gelesen und nicht als „3000 V“ angezeigt.',
+        ],
         '0.5.2' => [
             '• Neuer Zelltyp „RCR123A / 16340 Akku (Li-Ion, 3,7 V)“ neben der nicht wiederaufladbaren CR123A-Batterie (3 V): die beiden haben völlig verschiedene Spannungen, die Einkaufsliste führt sie getrennt.',
         ],
@@ -1385,7 +1388,9 @@ class Batteriewaechter extends IPSModule
                         $sig['flag'] = ['value' => (bool)$val, 'updated' => $upd, 'reversed' => $rev];
                     }
                 } elseif ($kind === BWACHLogik::KIND_VOLTAGE && !isset($sig['voltage'])) {
-                    $sig['voltage'] = ['value' => (float)$val, 'updated' => $upd];
+                    // Matter meldet die Batteriespannung in Millivolt (z. B. 3000); über 100 V gibt es bei Batterien nicht
+                    $volt = (float)$val;
+                    $sig['voltage'] = ['value' => $volt > 100 ? $volt / 1000 : $volt, 'updated' => $upd];
                 }
             }
         }

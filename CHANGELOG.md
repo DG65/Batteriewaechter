@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.5.3] - 2026-10-08
+
+### Fixed
+- Batteriespannungen über 100 V werden als Millivolt gelesen (Matter `PowerSource_BatVoltage` liefert z. B. 3000 für 3,0 V) statt als „3000 V“ angezeigt und mit „passt nicht zum Zelltyp“ abgelehnt. Betrifft Matter-Geräte, sobald Symcon diese Variable anlegt; die Erkennung der Matter-Idents (`PowerSource_BatPercentRemaining`, `PowerSource_BatVoltage`) ist nach Dokumentation, nicht an einem echten Gerät geprüft.
+
 ## [0.5.2] - 2026-10-08
 
 ### Added
