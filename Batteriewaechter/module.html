@@ -188,6 +188,8 @@
             det.appendChild(bwEl('div', 'facts',
                 'Batteriewert gemeldet: ' + d.valueAgeText + ' · Lebenszeichen: ' + d.lifeText + (d.module ? ' · ' + d.module : '')));
             if (d.forecastText) { det.appendChild(bwEl('div', 'facts', '📈 ' + d.forecastText)); }
+            if (d.signalText) { det.appendChild(bwEl('div', 'facts', '📶 ' + d.signalText)); }
+            if (d.pollText) { det.appendChild(bwEl('div', 'facts', '🔔 ' + d.pollText)); }
             if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · Ladezustand aus der Spannung berechnet (Näherung)' : ''))); }
             if (BW.allowAck) {
                 var acts = bwEl('div', 'bw-acts');

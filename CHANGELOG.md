@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.5.0] - 2026-10-08
+
+### Added
+- **Vergleich mit Gleichartigen:** Ein Gerät, das mindestens doppelt so schnell entlädt wie der Median seiner Gruppe (gleiches System, gleicher Zelltyp, mindestens 4 Geräte mit bekannter Entladerate, mindestens 0,05 Prozentpunkte pro Tag), wird als auffällig markiert, mit möglichen Ursachen. Nur Tabelle, Kachel und Wochenbericht, keine eigene Push-Meldung.
+- **Funkqualität** (Zigbee `linkquality`, RSSI, Signalstärke) wird je Gerät angezeigt und eingeordnet; ein schwaches Signal wird bei auffälliger Entladung als möglicher Grund genannt.
+- **Kälteeinfluss:** Mit einer Außentemperatur-Variable (optional) speichert der Verlauf die Temperatur mit; ausgewertet wird erst, wenn mindestens 3 Geräte je 3 Zeitabschnitte bei Kälte und bei Wärme haben, vorher steht „noch nicht genug Daten“ mit Zahlen. Eine Außentemperatur, die älter als 12 Stunden ist, wird nicht verwendet.
+- **Abfrage schlafender Z-Wave-Geräte** (je Gerät einzuschalten, standardmäßig aus): Ist der Batteriewert älter als eingestellt (14 Tage), schickt der Wächter höchstens alle 7 Tage eine Statusanfrage (`ZW_RequestStatus`) und zeigt, ob das Gerät geantwortet hat; ohne Antwort nach 14 Tagen wird das ein Befund („reagiert nicht auf Abfragen“).
+- **Übernahme aus BY_BatterieMonitor:** Push, E-Mail und SMTP-Instanz einer alten Instanz lassen sich in die Maske übernehmen (gespeichert wird erst mit „Übernehmen“). Der Wächter nennt, was nicht übernommen wird.
+
 ## [0.4.0] - 2026-10-08
 
 ### Added

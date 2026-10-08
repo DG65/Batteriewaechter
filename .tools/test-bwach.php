@@ -47,6 +47,8 @@ function IPS_GetVariableList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id
 function IPS_GetObject(int $id): array { $x = $GLOBALS['OBJ'][$id]; return ['ObjectType' => $x['type'], 'ParentID' => $x['parent'], 'ObjectIdent' => $x['ident'], 'ObjectName' => $x['name']]; }
 function IPS_GetVariable(int $id): array { $v = $GLOBALS['OBJ'][$id]['var']; unset($v['value']); return $v; }
 function IPS_GetInstance(int $id): array { return ['ModuleInfo' => ['ModuleName' => $GLOBALS['OBJ'][$id]['module']], 'InstanceStatus' => 102]; }
+function IPS_GetInstanceList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 1) { $o[] = $id; } } return $o; }
+function IPS_GetConfiguration(int $id): string { return json_encode($GLOBALS['OBJ'][$id]['config'] ?? []); }
 function IPS_InstanceExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 1; }
 function IPS_VariableExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 2; }
 function IPS_GetName(int $id): string { return $GLOBALS['OBJ'][$id]['name'] ?? ''; }
@@ -55,6 +57,8 @@ function IPS_GetChildrenIDs(int $p): array { $o = []; foreach ($GLOBALS['OBJ'] a
 function GetValue($id) { return $GLOBALS['OBJ'][(int)$id]['var']['value']; }
 function IPS_GetObjectIDByIdent(string $ident, int $parent) { foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['ident'] === $ident && $x['parent'] === $parent) { return $id; } } return false; }
 $GLOBALS['INSTS'] = []; $GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = true; $GLOBALS['LOG'] = [];
+$GLOBALS['ZW'] = []; $GLOBALS['ZW_OK'] = true;
+function ZW_RequestStatus(int $id) { $GLOBALS['ZW'][] = $id; return $GLOBALS['ZW_OK']; }
 function IPS_SetHidden(int $id, bool $h): bool { $GLOBALS['OBJ'][$id]['hidden'] = $h; return true; }
 function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INSTS'][$g] ?? []; }
 function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
@@ -471,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.4.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -495,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.4.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.4.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -1245,6 +1249,196 @@ check('Lernen abgeschaltet: feste Schwelle, Grund ohne „gelernt“', strpos(im
 $GLOBALS['OBJ'][1032]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 70 * 86400; $GLOBALS['OBJ'][1031]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 70 * 86400; $m->Check();
 $d103 = array_values(array_filter(json_decode(end($m->visUpdates), true)['devices'], function ($d) { return $d['id'] === '103'; }))[0];
 check('70 Tage still: Vorschlag „vermutlich ausgebaut, Außer Betrieb wählen“', strpos(implode(' ', $d103['reasons']), 'vermutlich ausgebaut oder defekt') !== false);
+
+
+// ===========================================================================
+heading('14 Gleichartige, Funkqualität, Kälte');
+// ===========================================================================
+$mk = function (array $r) { return $r; };
+$rates = [];
+foreach ([['a', 0.10], ['b', 0.11], ['c', 0.12], ['d', 0.13], ['e', 0.40]] as [$k, $r]) { $rates[$k] = ['rate' => $r, 'group' => 'Z|cr2032']; }
+$pe = BWACHPrognose::peerOutliers($rates);
+check('Gleichartige: e entlädt 3,3× so schnell wie der Median (0,12) → auffällig, die übrigen nicht', array_keys($pe) === ['e'] && $pe['e']['factor'] === 3.3 && $pe['e']['median'] === 0.12 && $pe['e']['n'] === 5, json_encode($pe));
+check('Gleichartige: genau doppelte Rate zählt (≥ 2×), knapp darunter nicht', array_keys(BWACHPrognose::peerOutliers(['a' => ['rate' => 0.1, 'group' => 'g'], 'b' => ['rate' => 0.1, 'group' => 'g'], 'c' => ['rate' => 0.1, 'group' => 'g'], 'd' => ['rate' => 0.2, 'group' => 'g']])) === ['d']
+    && BWACHPrognose::peerOutliers(['a' => ['rate' => 0.1, 'group' => 'g'], 'b' => ['rate' => 0.1, 'group' => 'g'], 'c' => ['rate' => 0.1, 'group' => 'g'], 'd' => ['rate' => 0.199, 'group' => 'g']]) === []);
+check('Gleichartige: Gruppe mit nur 3 Geräten wird nicht verglichen (Median wäre Zufall)', BWACHPrognose::peerOutliers(['a' => ['rate' => 0.1, 'group' => 'g'], 'b' => ['rate' => 0.1, 'group' => 'g'], 'c' => ['rate' => 0.9, 'group' => 'g']]) === []);
+check('Gleichartige: sehr kleine Raten (unter 0,05 Punkte/Tag) sind nie auffällig, auch bei 5-fachem Median', BWACHPrognose::peerOutliers(['a' => ['rate' => 0.005, 'group' => 'g'], 'b' => ['rate' => 0.005, 'group' => 'g'], 'c' => ['rate' => 0.005, 'group' => 'g'], 'd' => ['rate' => 0.04, 'group' => 'g']]) === []);
+check('Gleichartige: verschiedene Gruppen werden getrennt verglichen', BWACHPrognose::peerOutliers(['a' => ['rate' => 0.1, 'group' => 'g1'], 'b' => ['rate' => 0.1, 'group' => 'g1'], 'c' => ['rate' => 0.1, 'group' => 'g2'], 'd' => ['rate' => 0.5, 'group' => 'g2']]) === []);
+check('Gleichartige: Geräte ohne Entladung (Rate 0) zählen nicht zur Gruppe', BWACHPrognose::peerOutliers(['a' => ['rate' => 0.0, 'group' => 'g'], 'b' => ['rate' => 0.1, 'group' => 'g'], 'c' => ['rate' => 0.1, 'group' => 'g'], 'd' => ['rate' => 0.5, 'group' => 'g']]) === []);
+
+check('Funkqualität: linkquality 160 gut, 100 mittel, 30 schwach', BWACHLogik::classifySignal('linkquality', 160)['level'] === 'gut' && BWACHLogik::classifySignal('linkquality', 100)['level'] === 'mittel' && BWACHLogik::classifySignal('linkquality', 30)['level'] === 'schwach');
+check('Funkqualität: Grenzen 50 (mittel) und 120 (gut)', BWACHLogik::classifySignal('linkquality', 50)['level'] === 'mittel' && BWACHLogik::classifySignal('linkquality', 49)['level'] === 'schwach' && BWACHLogik::classifySignal('linkquality', 120)['level'] === 'gut' && BWACHLogik::classifySignal('linkquality', 119)['level'] === 'mittel');
+check('Funkqualität: RSSI −60 gut, −78 mittel, −90 schwach, mit Text „dBm“', BWACHLogik::classifySignal('rssi', -60)['level'] === 'gut' && BWACHLogik::classifySignal('rssi', -78)['level'] === 'mittel' && BWACHLogik::classifySignal('rssi', -90)['level'] === 'schwach' && strpos(BWACHLogik::classifySignal('rssi', -78)['text'], '-78 dBm (mittel)') !== false);
+check('Funkqualität: unbekannte Skala wird nur angezeigt, nicht bewertet', BWACHLogik::classifySignal('signal', 60)['level'] === '' && strpos(BWACHLogik::classifySignal('signal', 60)['text'], 'Funksignal 60') === 0);
+check('Funkqualität: Erkennung der Idents', BWACHLogik::isSignalIdent('linkquality') && BWACHLogik::isSignalIdent('RSSI') && BWACHLogik::isSignalIdent('SignalStrength') && !BWACHLogik::isSignalIdent('temperature') && !BWACHLogik::isSignalIdent('signal_name'));
+
+// Kälte
+$H = ts('2026-01-01 12:00'); $hs = [];
+$mkHist = function (float $coldRate, float $warmRate) use ($H) {
+    $s = []; $p = 100.0; $t = $H;
+    // 4 kalte Abschnitte (−2 °C), 4 warme (+15 °C)
+    $s[] = [$t, $p, -2.0];
+    for ($i = 0; $i < 4; $i++) { $t += 5 * 86400; $p -= $coldRate * 5; $s[] = [$t, round($p, 2), -2.0]; }
+    $t += 5 * 86400; $p -= 0.1 * 5; $s[] = [$t, round($p, 2), 15.0];
+    for ($i = 0; $i < 4; $i++) { $t += 5 * 86400; $p -= $warmRate * 5; $s[] = [$t, round($p, 2), 15.0]; }
+    return $s;
+};
+$ce = BWACHPrognose::coldEffect(['a' => $mkHist(0.4, 0.2), 'b' => $mkHist(0.6, 0.2), 'c' => $mkHist(0.3, 0.2)]);
+check('Kälte: Batterien entladen sich bei Kälte 2× schneller (Median aus 3 Geräten)', $ce['ok'] === true && $ce['factor'] === 2.0 && $ce['devices'] === 3 && strpos($ce['text'], '2× schneller') !== false, json_encode($ce, JSON_UNESCAPED_UNICODE));
+check('Kälte: zählt die Zeitabschnitte (je Gerät 4 kalte und 5 warme, der Übergang zählt mit seinem Mittel von 6,5 °C als warm)', $ce['cold'] === 12 && $ce['warm'] === 15, json_encode($ce));
+$ce2 = BWACHPrognose::coldEffect(['a' => $mkHist(0.2, 0.2), 'b' => $mkHist(0.2, 0.2), 'c' => $mkHist(0.2, 0.2)]);
+check('Kälte: gleiche Rate → „Kein deutlicher Kälteeinfluss“', $ce2['ok'] === true && strpos($ce2['text'], 'Kein deutlicher Kälteeinfluss') === 0);
+$ce3 = BWACHPrognose::coldEffect(['a' => $mkHist(0.4, 0.2), 'b' => $mkHist(0.6, 0.2)]);
+check('Kälte: nur 2 Geräte → ehrlich „noch nicht genug Daten“ mit Zahlen', $ce3['ok'] === false && $ce3['factor'] === null && strpos($ce3['text'], 'noch nicht genug Daten') !== false && strpos($ce3['text'], 'bisher 2') !== false, $ce3['text']);
+$noTemp = $mkHist(0.4, 0.2); foreach ($noTemp as &$pt) { $pt[2] = null; } unset($pt);
+check('Kälte: Verläufe ohne Außentemperatur zählen nicht', BWACHPrognose::coldEffect(['a' => $noTemp, 'b' => $noTemp, 'c' => $noTemp])['devices'] === 0);
+$onlyCold = []; $t = $H; $p = 100.0; $onlyCold[] = [$t, $p, -3.0]; for ($i = 0; $i < 8; $i++) { $t += 4 * 86400; $p -= 2; $onlyCold[] = [$t, $p, -3.0]; }
+check('Kälte: Gerät mit nur kalten Abschnitten (kein Vergleich möglich) zählt nicht', BWACHPrognose::coldEffect(['a' => $onlyCold, 'b' => $onlyCold, 'c' => $onlyCold])['devices'] === 0);
+check('Kälte: Batteriewechsel (Sprung nach oben) im Verlauf verfälscht die Rate nicht', (function () use ($mkHist) { $h = $mkHist(0.4, 0.2); $h[3][1] = 100.0; $h[4][1] = 99.0; $r = BWACHPrognose::coldEffect(['a' => $h, 'b' => $mkHist(0.4, 0.2), 'c' => $mkHist(0.4, 0.2)]); return $r['devices'] === 3; })());
+check('Kälte: zu kurze Abschnitte (unter 2 Tage) werden ignoriert', BWACHPrognose::coldEffect(['a' => [[$H, 100.0, -1.0], [$H + 3600, 99.0, -1.0]]])['cold'] === 0);
+
+
+// Kälte: Randfälle, jeweils mit eigenem Verlauf
+$coldPart = function (array $temps, int $stepDays) use ($H) { return $temps; };
+$build = function (array $coldTemps, array $warmTemps, int $coldStep = 5, ?array $swapAt = null) use ($H) {
+    $s = []; $t = $H; $p = 100.0; $s[] = [$t, $p, $coldTemps[0] ?? 0.0];
+    foreach ($coldTemps as $i => $c) { if ($i === 0) { continue; } $t += $coldStep * 86400; $p -= 0.4 * $coldStep; $s[] = [$t, round($p, 2), $c]; }
+    foreach ($warmTemps as $c) { $t += 5 * 86400; $p -= 0.2 * 5; $s[] = [$t, round($p, 2), $c]; }
+    return $s;
+};
+$c4 = [-2.0, -2.0, -2.0, -2.0, -2.0]; $w4 = [15.0, 15.0, 15.0, 15.0, 15.0];
+check('Kälte (Kontrolle): 5 kalte, 5 warme Punkte je Gerät → Ergebnis', BWACHPrognose::coldEffect(['a' => $build($c4, $w4), 'b' => $build($c4, $w4), 'c' => $build($c4, $w4)])['ok'] === true);
+$nullCold = [null, null, null, null, null];
+check('Kälte: Abschnitte ohne Außentemperatur werden ignoriert (nicht als 0 °C gewertet)', BWACHPrognose::coldEffect(['a' => $build($nullCold, $w4), 'b' => $build($nullCold, $w4), 'c' => $build($nullCold, $w4)])['devices'] === 0);
+check('Kälte: Abschnitte unter 2 Tagen Abstand werden ignoriert', BWACHPrognose::coldEffect(['a' => $build($c4, $w4, 1), 'b' => $build($c4, $w4, 1), 'c' => $build($c4, $w4, 1)])['devices'] === 0);
+$swapSeries = function () use ($H) { $s = []; $t = $H; $p = 60.0; $s[] = [$t, $p, -2.0]; $t += 5 * 86400; $p -= 2; $s[] = [$t, $p, -2.0]; $t += 5 * 86400; $p = 100.0; $s[] = [$t, $p, -2.0]; for ($i = 0; $i < 2; $i++) { $t += 5 * 86400; $p -= 2; $s[] = [$t, $p, -2.0]; } for ($i = 0; $i < 4; $i++) { $t += 5 * 86400; $p -= 1; $s[] = [$t, $p, 15.0]; } return $s; };
+$sw = BWACHPrognose::coldEffect(['a' => $swapSeries(), 'b' => $swapSeries(), 'c' => $swapSeries()]);
+check('Kälte: der Sprung beim Batteriewechsel ist KEIN kalter Abschnitt (je Gerät 3 kalte, nicht 4)', $sw['cold'] === 9, json_encode($sw));
+$e5 = [5.0, 5.0, 5.0, 5.0, 5.0];
+check('Kälte: genau 5,0 °C zählt als „nicht kalt“ (Grenze „unter 5“)', BWACHPrognose::coldEffect(['a' => $build($e5, $w4), 'b' => $build($e5, $w4), 'c' => $build($e5, $w4)], 5.0)['devices'] === 0);
+$c2 = [-2.0, -2.0, -2.0]; $w2 = [15.0, 15.0, 15.0];
+check('Kälte: 2 kalte + 2 warme Abschnitte reichen nicht (mindestens 3 je Seite)', BWACHPrognose::coldEffect(['a' => $build($c2, $w2), 'b' => $build($c2, $w2), 'c' => $build($c2, $w2)])['devices'] === 0);
+check('Kälte: Faktor knapp unter 1,2 („Kein deutlicher Kälteeinfluss“), 1,2 selbst gilt als Einfluss', strpos(BWACHPrognose::coldEffect(['a' => $mkHist(0.23, 0.2), 'b' => $mkHist(0.23, 0.2), 'c' => $mkHist(0.23, 0.2)])['text'], 'Kein deutlicher') === 0 && strpos(BWACHPrognose::coldEffect(['a' => $mkHist(0.24, 0.2), 'b' => $mkHist(0.24, 0.2), 'c' => $mkHist(0.24, 0.2)])['text'], 'Bei unter') === 0);
+
+// Übernahme aus dem alten Modul
+$old = ['PushMsgAktiv' => true, 'EMailMsgAktiv' => false, 'SmtpInstanceID' => 14223, 'WebFrontInstanceID' => 58070, 'BatterieBenachrichtigungCBOX' => true, 'Intervall' => 21600, 'EigenesSkriptAktiv' => true, 'EigenesSkriptID' => 777, 'TextFarbcode' => 'FFFFFF'];
+$im = BWACHLogik::importOldConfig($old, function (int $i) { return in_array($i, [14223, 58070], true); });
+check('Übernahme: Push an, E-Mail aus, SMTP #14223, Push-Ziel #58070, Meldungen aktiv', $im['fields'] === ['NotifyPush' => true, 'NotifyMail' => false, 'MailInstance' => 14223, 'PushTargets' => [['Instance' => 58070]], 'NotificationsActive' => true], json_encode($im['fields']));
+check('Übernahme: nennt ehrlich, was NICHT übernommen wird (Texte/Farben, Intervall, eigenes Skript)', count($im['skipped']) === 3 && strpos(implode(' ', $im['skipped']), 'Meldungstext') !== false && strpos(implode(' ', $im['skipped']), '21600 s') !== false && strpos(implode(' ', $im['skipped']), 'eigenes Skript #777') !== false);
+$im2 = BWACHLogik::importOldConfig(['PushMsgAktiv' => true, 'SmtpInstanceID' => 999, 'WebFrontInstanceID' => 998], function (int $i) { return false; });
+check('Übernahme: nicht mehr vorhandene Instanzen werden nicht eingetragen, sondern genannt', !isset($im2['fields']['MailInstance']) && !isset($im2['fields']['PushTargets']) && strpos(implode(' ', $im2['skipped']), '#999 (gibt es nicht mehr)') !== false && strpos(implode(' ', $im2['skipped']), '#998 (gibt es nicht mehr)') !== false);
+check('Übernahme: ohne Push/E-Mail werden Meldungen nicht aktiviert', !isset(BWACHLogik::importOldConfig(['BatterieBenachrichtigungCBOX' => true], function (int $i) { return true; })['fields']['NotificationsActive']));
+
+// im Modul
+clock('2026-10-07 10:00'); buildWorld($GLOBALS['CLOCK']);
+mkinst(14223, 'SMTP', 'SMTP'); mkinst(58070, 'WebFront', 'Tile Visualization');
+mkinst(12613, 'BatterieMonitor', 'BatterieMonitor'); $GLOBALS['OBJ'][12613]['config'] = $old;
+$GLOBALS['INSTS'] = ['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}' => [701]]; $GLOBALS['SENT'] = [];
+$mi = new BWTest(); $mi->Create(); $mi->ApplyChanges();
+check('Alte Instanz wird im Formular genannt (mit ID)', strpos(json_encode(json_decode($mi->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Gefunden: „BatterieMonitor“ (#12613)') !== false);
+$mi->fieldUpdates = [];
+$res = $mi->ImportOld();
+$upd = []; foreach ($mi->fieldUpdates as [$n, $pr, $v]) { $upd[$n] = [$pr, $v]; }
+check('Übernahme füllt die offene Maske (value/values), schreibt aber NICHTS in die Eigenschaften', $upd['NotifyPush'] === ['value', true] && $upd['MailInstance'] === ['value', 14223] && $upd['PushTargets'] === ['values', [['Instance' => 58070]]] && $upd['NotificationsActive'] === ['value', true] && $mi->props['NotificationsActive'] === false && $mi->props['MailInstance'] === 0);
+check('Rückmeldung nennt, was übernommen wurde, was nicht und dass „Übernehmen“ noch fehlt', strpos($res, '✅ Aus „BatterieMonitor“ (#12613)') === 0 && strpos($res, 'Nicht übernommen:') !== false && strpos($res, 'noch NICHT gespeichert') !== false && strpos($res, 'kann die alte Instanz entfernt werden') !== false, $res);
+check('Statuszeile im Formular wird aufgefrischt', (bool)array_filter($mi->fieldUpdates, function ($u) { return $u[0] === 'ImportStatus'; }));
+unset($GLOBALS['OBJ'][12613]);
+check('Ohne alte Instanz: ehrliche Meldung', strpos($mi->ImportOld(), 'Keine BY_BatterieMonitor-Instanz gefunden') !== false && strpos(json_encode(json_decode($mi->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Keine alte BY_BatterieMonitor-Instanz gefunden') !== false);
+
+
+// Vergleich nur innerhalb gleichen Systems/Zelltyps: 2 Shelly + 2 andere Systeme → keine Gruppe mit 4
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Sensoren');
+$nowT = $GLOBALS['CLOCK'];
+foreach ([[201, 'Sensor A', 'ShellyDevice', 0.10], [202, 'Sensor B', 'ShellyDevice', 0.11], [203, 'Sensor C', 'Froggit', 0.12], [204, 'Sensor D', 'Froggit', 0.50]] as [$iid, $nm, $mod, $rt]) {
+    mkinst($iid, $nm, $mod, 900);
+    mkvar($iid * 10 + 1, $iid, 'devicepower_0_battery_percent', 'Batteriestatus', 1, 70, $nowT - 60);
+    mkvar($iid * 10 + 2, $iid, 'temp', 'Temperatur', 2, 20.0, $nowT - 60);
+}
+$mp2 = new BWTest(); $mp2->Create(); $mp2->ApplyChanges();
+$hist = []; foreach ([[201, 0.10], [202, 0.11], [203, 0.12], [204, 0.50]] as [$iid, $rt]) { $pts = []; for ($i = 0; $i <= 8; $i++) { $pts[] = [$nowT - (80 - $i * 10) * 86400, round(100 - $rt * $i * 10, 2), null]; } $hist[(string)$iid] = $pts; $GLOBALS['OBJ'][$iid * 10 + 1]['var']['value'] = (int)round(100 - $rt * 80); }
+$mp2->SetValue('History', json_encode($hist)); $mp2->Check();
+check('Vergleich nur innerhalb desselben Systems: zwei Gruppen zu je 2 Geräten → niemand auffällig', strpos(implode(' ', array_merge(...array_column(json_decode(end($mp2->visUpdates), true)['devices'], 'reasons'))), 'schneller als vergleichbare') === false);
+
+// Funkqualität in der Kachel
+buildWorld($GLOBALS['CLOCK']);
+mkvar(1015, 101, 'linkquality', 'Verbindungsqualität', 1, 30, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = []; $ms = new BWTest(); $ms->Create(); $ms->ApplyChanges();
+$pl = json_decode(end($ms->visUpdates), true);
+$d101 = array_values(array_filter($pl['devices'], function ($d) { return $d['id'] === '101'; }))[0];
+check('Funkqualität des Geräts steht in den Kachel-Daten (30 von 255, schwach)', $d101['signalText'] === 'Funkqualität 30 von 255 (schwach)', $d101['signalText']);
+$noSig = array_values(array_filter($pl['devices'], function ($d) { return $d['id'] === '102'; }))[0];
+check('Gerät ohne Funkvariable: kein Funkhinweis erfunden', $noSig['signalText'] === '');
+
+// Außentemperatur im Verlauf
+buildWorld($GLOBALS['CLOCK']);
+mkvar(1900, 0, 'AussenTemp', 'Außentemperatur', 2, 3.46, $GLOBALS['CLOCK'] - 600);
+$mt = new BWTest(); $mt->Create(); $mt->props['OutdoorTempVar'] = 1900; $mt->ApplyChanges();
+$h = json_decode($mt->GetValue('History'), true);
+check('Mit Außentemperatur-Variable wird die Temperatur im Verlauf mitgespeichert (gerundet)', isset($h['114']) && $h['114'][0][2] === 3.5, json_encode($h['114'] ?? null));
+buildWorld($GLOBALS['CLOCK']); mkvar(1900, 0, 'AussenTemp', 'Außentemperatur', 2, 3.46, $GLOBALS['CLOCK'] - 13 * 3600);
+$mt2 = new BWTest(); $mt2->Create(); $mt2->props['OutdoorTempVar'] = 1900; $mt2->ApplyChanges();
+check('Veraltete Außentemperatur (13 Stunden) wird NICHT in den Verlauf geschrieben', json_decode($mt2->GetValue('History'), true)['114'][0][2] === null);
+$mn = freshModule(['NotificationsActive' => false]);
+check('Statistik ohne Außentemperatur-Variable sagt, wie man den Kälteeinfluss bekommt', strpos($mn->GetValue('TableStats'), 'keine Außentemperatur-Variable gewählt') !== false);
+$mt2->Check();
+check('Statistik mit Variable: „noch nicht genug Daten“ mit Zahlen', strpos($mt2->GetValue('TableStats'), 'noch nicht genug Daten') !== false);
+
+// Auffällige Geräte im Modul: 4 Z-Wave-Sensoren, einer entlädt 4× so schnell
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Sensoren');
+$nowT = $GLOBALS['CLOCK'];
+foreach ([[201, 'Sensor A', 0.10], [202, 'Sensor B', 0.11], [203, 'Sensor C', 0.12], [204, 'Sensor D', 0.50]] as [$iid, $nm, $rt]) {
+    mkinst($iid, $nm, 'ShellyDevice', 900);
+    mkvar($iid * 10 + 1, $iid, 'devicepower_0_battery_percent', 'Batteriestatus', 1, 70, $nowT - 60);
+    mkvar($iid * 10 + 2, $iid, 'temp', 'Temperatur', 2, 20.0, $nowT - 60);
+}
+$mp = new BWTest(); $mp->Create(); $mp->props['DeviceSettings'] = '[]'; $mp->ApplyChanges();
+$hist = []; foreach ([[201, 0.10], [202, 0.11], [203, 0.12], [204, 0.50]] as [$iid, $rt]) { $pts = []; for ($i = 0; $i <= 8; $i++) { $pts[] = [$nowT - (80 - $i * 10) * 86400, round(100 - $rt * $i * 10, 2), null]; } $hist[(string)$iid] = $pts; foreach ($pts as $pp) { } $GLOBALS['OBJ'][$iid * 10 + 1]['var']['value'] = (int)round(100 - $rt * 80); }
+$mp->SetValue('History', json_encode($hist)); $mp->Check();
+$pl = json_decode(end($mp->visUpdates), true);
+$byName = []; foreach ($pl['devices'] as $d) { $byName[$d['name']] = $d; }
+check('Auffälliges Gerät (Sensor D, 5× so schnell) trägt den Hinweis mit Zahlen und möglichen Ursachen', strpos(implode(' ', $byName['Sensor D']['reasons']), 'Entlädt 4,3× schneller als vergleichbare Geräte') !== false && strpos(implode(' ', $byName['Sensor D']['reasons']), 'Mögliche Ursachen') !== false, json_encode($byName['Sensor D']['reasons'], JSON_UNESCAPED_UNICODE));
+check('Die drei Gleichartigen bleiben unauffällig', strpos(implode(' ', $byName['Sensor A']['reasons']), 'schneller') === false && strpos(implode(' ', $byName['Sensor C']['reasons']), 'schneller') === false);
+check('Auffälligkeit: Dringlichkeit 450, zählt unter „Daten prüfen“, taucht in der Statistik auf', $byName['Sensor D']['urgency'] === 450 && $mp->GetValue('Check') >= 1 && strpos($mp->GetValue('TableStats'), 'Auffälliges Gerät') !== false && strpos($mp->GetValue('TableStats'), 'Sensor D') !== false);
+
+// Abfrage schlafender Geräte
+function pollWorld(int $ageDays, bool $pollOn, string $module = 'Z-Wave Module', bool $zwOk = true): BWTest
+{
+    $GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Sensoren');
+    $now = $GLOBALS['CLOCK'];
+    mkinst(301, 'Schläfer', $module, 900);
+    mkvar(3011, 301, 'BatteryVariable', 'Batterie', 1, 82, $now - $ageDays * 86400, '~Battery.100');
+    mkvar(3012, 301, 'SensorMultilevel01Variable', 'Temperatur', 2, 20.0, $now - 600);
+    $GLOBALS['ZW'] = []; $GLOBALS['ZW_OK'] = $zwOk; $GLOBALS['INSTS'] = [];
+    $m = new BWTest(); $m->Create();
+    $m->props['DeviceSettings'] = json_encode([['Instance' => 301, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => $pollOn]]);
+    $m->ApplyChanges();
+    return $m;
+}
+clock('2026-10-08 12:00');
+$mq = pollWorld(30, true);
+check('Abfrage: Batteriewert 30 Tage alt (Schwelle 14), Gerät eingeschaltet → eine Statusanfrage an die Instanz', $GLOBALS['ZW'] === [301], json_encode($GLOBALS['ZW']));
+$ps = json_decode($mq->GetValue('Poll'), true);
+check('Abfrage: Zeitpunkt wird festgehalten, Antwort noch offen', isset($ps['301']) && $ps['301']['ans'] === null && $ps['301']['t'] === $GLOBALS['CLOCK']);
+$pl = json_decode(end($mq->visUpdates), true);
+check('Kachel meldet „Antwort steht noch aus“ samt Hinweis auf schlafende Geräte', strpos($pl['devices'][0]['pollText'], 'gesendet, Antwort steht noch aus (schlafende Geräte antworten erst beim Aufwachen)') !== false, $pl['devices'][0]['pollText']);
+$GLOBALS['ZW'] = []; shiftWorld(3 * 86400); $mq->Check();
+check('Nicht erneut innerhalb von 7 Tagen (Warteschlange der Z-Wave-Instanz nicht füllen)', $GLOBALS['ZW'] === []);
+$GLOBALS['OBJ'][3011]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 3600; $mq->Check();
+check('Gerät meldet sich nach der Anfrage: „hat geantwortet“', strpos(json_decode(end($mq->visUpdates), true)['devices'][0]['pollText'], 'Gerät hat geantwortet') !== false && json_decode($mq->GetValue('Poll'), true)['301']['ans'] === true);
+$mr = pollWorld(30, true);
+shiftWorld(15 * 86400); $GLOBALS['OBJ'][3011]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 45 * 86400; $GLOBALS['ZW'] = []; $mr->Check();
+$pl = json_decode(end($mr->visUpdates), true); $dd = $pl['devices'][0];
+check('Keine Antwort nach 14 Tagen: Befund „Reagiert nicht auf Abfragen“, Dringlichkeit 400', strpos(implode(' ', $dd['reasons']), 'Reagiert nicht auf Abfragen (seit ') !== false && $dd['urgency'] >= 400 && in_array('keine_antwort', $dd['quality'], true), json_encode($dd['reasons'], JSON_UNESCAPED_UNICODE));
+check('…und nach 7+ Tagen eine neue Anfrage (Gerät lebt vielleicht doch); der Befund „ohne Antwort“ bleibt dabei sichtbar', $GLOBALS['ZW'] === [301] && strpos($dd['pollText'], 'Abfragen seit') === 0, $dd['pollText']);
+$mo = pollWorld(30, false);
+check('Abfrage ausgeschaltet (Standard): nie eine Anfrage', $GLOBALS['ZW'] === []);
+$mf = pollWorld(5, true);
+check('Batteriewert nur 5 Tage alt (unter 14): keine Anfrage', $GLOBALS['ZW'] === []);
+$mz = pollWorld(30, true, 'ShellyDevice');
+check('Anderes System als Z-Wave: keine Anfrage (nur dort ist die Funktion belegt)', $GLOBALS['ZW'] === []);
+$GLOBALS['LOG'] = [];
+$mg = pollWorld(30, true, 'Z-Wave Module', false); $GLOBALS['ZW_OK'] = true;
+check('Nicht angenommene Anfrage: kein Zustand, Meldungslog nennt es', (json_decode($mg->GetValue('Poll'), true) ?: []) === [] && (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'wurde nicht angenommen') !== false; }));
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

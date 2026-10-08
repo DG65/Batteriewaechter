@@ -338,6 +338,103 @@ final class BWACHPrognose
     }
 
     // =====================================================================
+    //  Vergleich mit Gleichartigen
+    // =====================================================================
+
+    /**
+     * Findet Geräte, die deutlich schneller entladen als vergleichbare (gleiches System, gleicher Zelltyp).
+     * Eine Gruppe braucht mindestens $minGroup Geräte mit bekannter Entladerate, sonst wäre der Median Zufall.
+     *
+     * @param array $rates key => ['rate'=>float (Prozentpunkte/Tag, positiv = Entladung), 'group'=>string]
+     * @return array key => ['rate','median','factor','n','group']
+     */
+    public static function peerOutliers(array $rates, int $minGroup = 4, float $factor = 2.0, float $minRate = 0.05): array
+    {
+        $groups = [];
+        foreach ($rates as $key => $r) {
+            if ($r['rate'] > 0) {
+                $groups[$r['group']][$key] = $r['rate'];
+            }
+        }
+        $out = [];
+        foreach ($groups as $g => $members) {
+            if (count($members) < $minGroup) {
+                continue;
+            }
+            $med = self::median(array_values($members));
+            if ($med <= 0) {
+                continue;
+            }
+            foreach ($members as $key => $rate) {
+                if ($rate >= $factor * $med && $rate >= $minRate) {
+                    $out[$key] = ['rate' => round($rate, 3), 'median' => round($med, 3), 'factor' => round($rate / $med, 1), 'n' => count($members), 'group' => $g];
+                }
+            }
+        }
+        return $out;
+    }
+
+    // =====================================================================
+    //  Kälteeinfluss
+    // =====================================================================
+
+    public const COLD_MIN_INTERVALS = 3;   // je Gerät und Seite (kalt/warm)
+    public const COLD_MIN_DEVICES   = 3;
+
+    /**
+     * Entladen sich die Batterien bei Kälte schneller? Aus den Verläufen mit Außentemperatur: je Zeitabschnitt
+     * zwischen zwei Messpunkten (mindestens 2 Tage) die Entladerate, nach mittlerer Außentemperatur in kalt und
+     * warm getrennt. Ein Gerät zählt nur, wenn beide Seiten genug Abschnitte haben; das Ergebnis nur, wenn
+     * genug Geräte beitragen. Sonst heißt es ehrlich „noch nicht genug Daten“.
+     *
+     * @param array $histories key => Verlauf [[t,pct,temp],…]
+     * @return array ['ok'=>bool,'factor'=>float|null,'devices'=>int,'cold'=>int,'warm'=>int,'below'=>float,'text'=>string]
+     */
+    public static function coldEffect(array $histories, float $below = 5.0, int $jump = 25): array
+    {
+        $ratios = [];
+        $nCold = 0;
+        $nWarm = 0;
+        foreach ($histories as $series) {
+            $cold = [];
+            $warm = [];
+            for ($i = 1; $i < count($series); $i++) {
+                [$t0, $p0, $c0] = $series[$i - 1];
+                [$t1, $p1, $c1] = $series[$i];
+                if ($c0 === null || $c1 === null || $t1 - $t0 < 2 * 86400 || $p1 - $p0 >= $jump) {
+                    continue;
+                }
+                $rate = max(0.0, ($p0 - $p1) / (($t1 - $t0) / 86400));
+                if (($c0 + $c1) / 2 < $below) {
+                    $cold[] = $rate;
+                } else {
+                    $warm[] = $rate;
+                }
+            }
+            if (count($cold) >= self::COLD_MIN_INTERVALS && count($warm) >= self::COLD_MIN_INTERVALS) {
+                $mw = self::median($warm);
+                if ($mw > 0) {
+                    $ratios[] = self::median($cold) / $mw;
+                    $nCold += count($cold);
+                    $nWarm += count($warm);
+                }
+            }
+        }
+        $base = ['ok' => false, 'factor' => null, 'devices' => count($ratios), 'cold' => $nCold, 'warm' => $nWarm, 'below' => $below, 'text' => ''];
+        if (count($ratios) < self::COLD_MIN_DEVICES) {
+            $base['text'] = 'Kälteeinfluss: noch nicht genug Daten (nötig: mindestens ' . self::COLD_MIN_DEVICES . ' Geräte mit je ' . self::COLD_MIN_INTERVALS . ' Zeitabschnitten bei unter und über ' . BWACHLogik::num($below) . ' °C; bisher ' . count($ratios) . ')';
+            return $base;
+        }
+        $f = round(self::median($ratios), 1);
+        $base['ok'] = true;
+        $base['factor'] = $f;
+        $base['text'] = $f >= 1.2
+            ? 'Bei unter ' . BWACHLogik::num($below) . ' °C entladen sich die Batterien im Median ' . BWACHLogik::num($f) . '× schneller (aus ' . count($ratios) . ' Geräten, ' . $nCold . ' kalten und ' . $nWarm . ' warmen Zeitabschnitten)'
+            : 'Kein deutlicher Kälteeinfluss erkennbar (Faktor ' . BWACHLogik::num($f) . ', aus ' . count($ratios) . ' Geräten)';
+        return $base;
+    }
+
+    // =====================================================================
     //  Hilfen
     // =====================================================================
 

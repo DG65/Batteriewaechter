@@ -431,10 +431,92 @@ final class BWACHLogik
             if ($r['status'] === self::ST_LOW) { $s['low']++; }
             if ($r['funk'] === 'still') { $s['silent']++; }
             if ($r['status'] === self::ST_UNKNOWN) { $s['unknown']++; }
-            if (array_intersect(['widerspruch', 'unplausibel', 'veraltet'], $r['quality'])) { $s['check']++; }
+            if (array_intersect(['widerspruch', 'unplausibel', 'veraltet', 'auffaellig', 'zelltyp_passt_nicht', 'keine_antwort'], $r['quality'])) { $s['check']++; }
             if ($r['urgency'] === 0) { $s['ok']++; }
         }
         return $s;
+    }
+
+    // =====================================================================
+    //  Funkqualität
+    // =====================================================================
+
+    /** Erkennt Variablen, die Funkqualität oder Signalstärke eines Geräts tragen. */
+    public static function isSignalIdent(string $ident): bool
+    {
+        return (bool)preg_match('/^(linkquality|link_quality|lqi|rssi|signal(_?strength)?|wifi_signal|rf_signal)$/i', $ident);
+    }
+
+    /**
+     * Ordnet einen Funkwert ein. Die Skalen sind je System verschieden: Zigbee-linkquality 0–255, RSSI in dBm
+     * (negativ). Unbekannte Skalen werden nur angezeigt, nicht bewertet.
+     *
+     * @return array ['text'=>string,'level'=>'gut'|'mittel'|'schwach'|'']
+     */
+    public static function classifySignal(string $ident, float $value): array
+    {
+        $lc = mb_strtolower($ident);
+        if (in_array($lc, ['linkquality', 'link_quality', 'lqi'], true) && $value >= 0 && $value <= 255) {
+            $level = $value < 50 ? 'schwach' : ($value < 120 ? 'mittel' : 'gut');
+            return ['text' => 'Funkqualität ' . self::num($value) . ' von 255 (' . $level . ')', 'level' => $level];
+        }
+        if (($lc === 'rssi' || strpos($lc, 'signal') !== false || $lc === 'wifi_signal' || $lc === 'rf_signal') && $value < 0 && $value > -130) {
+            $level = $value >= -70 ? 'gut' : ($value >= -85 ? 'mittel' : 'schwach');
+            return ['text' => 'Signalstärke ' . self::num($value) . ' dBm (' . $level . ')', 'level' => $level];
+        }
+        return ['text' => 'Funksignal ' . self::num($value) . ' (' . $ident . ')', 'level' => ''];
+    }
+
+    // =====================================================================
+    //  Übernahme aus BY_BatterieMonitor
+    // =====================================================================
+
+    /**
+     * Liest die Einstellungen einer alten BY_BatterieMonitor-Instanz und sagt, was sich übernehmen lässt und
+     * was nicht. Es wird nichts geschrieben: das Formular füllt die Felder, der Nutzer bestätigt mit „Übernehmen“.
+     *
+     * @param array    $cfg            Konfiguration der alten Instanz
+     * @param callable $instanceExists fn(int):bool
+     * @return array ['fields'=>[Eigenschaft=>Wert], 'taken'=>string[], 'skipped'=>string[]]
+     */
+    public static function importOldConfig(array $cfg, callable $instanceExists): array
+    {
+        $fields  = [];
+        $taken   = [];
+        $skipped = [];
+
+        $push = !empty($cfg['PushMsgAktiv']);
+        $mail = !empty($cfg['EMailMsgAktiv']);
+        $fields['NotifyPush'] = $push;
+        $taken[] = 'Push: ' . ($push ? 'an' : 'aus');
+        $fields['NotifyMail'] = $mail;
+        $taken[] = 'E-Mail: ' . ($mail ? 'an' : 'aus');
+
+        $smtp = (int)($cfg['SmtpInstanceID'] ?? 0);
+        if ($smtp > 0 && $instanceExists($smtp)) {
+            $fields['MailInstance'] = $smtp;
+            $taken[] = 'SMTP-Instanz #' . $smtp;
+        } elseif ($smtp > 0) {
+            $skipped[] = 'SMTP-Instanz #' . $smtp . ' (gibt es nicht mehr)';
+        }
+        $wf = (int)($cfg['WebFrontInstanceID'] ?? 0);
+        if ($wf > 0 && $instanceExists($wf)) {
+            $fields['PushTargets'] = [['Instance' => $wf]];
+            $taken[] = 'Push-Ziel #' . $wf;
+        } elseif ($wf > 0) {
+            $skipped[] = 'WebFront-Instanz #' . $wf . ' (gibt es nicht mehr)';
+        }
+        if (!empty($cfg['BatterieBenachrichtigungCBOX']) && ($push || $mail)) {
+            $fields['NotificationsActive'] = true;
+            $taken[] = 'Meldungen aktiv';
+        }
+
+        $skipped[] = 'Meldungstext, Farben, Schriftgröße und Spaltenbezeichnungen (der Wächter formuliert seine Meldungen selbst und zeigt eine eigene Kachel und Tabellen)';
+        $skipped[] = 'Prüfintervall ' . (int)($cfg['Intervall'] ?? 0) . ' s (der Wächter bewertet jede Batteriemeldung sofort und prüft zusätzlich stündlich)';
+        if (!empty($cfg['EigenesSkriptAktiv'])) {
+            $skipped[] = 'eigenes Skript #' . (int)($cfg['EigenesSkriptID'] ?? 0) . ' (der Wächter ruft keine fremden Skripte auf)';
+        }
+        return ['fields' => $fields, 'taken' => $taken, 'skipped' => $skipped];
     }
 
     // =====================================================================
