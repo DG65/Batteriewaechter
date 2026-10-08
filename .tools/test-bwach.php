@@ -46,7 +46,7 @@ function IPS_GetKernelRunlevel(): int { return KR_READY; }
 function IPS_GetVariableList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 2) { $o[] = $id; } } return $o; }
 function IPS_GetObject(int $id): array { $x = $GLOBALS['OBJ'][$id]; return ['ObjectType' => $x['type'], 'ParentID' => $x['parent'], 'ObjectIdent' => $x['ident'], 'ObjectName' => $x['name']]; }
 function IPS_GetVariable(int $id): array { $v = $GLOBALS['OBJ'][$id]['var']; unset($v['value']); return $v; }
-function IPS_GetInstance(int $id): array { return ['ModuleInfo' => ['ModuleName' => $GLOBALS['OBJ'][$id]['module']], 'InstanceStatus' => 102]; }
+function IPS_GetInstance(int $id): array { return ['ModuleInfo' => ['ModuleName' => $GLOBALS['OBJ'][$id]['module'], 'ModuleID' => 'GUID-' . $GLOBALS['OBJ'][$id]['module']], 'InstanceStatus' => 102]; }
 function IPS_GetInstanceList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 1) { $o[] = $id; } } return $o; }
 function IPS_GetConfiguration(int $id): string { return json_encode($GLOBALS['OBJ'][$id]['config'] ?? []); }
 function IPS_InstanceExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 1; }
@@ -160,7 +160,7 @@ check('HomeMatic OPERATING_VOLTAGE → Spannung (Dokumentation)', kindOf(det('OP
 check('Zigbee2MQTT battery_low → Flag', kindOf(det('battery_low', 'x', 0)) === 'flag/ident');
 check('Zigbee2MQTT battery (Integer) → Prozent', kindOf(det('battery', 'x', 1)) === 'percent/ident');
 $matter = det('BatPercentRemaining', 'x', 1);
-check('Matter BatPercentRemaining: Halbprozent-Skala und „ungetestet“ markiert', $matter !== null && $matter['scale'] === 0.5 && $matter['unverified'] === true);
+check('Matter BatPercentRemaining: Halbprozent-Skala, live bestätigt (nicht mehr „ungetestet“)', $matter !== null && $matter['scale'] === 0.5 && $matter['unverified'] === false);
 check('Froggit-Ident soilbatt1 nur über Profil', det('soilbatt1', 'Batterie Bodenfeuchtesensor', 1) === null && kindOf(det('soilbatt1', 'x', 1, '~Battery.100')) === 'percent/profil');
 check('Name „Batterie schwach“ → nur Namensvorschlag', kindOf(det('foo', 'Batterie schwach', 0)) === 'flag/name');
 check('Name „Batteriestand“ → Prozent (Name)', kindOf(det('foo', 'Batteriestand', 1)) === 'percent/name');
@@ -466,7 +466,7 @@ $GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter');
 mkinst(120, 'Matter Sensor', 'Matter Device', 0);
 mkvar(1201, 120, 'BatPercentRemaining', 'Batterie', 1, 150, $GLOBALS['CLOCK'] - 60);
 $m7 = new BWTest(); $m7->Create(); $m7->ApplyChanges();
-check('Trockenlauf kennzeichnet Dokumentations-Signale als ungetestet (Matter-Skala)', strpos($m7->Preview(), 'laut Dokumentation, ungetestet') !== false);
+check('Trockenlauf: Matter-Prozentwert ist live bestätigt und nicht mehr als ungetestet gekennzeichnet', strpos($m7->Preview(), 'BatPercentRemaining') === false && strpos($m7->Preview(), 'ungetestet') === false);
 check('Matter 150 (Halbprozent) wird als 75 % bewertet', strpos($m7->GetValue('TableAll'), '75 %') !== false);
 
 // ===========================================================================
@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.5.3', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.6.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.5.3' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.6.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.5.3', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.6.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -1368,7 +1368,7 @@ check('Vergleich nur innerhalb desselben Systems: zwei Gruppen zu je 2 Geräten 
 
 // Matter: Batteriespannung in Millivolt
 check('Matter PowerSource_BatVoltage wird als Spannung erkannt (laut Dokumentation, ungetestet)', kindOf(det('PowerSource_BatVoltage', 'Batteriespannung', 1)) === 'voltage/ident');
-check('Matter PowerSource_BatPercentRemaining wird erkannt (Halbprozent, ungetestet)', ($mp = det('PowerSource_BatPercentRemaining', 'x', 1)) !== null && $mp['kind'] === 'percent' && $mp['scale'] === 0.5 && $mp['unverified'] === true);
+check('Matter PowerSource_BatPercentRemaining wird erkannt (Halbprozent)', ($mp = det('PowerSource_BatPercentRemaining', 'x', 1)) !== null && $mp['kind'] === 'percent' && $mp['scale'] === 0.5 && $mp['unverified'] === false);
 $GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Sensoren');
 mkinst(401, 'Matter Kontakt', 'Matter Device', 900);
 mkvar(4011, 401, 'BooleanState_State', 'Kontakt', 0, true, $GLOBALS['CLOCK'] - 60);
@@ -1376,6 +1376,34 @@ mkvar(4012, 401, 'PowerSource_BatVoltage', 'Batteriespannung', 1, 2950, $GLOBALS
 $GLOBALS['INSTS'] = []; $mm = new BWTest(); $mm->Create(); $mm->props['DeviceSettings'] = json_encode([['Instance' => 401, 'Group' => 'ereignis', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'cr2032', 'Cells' => 1, 'Poll' => false]]); $mm->ApplyChanges();
 $plm = json_decode(end($mm->visUpdates), true);
 check('Matter-Gerät mit 2950 mV und Zelltyp CR2032: 2,95 V → 95 % (nicht „2950 V“)', count($plm['devices']) === 1 && $plm['devices'][0]['derived'] === true && $plm['devices'][0]['percent'] == 95 && $plm['devices'][0]['status'] === 'ok', json_encode($plm['devices'][0], JSON_UNESCAPED_UNICODE));
+
+// Matter: Stromversorgung (Endpunkt 0) und Kontakt (Endpunkt 1) desselben Knotens sind ein Gerät
+check('Matter PowerSource_BatReplacementNeeded (Bool) → Flag „schwach“', kindOf(det('PowerSource_BatReplacementNeeded', 'Ersatz erforderlich', 0)) === 'flag/ident');
+check('Matter BatChargeLevel wird NICHT als Prozent gelesen (0 = OK, 1 = Warnung, 2 = kritisch)', det('PowerSource_BatChargeLevel', 'Ladezustand', 1) === null);
+check('Zelltyp aus Gerätebeschreibung: CR2032, CR123A, RCR123A, AAA, AA, 9V', array_map('BWACHZelle::fromDescription', ['CR2032', 'cr 123a', 'RCR123A', 'AAA', 'AA', '9V']) === ['cr2032', 'cr123a', 'rcr123a', 'aaa_alkali', 'aa_alkali', 'block9v']);
+check('Unbekannte Gerätebeschreibung ergibt keinen Zelltyp', BWACHZelle::fromDescription('Sonderzelle X') === null && BWACHZelle::fromDescription('') === null);
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Öffnungskontakte');
+mkinst(501, 'Badfenster Senkrecht', 'Matter Device', 900); $GLOBALS['OBJ'][501]['config'] = ['NodeId' => 14, 'EndpointId' => 1];
+mkvar(5011, 501, 'BooleanState_State', 'Kontakt', 0, true, $GLOBALS['CLOCK'] - 3600);
+mkinst(502, 'Badfenster Senkrecht Stromversorgung', 'Matter Device', 900); $GLOBALS['OBJ'][502]['config'] = ['NodeId' => 14, 'EndpointId' => 0];
+mkvar(5021, 502, 'PowerSource_BatPercentRemaining', 'Batteriestand', 1, 200, $GLOBALS['CLOCK'] - 20 * 86400);
+mkvar(5022, 502, 'PowerSource_BatReplacementNeeded', 'Ersatz erforderlich', 0, false, $GLOBALS['CLOCK'] - 20 * 86400);
+mkvar(5023, 502, 'PowerSource_BatReplacementDescription', 'Ersatz Beschreibung', 3, 'AAA', $GLOBALS['CLOCK'] - 20 * 86400);
+mkinst(503, 'Anderer Kontakt', 'Matter Device', 900); $GLOBALS['OBJ'][503]['config'] = ['NodeId' => 8, 'EndpointId' => 1];
+mkvar(5031, 503, 'BooleanState_State', 'Kontakt', 0, false, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 503]]; $mn = new BWTest(); $mn->Create(); $mn->ApplyChanges();
+$pln = json_decode(end($mn->visUpdates), true); $dn = $pln['devices'][0] ?? [];
+check('Matter-Knoten: genau ein Gerät, mit dem Namen des Kontakts (nicht „… Stromversorgung“)', count($pln['devices']) === 1 && $dn['name'] === 'Badfenster Senkrecht', json_encode($pln['devices'], JSON_UNESCAPED_UNICODE));
+check('Matter-Knoten: Batteriestand 200 (Halbprozent) = 100 %', ($dn['percent'] ?? null) == 100 && ($dn['status'] ?? '') === 'ok');
+check('Matter-Knoten: Lebenszeichen vom Kontakt (vor 1 Stunde), nicht vom 20 Tage alten Batteriewert', ($dn['lifeText'] ?? '') === 'vor 1 Stunde' && ($dn['funk'] ?? '') === 'aktiv', json_encode($dn, JSON_UNESCAPED_UNICODE));
+check('Matter-Knoten: Zelltyp „AAA“ vom Gerät übernommen, mit Hinweis auf die Bauform', strpos($dn['cellText'] ?? '', 'AAA') !== false && strpos($dn['cellText'] ?? '', 'laut Gerät') !== false && strpos($dn['cellText'], 'Alkali oder Akku') !== false, $dn['cellText'] ?? '');
+$GLOBALS['OBJ'][5022]['var']['value'] = true; $mn->Check(); $dn2 = json_decode(end($mn->visUpdates), true)['devices'][0];
+check('Matter „Ersatz erforderlich“ = Ja bei 100 %: Widerspruch erkannt', in_array('widerspruch', $dn2['quality'], true), json_encode($dn2, JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][5021]['var']['value'] = 8; $mn->Check(); $dn3 = json_decode(end($mn->visUpdates), true)['devices'][0];
+check('Matter 8 (= 4 %) und „Ersatz erforderlich“: Batterie leer', $dn3['status'] === 'leer' && abs($dn3['percent'] - 4) < 0.01, json_encode($dn3, JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5022]['var']['value'] = false;
+$mn->props['DeviceSettings'] = json_encode([['Instance' => 502, 'Group' => 'ereignis', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aaa_nimh', 'Cells' => 2, 'Poll' => false]]); $mn->ApplyChanges();
+check('Vom Nutzer gewählter Zelltyp hat Vorrang vor der Gerätebeschreibung', strpos(json_decode(end($mn->visUpdates), true)['devices'][0]['cellText'], '2× AAA Akku NiMH') === 0 && strpos(json_decode(end($mn->visUpdates), true)['devices'][0]['cellText'], 'laut Gerät') === false);
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

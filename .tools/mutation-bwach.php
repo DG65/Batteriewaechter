@@ -161,6 +161,13 @@ $mutations = [
     // --- 0.5.2: CR123A-Batterie und RCR123A-Akku
     ['BWACHZelle.php', "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 3 :", "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 1 :", 'Vorschlag nennt keine CR123A in Reihe'],
     ['BWACHZelle.php', "'shop' => 'RCR123A (Akku)',", "'shop' => 'CR123A',", 'RCR123A-Akku wird als CR123A eingekauft'],
+    ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
+    ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
+    ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],
+    ['module.php', "\$o !== null && \$o['node'] === \$m['node'] && \$o['endpoint'] > 0", "\$o !== null && \$o['endpoint'] > 0", 'Matter: Instanzen anderer Knoten gelten als zugehörig'],
+    ['module.php', "\$life = max(\$life, \$this->lifeSign(\$sb, true, []));", "\$life = \$life;", 'Matter: Lebenszeichen des Kontakts wird nicht berücksichtigt'],
+    ['module.php', "\$name = IPS_GetName(\$sibs ? \$sibs[0] : \$id);", "\$name = IPS_GetName(\$id);", 'Matter: Name der Stromversorgung statt des Geräts'],
+    ['module.php', "if (\$st['cell'] === BWACHZelle::UNKNOWN && \$cellHint !== '') {", "if (\$cellHint !== '') {", 'Gerätebeschreibung überschreibt den gewählten Zelltyp'],
     ['module.php', "\$sig['voltage'] = ['value' => \$volt > 100 ? \$volt / 1000 : \$volt, 'updated' => \$upd];", "\$sig['voltage'] = ['value' => \$volt, 'updated' => \$upd];", 'Millivolt werden als Volt gelesen'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],

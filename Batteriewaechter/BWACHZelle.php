@@ -48,6 +48,19 @@ final class BWACHZelle
             'curve' => [[4.20, 100], [4.10, 90], [3.95, 70], [3.80, 50], [3.70, 35], [3.60, 20], [3.50, 10], [3.30, 3], [3.00, 0]]],
     ];
 
+    /**
+     * Zelltyp aus der Ersatz-Beschreibung, die ein Gerät selbst meldet (Matter: „AAA“, „CR2032“).
+     * AA/AAA nennen nur die Bauform: es wird Alkali angenommen (für Einkauf und Anzeige gleich, die
+     * Entladekurve wird bei diesen Geräten nicht gebraucht, weil sie einen Prozentwert melden).
+     */
+    public static function fromDescription(string $text): ?string
+    {
+        $t = strtoupper((string)preg_replace('/[\s\-_.]+/', '', $text));
+        $map = ['CR2032' => 'cr2032', 'CR2450' => 'cr2450', 'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a', '16340' => 'rcr123a',
+            'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali', '9V' => 'block9v', '6LR61' => 'block9v'];
+        return $map[$t] ?? null;
+    }
+
     /** Auswahlliste fürs Formular. */
     public static function options(): array
     {

@@ -41,7 +41,7 @@
 - Die **Prognose** braucht Wochen Verlauf und Geräte, die den Ladezustand fein genug melden. Z-Wave-Sensoren, die bis kurz vor leer „100 %“ zeigen, bekommen keine; dort hilft nur „leer/schwach“ und die Funkstille-Erkennung.
 - **Lebensdauer, Kälteeinfluss und der Gleichartigen-Vergleich** brauchen Daten, die erst über Monate entstehen. Im Prüfstand sind sie mit simulierten Verläufen belegt, nicht mit Langzeitdaten echter Geräte.
 - Eine **Zelltyp-Bibliothek nach Gerätemodell** gibt es bewusst nicht: Ohne eine belastbare, gepflegte Quelle würde sie Modelle raten. Der Wächter nennt Kandidaten aus der Spannung, der Zelltyp wird je Gerät von Hand gewählt.
-- Zigbee2MQTT, Matter und HomeMatic sind nach Dokumentation angebunden, aber nicht an echten Batteriegeräten geprüft.
+- Zigbee2MQTT und HomeMatic sind nach Dokumentation angebunden, aber nicht an echten Batteriegeräten geprüft. Matter ist an einem Gerät geprüft (IKEA-Öffnungskontakt: Batteriestand, „Ersatz erforderlich“, Ersatz-Beschreibung); die Batteriespannung über Matter wurde noch an keinem Gerät gesehen. Matter-Batterien stehen in einer eigenen Instanz für den Endpunkt 0 (Stromversorgung), die man im Matter Konfigurator anlegt.
 
 ## Kachel
 
@@ -68,7 +68,7 @@ Unter „✅ Quittieren und Batterietagebuch“ Gerät und Aktion wählen: **Hab
 |---|---|---|
 | Z-Wave (`BatteryVariable`, `BatteryLowVariable`), Symcon-Profile `~Battery*` | Profil, Ident | an einer echten Anlage geprüft |
 | CometWiFi, Shelly (Prozent und Spannung), Froggit, Botvac | Profil, Ident | an einer echten Anlage geprüft |
-| Zigbee2MQTT (`battery`, `battery_low`), HomeMatic (`LOWBAT`, `LOW_BAT`, `OPERATING_VOLTAGE`), Matter (`BatPercentRemaining`, Halbprozent) | Ident | **nach Dokumentation, nicht an echtem Gerät geprüft** — Rückmeldungen willkommen |
+| Zigbee2MQTT (`battery`, `battery_low`), HomeMatic (`LOWBAT`, `LOW_BAT`, `OPERATING_VOLTAGE`), Matter (`BatPercentRemaining`, Halbprozent; `BatReplacementNeeded`) | Ident | Zigbee2MQTT und HomeMatic **nach Dokumentation, nicht an echtem Gerät geprüft**; Matter-Batteriestand und „Ersatz erforderlich“ an einem IKEA-Kontakt gesehen — Rückmeldungen willkommen |
 
 Spannungswerte werden angezeigt, aber noch nicht in Prozent umgerechnet (die Auswertung nach Zelltyp ist für eine spätere Version vorgesehen), weil die Spannung allein den Zelltyp nicht verrät.
 

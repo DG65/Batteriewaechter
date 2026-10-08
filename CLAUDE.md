@@ -8,5 +8,5 @@ Konventionen: `/Users/dietmar/Nextcloud/Claude/TOOLKIT.md` und `SUITE.md` (Formu
 - Branch-Strategie: nur `beta`; `main` erst nach Live-Bewährung (Dietmar entscheidet).
 - Alle JSON-Dateien UTF-8 ohne BOM (Lehre aus BY_BatterieMonitor); der Prüfstand prüft das.
 - Standardwerte nie aus Dietmars Anlage ableiten; Hersteller nur als „z. B.“.
-- Nicht live gesehen (nur Dokumentation): Zigbee2MQTT-/Matter-/HomeMatic-Batterien. Nie als geprüft ausgeben.
+- Nicht live gesehen (nur Dokumentation): Zigbee2MQTT-/HomeMatic-Batterien und Matter-Batteriespannung. Matter-Batteriestand, „Ersatz erforderlich“ und Ersatz-Beschreibung sind an einem IKEA-Kontakt (Knoten 14, 08.10.2026) gesehen. Nie als geprüft ausgeben, was nicht gesehen wurde.
 - Keine Verträge zu anderen Modulen (Dietmar, 07.10.2026: keine Verbindung zu WarnHub/Dashboard/EMS). `BWACH_GetState` nur bei konkretem Bedarf.

@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.6.0] - 2026-10-08
+
+### Added
+- **Matter-Stromversorgung (Endpunkt 0):** Instanzen mit `PowerSource_BatPercentRemaining` (Halbprozent), `PowerSource_BatReplacementNeeded` (Warnsignal „Batterie ersetzen“) und `PowerSource_BatReplacementDescription` werden erkannt. Live an einem IKEA-Öffnungskontakt gesehen (Knoten 14: Rohwert 200 = 100 %, Beschreibung „AAA“). `PowerSource_BatChargeLevel` (0 = OK, 1 = Warnung, 2 = kritisch) wird bewusst nicht gelesen, weil es denselben Zustand grob wiederholt.
+- **Zusammenfassung je Knoten:** Die Stromversorgungs-Instanz und die Funktionsinstanz (Kontakt, Endpunkt 1) desselben Matter-Knotens sind ein Gerät. Name und Ort kommen vom Funktionsendpunkt, als Lebenszeichen zählt auch dessen letzte Meldung (ein Kontakt meldet bei jedem Öffnen, die Stromversorgung selten).
+- **Zelltyp vom Gerät:** Meldet das Gerät eine Ersatz-Beschreibung (CR2032, CR2450, CR123A, RCR123A, 16340, AA, AAA, 9V) und ist in den Geräte-Einstellungen kein Zelltyp gewählt, gilt diese. Ein gewählter Zelltyp hat immer Vorrang. Bei AA/AAA ist nur die Bauform bekannt (Alkali angenommen), die Kachel sagt das.
+
+### Changed
+- Der Matter-Batteriestand gilt nicht mehr als „laut Dokumentation, ungetestet“.
+
 ## [0.5.3] - 2026-10-08
 
 ### Fixed

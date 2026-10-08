@@ -100,11 +100,15 @@ final class BWACHLogik
             if (preg_match('/(^|_)battery_?ok($|_)/i', $ident)) {
                 return self::sig(self::KIND_FLAG_REV, self::BASIS_IDENT);
             }
+            // Matter, Cluster Stromversorgung (Power Source): das Gerät meldet selbst „Batterie ersetzen“
+            if (preg_match('/(^|_)batreplacementneeded$/i', $ident)) {
+                return self::sig(self::KIND_FLAG, self::BASIS_IDENT);
+            }
         }
         if ($type === self::T_INT || $type === self::T_FLOAT) {
             if (preg_match('/batpercentremaining/i', $ident)) {
-                // Matter: Halbprozent-Skala (0–200). Aus der Spezifikation, bei Dietmar nicht live gesehen.
-                return self::sig(self::KIND_PERCENT, self::BASIS_IDENT, 0.5, true);
+                // Matter: Halbprozent-Skala (0–200); live bestätigt (Rohwert 200 = 100 %, Symcon rechnet nur die Anzeige um)
+                return self::sig(self::KIND_PERCENT, self::BASIS_IDENT, 0.5);
             }
             if (preg_match('/^(battery|bat|batt)(_?(percent(age)?|level|variable|status))?$/i', $ident)
                 || preg_match('/battery_?percent(age)?$/i', $ident)) {
@@ -204,6 +208,9 @@ final class BWACHLogik
                     'module'  => (string)($v['moduleName'] ?? ''),
                     'signals' => [],
                 ];
+                if (($v['node'] ?? '') !== '') {
+                    $devices[$key]['node'] = (string)$v['node'];   // Matter: Knoten, zu dem die Instanz gehört
+                }
             }
             $kind = $s['kind'];
             $devices[$key]['signals'][$kind][] = ['vid' => $vid, 'basis' => $s['basis'], 'scale' => $s['scale'], 'unverified' => $s['unverified'], 'label' => $name];
@@ -238,7 +245,7 @@ final class BWACHLogik
                         'module'  => $d['module'],
                         'parent'  => (int)$key,
                         'signals' => [$kind => [$sg]],
-                    ];
+                    ] + (isset($d['node']) ? ['node' => $d['node']] : []);
                 }
                 unset($devices[$key]['signals'][$kind]);
             }

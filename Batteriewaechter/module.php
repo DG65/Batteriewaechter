@@ -42,6 +42,12 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.6.0' => [
+            '• Matter: Die Batterie eines Matter-Geräts steht in einer eigenen Instanz für die „Stromversorgung“ (Endpunkt 0), die man im Matter Konfigurator anlegt. Der Wächter erkennt sie, fasst sie mit dem Kontakt desselben Knotens zu einem Gerät zusammen und nimmt dessen Namen.',
+            '• Als Lebenszeichen zählt bei Matter auch der Kontakt: Er meldet bei jedem Öffnen, die Stromversorgung nur selten. Ein Fensterkontakt gilt so nicht mehr fälschlich als still.',
+            '• „Ersatz erforderlich“ des Geräts wird als Warnsignal ausgewertet. Meldet das Gerät eine Ersatz-Beschreibung („AAA“, „CR2032“ …) und ist kein Zelltyp gewählt, übernimmt der Wächter sie; bei AA/AAA steht dabei, dass nur die Bauform bekannt ist.',
+            '• Der Matter-Batteriestand (Halbprozent-Skala) ist an einem Gerät bestätigt und nicht mehr als „ungetestet“ gekennzeichnet.',
+        ],
         '0.5.3' => [
             '• Batteriespannungen über 100 V (Matter meldet Millivolt, z. B. 3000) werden als Millivolt gelesen und nicht als „3000 V“ angezeigt.',
         ],
@@ -593,6 +599,21 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Daten für die Kachel. Alle Texte kommen fertig formuliert, die Kachel setzt nur noch zusammen. */
+    /** Zelltyp für die Kachel; kommt er vom Gerät (Matter), steht das dabei. */
+    private function cellText(array $row): string
+    {
+        if (!BWACHZelle::isKnown($row['cell'])) {
+            return $row['cellHint'] !== '' ? 'Gerät nennt als Ersatz: ' . $row['cellHint'] . ' (Zelltyp nicht eindeutig, bitte unter „Geräte-Einstellungen“ wählen)' : '';
+        }
+        $text = ($row['cells'] > 1 ? $row['cells'] . '× ' : '') . BWACHZelle::label($row['cell']);
+        if (!$row['cellAuto']) {
+            return $text;
+        }
+        // AA/AAA nennen nur die Bauform, ob Alkali oder Akku, weiß das Gerät nicht
+        $form = in_array($row['cell'], ['aa_alkali', 'aaa_alkali'], true);
+        return $text . ' — laut Gerät („' . $row['cellHint'] . '“)' . ($form ? ', nur die Bauform: ob Alkali oder Akku, ist unbekannt' : '');
+    }
+
     private function tilePayload(array $rows, array $sum, int $now, array $notes, ?array $views = null): string
     {
         $devices = [];
@@ -618,7 +639,7 @@ class Batteriewaechter extends IPSModule
                 'note'         => $notes[$row['id']] ?? '',
                 'soon'         => !empty($r['soon']),
                 'forecastText' => $r['percent'] === null ? '' : BWACHPrognose::forecastText($row['forecast']),
-                'cellText'     => BWACHZelle::isKnown($row['cell']) ? ($row['cells'] > 1 ? $row['cells'] . '× ' : '') . BWACHZelle::label($row['cell']) : '',
+                'cellText'     => $this->cellText($row),
                 'derived'      => !empty($r['derived']),
                 'signalText'   => $row['signal']['text'] ?? '',
                 'pollText'     => $row['poll'],
@@ -1089,6 +1110,7 @@ class Batteriewaechter extends IPSModule
                 'parentIsInstance' => $inst !== null,
                 'moduleName'       => $inst['module'] ?? '',
                 'instanceName'     => $inst['name'] ?? '',
+                'node'             => $inst['node'] ?? '',
             ];
         }
         return $out;
@@ -1099,8 +1121,62 @@ class Batteriewaechter extends IPSModule
         if ($parent <= 0 || !IPS_InstanceExists($parent)) {
             return null;
         }
-        $i = IPS_GetInstance($parent);
-        return ['module' => (string)($i['ModuleInfo']['ModuleName'] ?? ''), 'name' => IPS_GetName($parent)];
+        $i    = IPS_GetInstance($parent);
+        $info = ['module' => (string)($i['ModuleInfo']['ModuleName'] ?? ''), 'name' => IPS_GetName($parent)];
+        $m    = $this->matterNode($parent, $info['module']);
+        if ($m !== null) {
+            $info['node'] = $m['node'];
+        }
+        return $info;
+    }
+
+    /**
+     * Matter: Knoten und Endpunkt einer Matter-Gerät-Instanz. Ein Matter-Gerät besteht aus mehreren Instanzen
+     * (je Endpunkt eine): der Kontakt liegt auf Endpunkt 1, die Batterie (Stromversorgung) auf Endpunkt 0.
+     *
+     * @return array|null ['node'=>string,'endpoint'=>int]
+     */
+    private function matterNode(int $inst, ?string $module = null): ?array
+    {
+        $module = $module ?? (string)(IPS_GetInstance($inst)['ModuleInfo']['ModuleName'] ?? '');
+        if ($module !== 'Matter Device') {
+            return null;
+        }
+        $cfg = json_decode((string)IPS_GetConfiguration($inst), true);
+        if (!is_array($cfg) || !isset($cfg['NodeId'])) {
+            return null;
+        }
+        return ['node' => (string)$cfg['NodeId'], 'endpoint' => (int)($cfg['EndpointId'] ?? 0)];
+    }
+
+    /** Die übrigen Instanzen desselben Matter-Knotens (ohne Endpunkt 0), nach Endpunkt sortiert. */
+    private function matterSiblings(int $inst): array
+    {
+        $m = $this->matterNode($inst);
+        if ($m === null) {
+            return [];
+        }
+        $guid = (string)(IPS_GetInstance($inst)['ModuleInfo']['ModuleID'] ?? '');
+        $out  = [];
+        foreach ($guid !== '' ? IPS_GetInstanceListByModuleID($guid) : [] as $other) {
+            $o = (int)$other === $inst ? null : $this->matterNode((int)$other);
+            if ($o !== null && $o['node'] === $m['node'] && $o['endpoint'] > 0) {
+                $out[(int)$other] = $o['endpoint'];
+            }
+        }
+        asort($out);
+        return array_keys($out);
+    }
+
+    /** Text der Variable „Ersatz Beschreibung“ (Matter, z. B. „AAA“) einer Instanz, sonst leer. */
+    private function replacementText(int $inst): string
+    {
+        foreach (IPS_GetChildrenIDs($inst) as $c) {
+            if ((string)(IPS_GetObject($c)['ObjectIdent'] ?? '') === 'PowerSource_BatReplacementDescription' && IPS_VariableExists($c)) {
+                return trim((string)GetValue($c));
+            }
+        }
+        return '';
     }
 
     /**
@@ -1208,6 +1284,22 @@ class Batteriewaechter extends IPSModule
             $isInstance = IPS_InstanceExists($id);
             $sig  = $this->readSignals($d['signals']);
             $life = $this->lifeSign($id, $isInstance, $d['signals']);
+            // Matter: Batterie (Endpunkt 0) und Kontakt (Endpunkt 1) sind ein Gerät. Name und Lebenszeichen
+            // kommen vom Funktionsendpunkt: die Stromversorgung meldet sich selten, der Kontakt bei jedem Öffnen.
+            $sibs = ($isInstance && isset($d['node'])) ? $this->matterSiblings($id) : [];
+            foreach ($sibs as $sb) {
+                $life = max($life, $this->lifeSign($sb, true, []));
+            }
+            // Zelltyp: was der Nutzer gewählt hat; sonst, was das Gerät selbst als Ersatz nennt
+            $cellHint = $isInstance ? $this->replacementText($id) : '';
+            $cellAuto = false;
+            if ($st['cell'] === BWACHZelle::UNKNOWN && $cellHint !== '') {
+                $auto = BWACHZelle::fromDescription($cellHint);
+                if ($auto !== null) {
+                    $st['cell'] = $auto;
+                    $cellAuto   = true;
+                }
+            }
 
             $defaultStill = ($st['group'] === BWACHLogik::GROUP_EVENT ? $this->ReadPropertyInteger('StillDaysEvent') : $this->ReadPropertyInteger('StillDays')) * 86400;
             $stillSec = $learn ? BWACHPrognose::learnedThreshold($lifeObs[(string)$key] ?? [], $defaultStill) : $defaultStill;
@@ -1228,7 +1320,7 @@ class Batteriewaechter extends IPSModule
             ]);
             $name = (string)$d['name'];
             if ($isInstance) {
-                $name = IPS_GetName($id);
+                $name = IPS_GetName($sibs ? $sibs[0] : $id);
                 if (isset($d['parent'])) {
                     $first = null;
                     foreach ($d['signals'] as $list) {
@@ -1272,6 +1364,7 @@ class Batteriewaechter extends IPSModule
             }
             $rows[] = ['id' => (string)$key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r,
                 'forecast' => $f, 'cell' => $st['cell'], 'cells' => $st['cells'], 'life' => $life, 'inst' => $id, 'poll' => $pollText,
+                'cellHint' => $cellHint, 'cellAuto' => $cellAuto,
                 'signal' => $isInstance ? $this->signalInfo($id) : null, 'pollOn' => $st['poll']];
         }
         $this->applyPeers($rows);
