@@ -54,6 +54,14 @@ function IPS_GetParent(int $id): int { return $GLOBALS['OBJ'][$id]['parent'] ?? 
 function IPS_GetChildrenIDs(int $p): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['parent'] === $p) { $o[] = $id; } } return $o; }
 function GetValue($id) { return $GLOBALS['OBJ'][(int)$id]['var']['value']; }
 function IPS_GetObjectIDByIdent(string $ident, int $parent) { foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['ident'] === $ident && $x['parent'] === $parent) { return $id; } } return false; }
+$GLOBALS['INSTS'] = []; $GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = true; $GLOBALS['LOG'] = [];
+function IPS_SetHidden(int $id, bool $h): bool { $GLOBALS['OBJ'][$id]['hidden'] = $h; return true; }
+function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INSTS'][$g] ?? []; }
+function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
+function VISU_PostNotificationEx($id, $t, $x, $icon, $sound, $target) { $GLOBALS['SENT'][] = ['visu', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
+function WFC_PushNotification($id, $t, $x, $sound, $target) { $GLOBALS['SENT'][] = ['wfc', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
+function SMTP_SendMailEx($id, $to, $subj, $body) { $GLOBALS['SENT'][] = ['mailex', $id, $subj, $body, $to]; return $GLOBALS['SEND_OK']; }
+function SMTP_SendMail($id, $subj, $text) { $GLOBALS['SENT'][] = ['mail', $id, $subj, $text]; return $GLOBALS['SEND_OK']; }
 function IPS_GetLibrary(string $guid): array { $lib = json_decode(file_get_contents($GLOBALS['ROOT'] . '/library.json'), true); return ['Version' => $lib['version'] . '-beta.1', 'Build' => (int)$lib['build']]; }
 
 class IPSModule
@@ -458,7 +466,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.1.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.2.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -482,16 +490,18 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.1.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.2.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.1.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.2.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
-check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 7);
+check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 9);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
     foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save'])) { return false; } } } } }
     return true;
 })());
-check('Keine Anglizismen-Fehler: „Dashboard“, „Alert“, „Warning“ fehlen in sichtbaren Formulartexten', !preg_match('/(Warning|Alert|Notification)/', $json));
+$captions = [];
+array_walk_recursive($form, function ($v, $k) use (&$captions) { if ($k === 'caption' && is_string($v)) { $captions[] = $v; } });
+check('Keine vermeidbaren Anglizismen in sichtbaren Formulartexten (Warning, Alert, Notification, Dashboard)', !preg_match('/(Warning|Alert|Notification|Dashboard)/', implode(' ', $captions)));
 
 // Dateien
 $files = array_merge(glob($ROOT . '/*.json'), glob($MODDIR . '/*.json'));
@@ -509,8 +519,8 @@ check('library.json: nur erlaubte Schlüssel (id, author, name, url, compatibili
 check('Bibliotheksname „DG65 Toolkit Batteriewächter“ ohne Zusatz', $lib['name'] === 'DG65 Toolkit Batteriewächter');
 $mod = json_decode(file_get_contents($MODDIR . '/module.json'), true);
 check('module.json: Präfix BWACH, vendor leer, Bibliothek passt', $mod['prefix'] === 'BWACH' && $mod['vendor'] === '' && $mod['library'] === $lib['id']);
-$php = file_get_contents($MODDIR . '/module.php') . file_get_contents($MODDIR . '/BWACHLogik.php');
-check('Kein @ vor IPS-Schreibfunktionen und nur @IPS_GetLibrary erlaubt', preg_match_all('/@IPS_(?!GetLibrary)/', $php) === 0);
+$php = file_get_contents($MODDIR . '/module.php') . file_get_contents($MODDIR . '/BWACHLogik.php') . file_get_contents($MODDIR . '/BWACHMeldung.php');
+check('Kein @ vor IPS-Funktionen; erlaubt nur bei IPS_GetLibrary und IPS_GetObjectIDByIdent (erwartbarer Fehlschlag)', preg_match_all('/@IPS_(?!GetLibrary|GetObjectIDByIdent)/', $php) === 0);
 check('Kein count() auf Rückgaben ohne Array-Absicherung (Vorgänger-Fehler): count nur auf eigene Arrays', preg_match_all('/count\(\s*IPS_/', $php) === 0);
 check('Datumsausgabe nur TT.MM.JJJJ (kein Y-m-d in date())', preg_match('/date\(\s*\'Y-m-d/', $php) === 0);
 check('Keine PHP-Standardwerte an öffentlichen Funktionen (SUITE Stolperstein 8)', (function () use ($php) {
@@ -523,6 +533,287 @@ check('Alle öffentlichen Funktionen mit Parametern sind typisiert (SUITE Stolpe
     foreach ($mm[1] as $args) { if (trim($args) === '') { continue; } foreach (explode(',', $args) as $a) { if (!preg_match('/^\s*(int|string|bool|float|array)\s+\$/', $a) && strpos($a, '$') !== false && !preg_match('/\$(TimeStamp|SenderID|Message|Data|Ident|Value)\b/', $a)) { return false; } } }
     return true;
 })());
+
+
+// ===========================================================================
+heading('6 Meldungslogik (rein)');
+// ===========================================================================
+$base = ts('2026-10-07 10:00');   // Mittwoch, außerhalb der Ruhezeit
+$D = 86400;
+$P0 = ['remDays' => 7, 'critRemDays' => 2, 'escHours' => 24, 'clearHours' => 24, 'quiet' => false, 'ignoreQuiet' => true];
+$cur = function (array $items) { $o = []; foreach ($items as $k => [$pr, $crit]) { $o[$k] = ['probs' => $pr, 'critical' => $crit]; } return $o; };
+
+$r = BWACHMeldung::decide([], $cur(['a' => [['leer'], false]]), $base, $P0);
+check('Erster Befund → eine „neu“-Meldung', $r['events']['neu'] === ['a'] && $r['events']['erinnerung'] === []);
+$s = $r['state'];
+$r = BWACHMeldung::decide($s, $cur(['a' => [['leer'], false]]), $base + 3600, $P0);
+check('Zweite Prüfung kurz danach: keine Wiederholung', $r['events'] === ['neu' => [], 'erinnerung' => [], 'eskalation' => []]);
+$r = BWACHMeldung::decide($s, $cur(['a' => [['leer'], false]]), $base + 7 * $D - 1, $P0);
+check('Einen Tag vor Ablauf der 7 Tage: noch keine Erinnerung', $r['events']['erinnerung'] === []);
+$r = BWACHMeldung::decide($s, $cur(['a' => [['leer'], false]]), $base + 7 * $D, $P0);
+check('Nach genau 7 Tagen: Erinnerung', $r['events']['erinnerung'] === ['a']);
+$s2 = $r['state'];
+$r = BWACHMeldung::decide($s2, $cur(['a' => [['leer'], false]]), $base + 8 * $D, $P0);
+check('Nach der Erinnerung wieder Ruhe', $r['events']['erinnerung'] === []);
+// kritisch
+$r = BWACHMeldung::decide([], $cur(['k' => [['schwach'], true]]), $base, $P0); $sk = $r['state'];
+check('Kritisches Gerät: Erinnerung schon nach 2 Tagen', BWACHMeldung::decide($sk, $cur(['k' => [['schwach'], true]]), $base + 2 * $D, $P0)['events']['erinnerung'] === ['k']
+    && BWACHMeldung::decide($sk, $cur(['k' => [['schwach'], true]]), $base + 2 * $D - 1, $P0)['events']['erinnerung'] === []);
+// Eskalation
+$r = BWACHMeldung::decide($sk, $cur(['k' => [['schwach'], true]]), $base + 24 * 3600 - 1, $P0);
+check('Eskalation: vor 24 Stunden noch nicht', $r['events']['eskalation'] === []);
+$r = BWACHMeldung::decide($sk, $cur(['k' => [['schwach'], true]]), $base + 24 * 3600, $P0);
+check('Eskalation: nach 24 Stunden genau einmal', $r['events']['eskalation'] === ['k']);
+$r2 = BWACHMeldung::decide($r['state'], $cur(['k' => [['schwach'], true]]), $base + 25 * 3600, $P0);
+check('Eskalation wiederholt sich nicht', $r2['events']['eskalation'] === []);
+check('Nicht kritische Geräte eskalieren nie', BWACHMeldung::decide($s, $cur(['a' => [['leer'], false]]), $base + 30 * $D, $P0)['events']['eskalation'] === []);
+check('Eskalation 0 = aus', BWACHMeldung::decide($sk, $cur(['k' => [['schwach'], true]]), $base + 5 * 3600, array_merge($P0, ['escHours' => 0]))['events']['eskalation'] === []);
+// neuer, schlimmerer Befund
+$r = BWACHMeldung::decide($s, $cur(['a' => [['leer', 'still'], false]]), $base + 3600, $P0);
+check('Neuer Befund (zusätzlich „still“) ist wieder eine erste Meldung', $r['events']['neu'] === ['a']);
+$s3 = BWACHMeldung::decide([], $cur(['a' => [['leer', 'still'], false]]), $base, $P0)['state'];
+$r = BWACHMeldung::decide($s3, $cur(['a' => [['still'], false]]), $base + 3600, $P0);
+check('Befund wird kleiner (leer+still → still): keine neue Meldung', $r['events']['neu'] === []);
+// Ruhezeit
+$Q = array_merge($P0, ['quiet' => true]);
+$r = BWACHMeldung::decide([], $cur(['a' => [['leer'], false], 'k' => [['leer'], true]]), $base, $Q);
+check('Ruhezeit: normales Gerät wird zurückgehalten, kritisches durchbricht', $r['events']['neu'] === ['k']);
+$r2 = BWACHMeldung::decide($r['state'], $cur(['a' => [['leer'], false], 'k' => [['leer'], true]]), $base + 3600, $P0);
+check('Nach der Ruhezeit wird die zurückgehaltene Meldung nachgeholt (nur sie)', $r2['events']['neu'] === ['a']);
+$r = BWACHMeldung::decide([], $cur(['k' => [['leer'], true]]), $base, array_merge($Q, ['ignoreQuiet' => false]));
+check('Ruhezeit ohne Durchbruch-Erlaubnis hält auch kritische zurück', $r['events']['neu'] === []);
+check('Ruhezeit 22–7: 23 Uhr und 3 Uhr ruhig, 7 und 21 Uhr nicht', BWACHMeldung::isQuiet(ts('2026-10-07 23:00'), true, 22, 7) && BWACHMeldung::isQuiet(ts('2026-10-08 03:00'), true, 22, 7)
+    && !BWACHMeldung::isQuiet(ts('2026-10-08 07:00'), true, 22, 7) && !BWACHMeldung::isQuiet(ts('2026-10-07 21:59'), true, 22, 7));
+check('Ruhezeit 22 Uhr einschließlich: 22:00 ruhig', BWACHMeldung::isQuiet(ts('2026-10-07 22:00'), true, 22, 7));
+check('Ruhezeit mit gleicher Start- und Endstunde gilt als aus', !BWACHMeldung::isQuiet(ts('2026-10-07 05:30'), true, 5, 5) && !BWACHMeldung::isQuiet(ts('2026-10-07 12:00'), true, 0, 0));
+check('Ruhezeit am selben Tag (13–15): 14 Uhr ruhig, 15 Uhr nicht; aus = nie', BWACHMeldung::isQuiet(ts('2026-10-07 14:00'), true, 13, 15) && !BWACHMeldung::isQuiet(ts('2026-10-07 15:00'), true, 13, 15) && !BWACHMeldung::isQuiet(ts('2026-10-07 23:00'), false, 22, 7));
+// Wackelwerte
+$cleared = BWACHMeldung::decide($s, [], $base + 3600, $P0);
+check('Befund weg: Zustand bleibt in der Karenzzeit erhalten', isset($cleared['state']['a']) && $cleared['state']['a']['gone'] === $base + 3600);
+check('Befund weg: nach 1 weiteren Stunde ist der Zustand immer noch da (Karenz 24 h)', isset(BWACHMeldung::decide($cleared['state'], [], $base + 7200, $P0)['state']['a']));
+$back = BWACHMeldung::decide($cleared['state'], $cur(['a' => [['leer'], false]]), $base + 7200, $P0);
+check('Befund kommt nach 1 Stunde wieder: KEINE neue Meldung (Wackeln)', $back['events']['neu'] === [] && $back['state']['a']['gone'] === 0);
+$gone = BWACHMeldung::decide($cleared['state'], [], $base + 3600 + 24 * 3600, $P0);
+check('Nach 24 Stunden ohne Befund wird der Zustand vergessen', !isset($gone['state']['a']));
+$again = BWACHMeldung::decide($gone['state'], $cur(['a' => [['leer'], false]]), $base + 3 * $D, $P0);
+check('Danach ist ein erneuter Befund wieder eine erste Meldung', $again['events']['neu'] === ['a']);
+// Quittieren
+$ack = BWACHMeldung::acknowledge($s, 'a', 'zurueckgestellt', $base, 7);
+check('Zurückstellen: 7 Tage still, danach Erinnerung', BWACHMeldung::decide($ack, $cur(['a' => [['leer'], false]]), $base + 7 * $D - 1, $P0)['events']['erinnerung'] === []
+    && BWACHMeldung::decide($ack, $cur(['a' => [['leer'], false]]), $base + 7 * $D, $P0)['events']['erinnerung'] === ['a']);
+$ack = BWACHMeldung::acknowledge($s, 'a', 'getauscht', $base, 7);
+check('Getauscht: 3 Tage Wartezeit, kein Alarm sofort', BWACHMeldung::decide($ack, $cur(['a' => [['leer'], false]]), $base + 2 * $D, $P0)['events'] === ['neu' => [], 'erinnerung' => [], 'eskalation' => []]);
+check('Getauscht: bleibt der Befund nach 3 Tagen, kommt eine neue Meldung', BWACHMeldung::decide($ack, $cur(['a' => [['leer'], false]]), $base + 3 * $D, $P0)['events']['neu'] === ['a']);
+check('Außer Betrieb löscht den Meldezustand', !isset(BWACHMeldung::acknowledge($s, 'a', 'ausser_betrieb', $base, 7)['a']));
+check('Quittieren eines unbekannten Geräts legt keinen Dauerzustand an', isset(BWACHMeldung::acknowledge([], 'x', 'zurueckgestellt', $base, 7)['x']));
+// Befunde
+check('Befunde: leer / schwach / still, Datenqualität löst nichts aus', BWACHMeldung::problems(['status' => 'leer', 'funk' => 'still']) === ['leer', 'still']
+    && BWACHMeldung::problems(['status' => 'schwach', 'funk' => 'aktiv']) === ['schwach'] && BWACHMeldung::problems(['status' => 'ok', 'funk' => 'aktiv', 'quality' => ['veraltet']]) === []);
+// Wechselerkennung
+check('Wechsel: 15 % → 100 % erkannt', BWACHMeldung::detectReplacement(['p' => 15.0, 'f' => null], ['p' => 100.0, 'f' => null], 25) !== null);
+check('Wechsel: Sprung genau 25 Punkte erkannt, 24 nicht', BWACHMeldung::detectReplacement(['p' => 40.0, 'f' => null], ['p' => 65.0, 'f' => null], 25) !== null && BWACHMeldung::detectReplacement(['p' => 40.0, 'f' => null], ['p' => 64.0, 'f' => null], 25) === null);
+check('Wechsel: Flag „schwach“ → „ok“ erkannt', BWACHMeldung::detectReplacement(['p' => null, 'f' => true], ['p' => null, 'f' => false], 25) !== null);
+check('Kein Wechsel: erste Beobachtung, sinkender Wert, Flag false → true', BWACHMeldung::detectReplacement(null, ['p' => 100.0, 'f' => null], 25) === null
+    && BWACHMeldung::detectReplacement(['p' => 80.0, 'f' => null], ['p' => 60.0, 'f' => null], 25) === null && BWACHMeldung::detectReplacement(['p' => null, 'f' => false], ['p' => null, 'f' => true], 25) === null);
+check('Kein Wechsel bei unplausiblem Wert (null) auf einer Seite', BWACHMeldung::detectReplacement(['p' => null, 'f' => null], ['p' => 100.0, 'f' => null], 25) === null);
+// Tagebuch
+$dia = BWACHMeldung::diaryAdd([], ['t' => $base, 'key' => 'a', 'name' => 'A', 'type' => 'erkannt', 'note' => 'x']);
+$dia = BWACHMeldung::diaryAdd($dia, ['t' => $base + 2 * $D, 'key' => 'a', 'name' => 'A', 'type' => 'manuell', 'note' => 'y']);
+check('Tagebuch: zwei Einträge desselben Geräts binnen 3 Tagen sind EIN Wechsel', count($dia) === 1);
+$dia = BWACHMeldung::diaryAdd($dia, ['t' => $base + 3 * $D, 'key' => 'a', 'name' => 'A', 'type' => 'manuell', 'note' => 'z']);
+check('Tagebuch: nach 3 Tagen ein neuer Eintrag; anderes Gerät immer', count($dia) === 2 && count(BWACHMeldung::diaryAdd($dia, ['t' => $base, 'key' => 'b', 'name' => 'B', 'type' => 'erkannt', 'note' => '']) ) === 3);
+$big = []; for ($i = 0; $i < 600; $i++) { $big = BWACHMeldung::diaryAdd($big, ['t' => $base + $i * 10 * $D, 'key' => 'k' . $i, 'name' => 'n', 'type' => 'erkannt', 'note' => '']); }
+check('Tagebuch ist auf 500 Einträge begrenzt (die neuesten bleiben)', count($big) === 500 && $big[499]['key'] === 'k599');
+// Wochenbericht
+$mon = ts('2026-10-12 08:00');
+check('Wochenbericht: Montag 08:00 fällig, einmal pro Woche', BWACHMeldung::digestDue($mon, true, 1, 8, '') === '2026-W42' && BWACHMeldung::digestDue($mon, true, 1, 8, '2026-W42') === null);
+check('Wochenbericht: Montag 07:59 und Dienstag nicht, aus = nie', BWACHMeldung::digestDue(ts('2026-10-12 07:59'), true, 1, 8, '') === null && BWACHMeldung::digestDue(ts('2026-10-13 09:00'), true, 1, 8, '') === null && BWACHMeldung::digestDue($mon, false, 1, 8, '') === null);
+check('Wochenbericht: Montag 11 Uhr (Nachholen nach Neustart) noch fällig', BWACHMeldung::digestDue(ts('2026-10-12 11:00'), true, 1, 8, '2026-W41') === '2026-W42');
+// Texte
+$items = []; for ($i = 1; $i <= 8; $i++) { $items[] = ['name' => 'Gerät ' . $i, 'place' => 'Flur', 'probs' => ['leer'], 'text' => 'Batterie leer (3 %)', 'critical' => false]; }
+$six = BWACHMeldung::message('neu', array_slice($items, 0, 6));
+check('Bündelung: genau 6 Geräte → 5 Zeilen und „… und 1 weitere“; genau 5 → ohne', strpos($six['text'], '… und 1 weitere') !== false && strpos(BWACHMeldung::message('neu', array_slice($items, 0, 5))['text'], 'weitere') === false);
+$m = BWACHMeldung::message('neu', $items);
+check('Bündelung: 8 Geräte → eine Nachricht mit 5 Zeilen + „und 3 weitere“', substr_count($m['text'], '•') === 5 && strpos($m['text'], '… und 3 weitere') !== false && $m['title'] === '🔋 8 Batteriemeldungen');
+$m = BWACHMeldung::message('neu', [$items[0]]);
+check('Einzelmeldung „leer“: Titel und Zeile', $m['title'] === '🪫 Batterie leer' && strpos($m['text'], 'Gerät 1 (Flur): Batterie leer (3 %)') !== false);
+$longName = array_merge($items[0], ['name' => 'Rauchmelder Heizung im Obergeschoss links', 'critical' => true]);
+$tooLong = [];
+foreach (['neu', 'erinnerung', 'eskalation'] as $kd) { foreach ([[$longName], array_fill(0, 12, $longName)] as $set) { $tt = BWACHMeldung::message($kd, $set)['title']; if (strlen($tt) > 32) { $tooLong[] = $kd . ':' . $tt; } } }
+check('Alle Titel passen in 32 Byte (Push-Grenze), auch mit langem Gerätenamen und 12 Geräten', $tooLong === [], implode(' | ', $tooLong));
+check('Wochenbericht-Titel passt in 32 Byte', strlen(BWACHMeldung::digest(['total' => 1, 'empty' => 0, 'low' => 0, 'silent' => 0, 'check' => 0], [])['title']) <= 32);
+check('Eskalation klingt dringend, kritisch+leer ebenfalls', BWACHMeldung::message('eskalation', [$items[0]])['sound'] === 'alarm' && BWACHMeldung::message('neu', [array_merge($items[0], ['critical' => true])])['sound'] === 'alarm' && BWACHMeldung::message('neu', [$items[0]])['sound'] === 'bell');
+check('Erinnerung trägt „Erinnerung“ im Titel', strpos(BWACHMeldung::message('erinnerung', [$items[0]])['title'], 'Erinnerung') !== false);
+$tb = BWACHMeldung::truncateBytes('🪫🪫🪫🪫🪫🪫🪫🪫🪫', 32);
+check('Byte-Kürzung schneidet nie mitten im Zeichen (8 Emoji = 32 Byte)', strlen($tb) === 32 && mb_check_encoding($tb, 'UTF-8') && mb_strlen($tb) === 8);
+check('Byte-Kürzung: Umlaute 31 Byte', mb_check_encoding(BWACHMeldung::truncateBytes(str_repeat('ä', 30), 31), 'UTF-8') && strlen(BWACHMeldung::truncateBytes(str_repeat('ä', 30), 31)) === 30);
+$dg = BWACHMeldung::digest(['total' => 11, 'empty' => 1, 'low' => 1, 'silent' => 2, 'check' => 3], [['name' => 'A', 'place' => 'Flur', 'text' => 'leer', 'urgency' => 1000], ['name' => 'B', 'place' => '', 'text' => 'ok', 'urgency' => 0]]);
+check('Wochenbericht nennt Kennzahlen und nur Geräte mit Befund', strpos($dg['text'], '11 Geräte überwacht: 1 leer, 1 schwach, 2 Funkstille, 3 mit zweifelhaften Daten.') !== false && strpos($dg['text'], '• A (Flur): leer') !== false && strpos($dg['text'], 'B') === false && $dg['anyProblem']);
+check('Wochenbericht ohne Befund: „Alles in Ordnung“', BWACHMeldung::digest(['total' => 2, 'empty' => 0, 'low' => 0, 'silent' => 0, 'check' => 0], [])['anyProblem'] === false);
+
+// ===========================================================================
+heading('7 Meldungen im Modul (simulierte Zustellung)');
+// ===========================================================================
+function shiftWorld(int $secs): void { foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 2 && $x['parent'] !== 12345) { $GLOBALS['OBJ'][$id]['var']['VariableUpdated'] += $secs; } } $GLOBALS['CLOCK'] += $secs; }
+function freshModule(array $props = [], bool $sendOk = true): BWTest
+{
+    clock('2026-10-07 10:00');   // Mittwoch
+    buildWorld($GLOBALS['CLOCK']);
+    $GLOBALS['SENT'] = []; $GLOBALS['LOG'] = []; $GLOBALS['SEND_OK'] = $sendOk;
+    $GLOBALS['INSTS'] = ['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}' => [701, 702, 703, 704], '{3565B1F2-8F7B-4311-A4B6-1BF1D868F39E}' => [705]];
+    $m = new BWTest(); $m->Create();
+    foreach ($props as $k => $v) { $m->props[$k] = $v; }
+    $m->ApplyChanges();
+    return $m;
+}
+function sentTo(string $kind): array { return array_values(array_filter($GLOBALS['SENT'], function ($s) use ($kind) { return $s[0] === $kind; })); }
+$crit = json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false]]);
+
+$m = freshModule(['NotificationsActive' => false, 'DeviceSettings' => $crit]);
+check('Meldungen aus (Standard): nichts verschickt, kein Zustand angelegt', $GLOBALS['SENT'] === [] && $m->GetValue('NotifyState') === '' || $m->GetValue('NotifyState') === '[]' || $m->GetValue('NotifyState') === '');
+check('Standard: „Meldungen aktiv“ ist aus', (new BWTest())->props === [] && (function () { $x = new BWTest(); $x->Create(); return $x->props['NotificationsActive'] === false; })());
+
+$m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+$visu = sentTo('visu'); $wfc = sentTo('wfc');
+check('Erste Prüfung: EINE gebündelte Nachricht an 4 Kachel- und 1 WebFront-Ziel', count($visu) === 4 && count($wfc) === 1, count($visu) . '/' . count($wfc));
+check('Gebündelter Titel „N Batteriemeldungen“', strpos($visu[0][2], 'Batteriemeldungen') !== false, $visu[0][2] ?? '');
+check('Titel ≤ 32 Byte, Text ≤ 256 Byte', strlen($visu[0][2]) <= 32 && strlen($visu[0][3]) <= 256);
+check('Kritisches leeres Gerät → Ton „alarm“ oder „bell“ gültig', in_array($visu[0][4], ['alarm', 'bell'], true));
+check('Text nennt das kritische Gerät mit ❗', strpos($visu[0][3], 'Rauchmelder Heizung') !== false && strpos($visu[0][3], '❗') !== false, $visu[0][3]);
+$n = count($GLOBALS['SENT']);
+$m->Check(); $m->Check();
+check('Weitere Prüfungen am selben Tag: keine Wiederholung', count($GLOBALS['SENT']) === $n);
+shiftWorld(2 * 86400); $m->Check();
+$after2 = array_slice($GLOBALS['SENT'], $n);
+$rem = array_values(array_filter($after2, function ($s) { return $s[0] === 'visu' && strpos($s[2], 'Erinnerung') !== false; }));
+check('Nach 2 Tagen: Erinnerung nur für das kritische Gerät, an alle 4 Kachel-Ziele', count($rem) === 4 && substr_count($rem[0][3], '•') === 1 && strpos($rem[0][3], 'Rauchmelder Heizung') !== false, json_encode($rem[0] ?? null, JSON_UNESCAPED_UNICODE));
+check('Nach 2 Tagen zusätzlich die Eskalation (kritisch, 24 h unbeachtet), Titel „Unbeachtet“', count(array_filter($after2, function ($s) { return $s[0] === 'visu' && strpos($s[2], 'Unbeachtet') !== false; })) === 4);
+$n2 = count($GLOBALS['SENT']);
+shiftWorld(5 * 86400); $m->Check();
+check('Nach 7 Tagen: Erinnerung für die übrigen Geräte (gebündelt)', count($GLOBALS['SENT']) > $n2);
+
+// Eskalation per E-Mail (nur kritisch, nur Eskalationsweg)
+$m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit, 'NotifyPush' => true, 'NotifyMail' => false, 'EscalatePush' => false, 'EscalateMail' => true, 'MailInstance' => 14223, 'MailTo' => 'a@example.org; b@example.org']);
+mkinst(14223, 'SMTP', 'SMTP');
+$GLOBALS['SENT'] = [];
+shiftWorld(25 * 3600); $m->Check();
+$mails = sentTo('mailex');
+check('Eskalation nach 24 h über den Eskalationsweg: E-Mail an beide Adressen', count($mails) === 2 && $mails[0][4] === 'a@example.org' && $mails[1][4] === 'b@example.org', json_encode(array_column($mails, 4)));
+check('Eskalations-Mail: Betreff „Unbeachtet“, Text als HTML maskiert', strpos($mails[0][2], 'Unbeachtet') !== false && strpos($mails[0][3], 'Rauchmelder Heizung') !== false && strpos($mails[0][3], '<html><body>') === 0);
+$GLOBALS['SENT'] = []; shiftWorld(3600); $m->Check();
+check('Eskalation nur einmal', sentTo('mailex') === []);
+
+// Wochenbericht, dessen Zustellung scheitert, wird nachgeholt
+$mw = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+clock('2026-10-12 08:05'); $GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = false; $mw->Check();
+$GLOBALS['SEND_OK'] = true; $GLOBALS['SENT'] = []; $mw->Check();
+check('Wochenbericht schlägt fehl → beim nächsten Lauf erneut versucht und zugestellt', count(array_filter($GLOBALS['SENT'], function ($s) { return $s[0] === 'visu' && strpos($s[2], 'Wochenbericht') !== false; })) === 4);
+
+// Zustellung schlägt fehl → nicht als gemeldet verbuchen
+$m2 = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit], false);
+check('Zustellung fehlgeschlagen: Meldungslog nennt es', (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'zugestellt') !== false; }) && (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'fehlgeschlagen') !== false; }));
+$GLOBALS['SEND_OK'] = true; $GLOBALS['SENT'] = [];
+$m2->Check();
+check('Beim nächsten Lauf wird die Meldung nachgeholt (nicht als gemeldet verbucht)', count(sentTo('visu')) === 4, (string)count(sentTo('visu')));
+
+// Ruhezeit im Modul
+$m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+$GLOBALS['SENT'] = [];
+$m3 = (function () { clock('2026-10-07 23:30'); buildWorld($GLOBALS['CLOCK']); $GLOBALS['INSTS'] = ['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}' => [701]]; $x = new BWTest(); $x->Create(); $x->props['NotificationsActive'] = true; $x->props['DeviceSettings'] = json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false]]); return $x; })();
+$GLOBALS['SENT'] = []; $m3->ApplyChanges();
+$at23 = $GLOBALS['SENT'];
+check('23:30 (Ruhezeit): nur das kritische Gerät wird gemeldet', count($at23) === 1 && strpos($at23[0][3], 'Rauchmelder Heizung') !== false && strpos($at23[0][3], 'Sensor Heizung') === false, json_encode($at23, JSON_UNESCAPED_UNICODE));
+$GLOBALS['SENT'] = []; shiftWorld(8 * 3600); $m3->Check();
+check('Am Morgen (07:30) werden die zurückgehaltenen Meldungen nachgeholt', count($GLOBALS['SENT']) === 1 && strpos($GLOBALS['SENT'][0][3], 'Sensor Heizung') !== false, json_encode($GLOBALS['SENT'], JSON_UNESCAPED_UNICODE));
+
+// Testmeldung
+$m = freshModule(['NotificationsActive' => false, 'NotifyPush' => true, 'NotifyMail' => true, 'MailInstance' => 14223, 'MailTo' => '']);
+mkinst(14223, 'SMTP', 'SMTP');
+$GLOBALS['SENT'] = [];
+$res = $m->SendTest();
+check('Testmeldung geht auch bei „Meldungen aus“ und meldet das Ergebnis', strpos($res, 'Push: ✅ 5 von 5') !== false && strpos($res, 'E-Mail: ✅ gesendet') !== false && count(sentTo('mail')) === 1, $res);
+$GLOBALS['INSTS'] = []; $m->props['NotifyMail'] = false;
+check('Testmeldung ohne Push-Ziele sagt das ehrlich', strpos($m->SendTest(), 'keine Push-Ziele gefunden') !== false);
+$m->props['NotifyPush'] = false;
+check('Testmeldung ohne gewählten Weg sagt das ehrlich', strpos($m->SendTest(), 'Kein Zustellweg') !== false);
+$m->props['NotifyMail'] = true; $m->props['MailInstance'] = 0;
+check('E-Mail ohne SMTP-Instanz: nicht gesendet, kein Absturz', strpos($m->SendTest(), 'nicht gesendet') !== false);
+
+// Push-Ziele einschränken
+$m = freshModule(['NotificationsActive' => true, 'PushTargets' => json_encode([['Instance' => 702]])]);
+check('Push-Ziele eingeschränkt: nur die gewählte Instanz', count(sentTo('visu')) === 1 && sentTo('visu')[0][1] === 702 && sentTo('wfc') === []);
+
+// Quittieren im Modul
+$m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+$tot = $m->GetValue('Total');
+$r = $m->Acknowledge('', 'getauscht');
+check('Quittieren ohne Gerät: freundlicher Hinweis', strpos($r, 'Bitte zuerst ein Gerät wählen') !== false);
+$r = $m->Acknowledge('9999', 'getauscht');
+check('Quittieren eines unbekannten Geräts: ehrliche Meldung', strpos($r, 'nicht gefunden') !== false);
+$r = $m->Acknowledge('114', 'unsinn');
+check('Unbekannte Aktion wird abgelehnt', strpos($r, 'Unbekannte Aktion') !== false);
+$GLOBALS['SENT'] = [];
+$r = $m->Acknowledge('114', 'getauscht');
+check('„Habe ich getauscht“: Bestätigung nennt Wartezeit, Tagebuch hat den Eintrag', strpos($r, '✅') === 0 && strpos($r, '3 Tage') !== false && strpos($m->GetValue('TableDiary'), 'Rauchmelder Heizung') !== false && strpos($m->GetValue('TableDiary'), 'eingetragen') !== false, $r);
+shiftWorld(2 * 86400); $m->Check();
+check('Während der Wartezeit keine Meldung für das getauschte Gerät', !array_filter($GLOBALS['SENT'], function ($s) { return strpos($s[3], 'Rauchmelder Heizung') !== false; }));
+$r = $m->Acknowledge('114', 'zurueckgestellt');
+check('„Erinnere mich später“: nennt das Datum (TT.MM.JJJJ)', (bool)preg_match('/zurückgestellt bis \d\d\.\d\d\.\d{4}/u', $r), $r);
+check('Zurückgestelltes Gerät trägt 💤 in der Tabelle', strpos($m->GetValue('TableAll'), '💤 bis') !== false);
+$r = $m->Acknowledge('103', 'ausser_betrieb');
+check('„Außer Betrieb“: Gerät verschwindet aus Zählung und Tabelle', $m->GetValue('Total') === $tot - 1 && strpos($m->GetValue('TableAll'), 'Sensor Heizung') === false, $r);
+check('Außer-Betrieb-Gerät taucht in der Quittieren-Liste auf', strpos(json_encode(json_decode($m->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Außer Betrieb (1)') !== false);
+check('Quittieren-Auswahl nennt Geräte mit Befund zuerst und den Befund', (function () use ($m) {
+    $f = json_decode($m->GetConfigurationForm(), true);
+    foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'AckDevice') { return $it['options'][0]['value'] === '' && strpos($it['options'][1]['caption'], '—') !== false; } } }
+    return false;
+})());
+$r = $m->Unretire('103');
+check('Wieder aufnehmen stellt das Gerät zurück', strpos($r, '✅') === 0 && $m->GetValue('Total') === $tot);
+check('Wieder aufnehmen eines nicht ausgesetzten Geräts: ehrlicher Hinweis', strpos($m->Unretire('103'), 'stand nicht') !== false);
+$m->Acknowledge('103', 'ausser_betrieb'); $m->Acknowledge('105-1051', 'ausser_betrieb');
+check('Alle wieder aufnehmen nennt die Zahl', strpos($m->UnretireAll(), '2 Geräte wieder aufgenommen') !== false && $m->GetValue('Total') === $tot);
+
+// Wechselerkennung im Modul
+$m = freshModule(['NotificationsActive' => true]);
+$GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
+$m->Check();
+$GLOBALS['OBJ'][1141]['var']['value'] = 100;  // Batterie getauscht
+$m->Check();
+$diary = json_decode($m->GetValue('Diary'), true);
+check('Sprung 12 % → 100 % ergibt einen erkannten Wechsel im Tagebuch', count($diary) === 1 && $diary[0]['type'] === 'erkannt' && strpos($diary[0]['note'], '12 % auf 100 %') !== false, json_encode($diary, JSON_UNESCAPED_UNICODE));
+check('Tagebuch-Tabelle zeigt Datum TT.MM.JJJJ, Gerät, „erkannt“', (bool)preg_match('/\d\d\.\d\d\.\d{4} \d\d:\d\d<\/td><td>Rauchmelder Heizung<\/td><td>🔎 erkannt/u', $m->GetValue('TableDiary')));
+$m->Check();
+check('Nach dem Wechsel ist der alte Meldezustand des Geräts gelöscht', !isset(json_decode($m->GetValue('NotifyState'), true)['114']), $m->GetValue('NotifyState'));
+check('Weitere Prüfung erzeugt keinen zweiten Eintrag', count(json_decode($m->GetValue('Diary'), true)) === 1);
+// Flag-Wechsel (Sensor Vorrat: Flag schwach → ok)
+$GLOBALS['OBJ'][1042]['var']['value'] = true; $m->Check();
+$GLOBALS['OBJ'][1042]['var']['value'] = false; $m->Check();
+check('„schwach“-Flag zurückgesetzt ergibt einen Wechsel', count(json_decode($m->GetValue('Diary'), true)) === 2);
+
+// Versteckte Zustandsvariablen
+$hidden = [];
+foreach (['NotifyState', 'Diary', 'LastSeen', 'Retired', 'Meta'] as $ident) { $id = IPS_GetObjectIDByIdent($ident, 12345); $hidden[$ident] = $id !== false && !empty($GLOBALS['OBJ'][$id]['hidden']); }
+check('Zustandsspeicher liegt in versteckten Variablen (übersteht Neu-Registrieren)', !in_array(false, $hidden, true), json_encode($hidden));
+$m->simulateResync();
+check('Nach Neu-Registrieren bleiben Tagebuch und Meldezustand erhalten', count(json_decode($m->GetValue('Diary'), true)) === 2);
+
+// Wochenbericht im Modul
+$m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+clock('2026-10-12 07:00');   // Montag vor 08:00
+$GLOBALS['SENT'] = []; $m->Check();
+$beforeDigest = array_filter($GLOBALS['SENT'], function ($s) { return strpos($s[2], 'Wochenbericht') !== false; });
+clock('2026-10-12 08:05'); $m->Check();
+$digest = array_values(array_filter($GLOBALS['SENT'], function ($s) { return $s[0] === 'visu' && strpos($s[2], 'Wochenbericht') !== false; }));
+check('Wochenbericht: vor 08:00 nichts, danach genau einmal an alle Push-Ziele', count($beforeDigest) === 0 && count($digest) === 4, (string)count($digest));
+check('Wochenbericht nennt Kennzahlen', strpos($digest[0][3], 'Geräte überwacht') !== false);
+$cnt = count($GLOBALS['SENT']); $m->Check();
+check('Wochenbericht nicht noch einmal in derselben Woche', count(array_filter(array_slice($GLOBALS['SENT'], $cnt), function ($s) { return strpos($s[2], 'Wochenbericht') !== false; })) === 0);
+
+// Zweifelhafte Daten lösen keine Einzelmeldung aus
+$m = freshModule(['NotificationsActive' => true]);
+check('Zweifelhafte Daten allein (Staubsauger: Wert 328 Tage alt, Gerät aktiv) lösen keine Meldung aus', !array_filter($GLOBALS['SENT'], function ($s) { return strpos($s[3], 'Staubsauger') !== false; }));
+check('…tauchen aber im Wochenbericht-Zähler auf', $m->GetValue('Check') >= 1);
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

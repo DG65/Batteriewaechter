@@ -371,6 +371,7 @@ final class BWACHLogik
         return [
             'status'   => $status,
             'percent'  => $pct,
+            'flagLow'  => $flagLow,
             'voltage'  => isset($sig['voltage']) ? (float)$sig['voltage']['value'] : null,
             'quality'  => array_values(array_unique($quality)),
             'funk'     => $funk,

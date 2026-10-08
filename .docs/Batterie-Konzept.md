@@ -216,3 +216,11 @@ Gebaut und im Prüfstand (`.tools/test-bwach.php`, 143 Prüfungen) sowie mit 32 
 Daraus entstanden zwei Regeln, die erst die Gegenprobe zeigte (jetzt im Prüfstand): (1) Eine Instanz mit Sammelwert (Comet-Raum) ist ein Sammelgerät, auch ihr „schwach“-Flag zählt nicht. (2) Mehrere Signale gleicher Art an einer Instanz (neun Bodenfeuchtesensoren an einer Wetterstation) sind mehrere Geräte.
 
 **Noch nicht live am Modul selbst geprüft:** Die Logik lief per Wegwerfskript gegen das Privat-Symcon, das Modul als Instanz noch nicht (Installation über die Modulverwaltung steht aus, Repo noch nicht auf GitHub).
+
+## 12. Stand Meilenstein 2 (08.10.2026)
+
+Gebaut: Meldungen (Push an Kachel-Visualisierung und WebFront, E-Mail), Erinnerung, Ruhezeit, Eskalation, Wochenbericht, Quittieren, Batterietagebuch mit Wechselerkennung. Reine Logik in `BWACHMeldung.php`, im Prüfstand mit Zeitreihen abgesichert (246 Prüfungen, 64 Mutationstests). Zwei Fehler fielen erst beim Schreiben der Tests auf: ein Push-Titel mit Gerätename überschritt die 32-Byte-Grenze (jetzt steht der Name im Text), und ein fehlgeschlagener Wochenbericht galt als gesendet.
+
+Lebenszeichen zählt nur noch Variablen ohne Aktion (Gegenprobe am Privat-Symcon: ausgebaute Thermostate bekamen täglich einen Sollwert von der Heizungssteuerung).
+
+**Offen aus Stufe 2/3:** Spannungskurven, Prognose, Einkaufsliste, Tauschrunde, Lebensdauerstatistik, Gleichartigen-Vergleich, aktive Abfrage schlafender Geräte (Z-Wave: `ZW_RequestStatus` getestet, Wirkung nicht belegbar), Kachel. **Formular-Werte im `onClick`** (`$AckDevice`): laut Symcon-Dokumentation für benannte Felder im selben Bereich verfügbar, im Modul noch nicht an einer echten Instanz erprobt.

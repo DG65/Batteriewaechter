@@ -15,6 +15,7 @@ $root = dirname(__DIR__);
 $src  = $root . '/Batteriewaechter';
 
 // [Datei, Suchtext, Ersatz, Beschreibung]
+// Bewusst NICHT aufgenommen: Wegfall des Kurzschlusses in truncateBytes (gleiches Ergebnis).
 // Bewusst NICHT aufgenommen (gleichwertige Mutanten, Verhalten bleibt identisch): Wegfall der Namenssperre
 // „ladung“ (die Namenserkennung lässt „Batterieladung“ ohnehin nicht zu) und Wegfall von „$found === null“
 // im Tick (LastDiscoveryTs = 0 löst dieselbe Suche aus).
@@ -42,11 +43,44 @@ $mutations = [
     ['BWACHLogik.php', '$aggregateInstances[(int)$v[\'parentId\']] = true;', '', 'Sammelgerät-Regel (Raum-Flag) entfällt'],
     ['BWACHLogik.php', 'if (count($list) < 2) {', 'if (true) {', 'Mehrere Sensoren einer Instanz werden nicht geteilt'],
     ['module.php', 'if ((int)($var[\'VariableAction\'] ?? 0) > 0 || (int)($var[\'VariableCustomAction\'] ?? 0) > 0) {', 'if (false) {', 'Variablen mit Aktion zählen als Lebenszeichen'],
+    // --- Meilenstein 2: Meldungslogik
+    ['BWACHMeldung.php', "if (\$now - \$s['notified'] >= \$interval) {", "if (\$now - \$s['notified'] > \$interval) {", 'Erinnerung: ≥ → >'],
+    ['BWACHMeldung.php', '$isNew = count(array_diff($probs, $s[\'probs\'])) > 0;', '$isNew = false;', 'Neuer Befund wird nie als neu erkannt'],
+    ['BWACHMeldung.php', '$quiet = $quietNow && !($ignoreQuiet && !empty($c[\'critical\']));', '$quiet = $quietNow;', 'Kritische Geräte durchbrechen die Ruhezeit nicht'],
+    ['BWACHMeldung.php', '$quiet = $quietNow && !($ignoreQuiet && !empty($c[\'critical\']));', '$quiet = false;', 'Ruhezeit wirkungslos'],
+    ['BWACHMeldung.php', 'if ($now >= (int)$s[\'snooze\'] && !$quiet) {', 'if (!$quiet) {', 'Zurückstellen wirkungslos'],
+    ['BWACHMeldung.php', "&& \$now - (int)\$s['since'] >= \$escHours * 3600) {", "&& \$now - (int)\$s['since'] > \$escHours * 3600) {", 'Eskalation: ≥ → >'],
+    ['BWACHMeldung.php', '!$s[\'esc\'] && $s[\'notified\'] > 0', '$s[\'notified\'] > 0', 'Eskalation wiederholt sich'],
+    ['BWACHMeldung.php', '} elseif ($now - $s[\'gone\'] >= $clearHours * 3600 && $now >= (int)$s[\'snooze\']) {', '} elseif ($now - $s[\'gone\'] >= 0) {', 'Karenzzeit für wackelnde Werte entfällt'],
+    ['BWACHMeldung.php', 'return $fromHour < $toHour ? ($h >= $fromHour && $h < $toHour) : ($h >= $fromHour || $h < $toHour);', 'return $fromHour < $toHour ? ($h >= $fromHour && $h <= $toHour) : ($h >= $fromHour || $h <= $toHour);', 'Ruhezeit-Ende einschließlich'],
+    ['BWACHMeldung.php', 'if (!$enabled || $fromHour === $toHour) {', 'if (!$enabled) {', 'Ruhezeit mit gleicher Start-/Endstunde'],
+    ['BWACHMeldung.php', "\$cur['p'] - \$prev['p'] >= \$jumpPct", "\$cur['p'] - \$prev['p'] > \$jumpPct", 'Wechselerkennung: ≥ → >'],
+    ['BWACHMeldung.php', "\$prev['f'] === true && \$cur['f'] === false", "\$prev['f'] === true", 'Flag-Wechsel ohne „jetzt ok“'],
+    ['BWACHMeldung.php', "abs(\$entry['t'] - \$e['t']) < self::DIARY_DEDUPE_DAYS * 86400", "abs(\$entry['t'] - \$e['t']) <= self::DIARY_DEDUPE_DAYS * 86400", 'Tagebuch-Doppelte: < → ≤'],
+    ['BWACHMeldung.php', '$e[\'key\'] === $entry[\'key\'] && ', '', 'Tagebuch fasst verschiedene Geräte zusammen'],
+    ['BWACHMeldung.php', 'if (count($diary) > self::DIARY_CAP) {', 'if (false) {', 'Tagebuch unbegrenzt'],
+    ['BWACHMeldung.php', "(int)date('G', \$now) < \$hour", "(int)date('G', \$now) <= \$hour", 'Wochenbericht: Stunde ≥ → >'],
+    ['BWACHMeldung.php', 'if ($key === $lastKey) {', 'if (false) {', 'Wochenbericht mehrfach pro Woche'],
+    ['BWACHMeldung.php', 'if ($n > 5) {', 'if ($n > 6) {', 'Bündelung: „und N weitere“ zu spät'],
+    ['BWACHMeldung.php', 'if ($bytes + $cb > $maxBytes) {', 'if ($bytes + $cb >= $maxBytes) {', 'Byte-Kürzung zu knapp'],
+    ['BWACHMeldung.php', 'self::REPLACE_GRACE_DAYS * 86400', '0', 'Wartezeit nach „getauscht“ entfällt'],
+    ['BWACHMeldung.php', "\$title = \$n === 1 ? '🔔 Erinnerung'", "\$title = \$n === 1 ? '🔔 Erinnerung: ' . \$first['name']", 'Titel mit Gerätenamen sprengt 32 Byte'],
+    // --- Meilenstein 2: Modul
+    ['module.php', "if (!\$this->ReadPropertyBoolean('NotificationsActive')) {\n            return;\n        }", '', 'Meldungen laufen auch bei „aus“'],
+    ['module.php', "\$state[\$k]['notified'] = (int)(\$old[\$k]['notified'] ?? 0);", '', 'Fehlgeschlagene Zustellung wird als gemeldet verbucht'],
+    ['module.php', "return \$chosen ? array_intersect_key(\$all, \$chosen) : \$all;", 'return $all;', 'Push-Auswahl wirkungslos'],
+    ['module.php', "|| isset(\$retired[(string)\$key])) {", ") {", 'Außer-Betrieb-Geräte werden weiter überwacht'],
+    ['module.php', "'neu' => \$normal, 'erinnerung' => \$normal, 'eskalation' => \$esc", "'neu' => \$normal, 'erinnerung' => \$normal, 'eskalation' => \$normal", 'Eskalation nutzt den normalen Weg'],
+    ['module.php', "if (\$this->deliver(\$d['title'], \$d['text'], \$d['sound'], \$channels) > 0) {", "if (true) {\n            \$this->deliver(\$d['title'], \$d['text'], \$d['sound'], \$channels);", 'Wochenbericht gilt auch bei Fehlschlag als gesendet'],
+    ['module.php', "BWACHMeldung::truncateBytes(\$title, 32), BWACHMeldung::truncateBytes(\$text, 256), 'Alert'", "\$title, \$text, 'Alert'", 'Kachel-Push ohne Byte-Kürzung'],
+    ['module.php', "unset(\$state[\$key]);\n                \$changed = true;", "\$changed = true;", 'Wechsel erledigt den alten Befund nicht'],
+    ['module.php', "if (\$prev === null || \$prev['p'] !== \$cur['p'] || \$prev['f'] !== \$cur['f']) {", "if (\$prev === null) {", 'Zuletzt-gesehen wird nie aktualisiert'],
+    ['module.php', "IPS_SetHidden(\$id, true);", '', 'Zustandsvariablen bleiben sichtbar'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],
     ['module.php', 'htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, \'UTF-8\')', '(string)$s', 'HTML-Maskierung entfällt'],
     ['module.php', "foreach (['VariableCustomPresentation', 'VariablePresentation'] as \$key)", 'foreach ([] as $key)', 'Darstellungs-Profil wird nie gelesen'],
-    ['module.php', 'if ($st[\'excluded\']) {', 'if (false) {', 'Ausnehmen wirkungslos'],
+    ['module.php', 'if ($st[\'excluded\'] ||', 'if (false ||', 'Ausnehmen wirkungslos'],
     ['module.php', '> self::REDISCOVER_SEC', '> 99999999', 'tägliche Neusuche entfällt'],
     ['module.php', '$max = max($max, (int)($var[\'VariableUpdated\'] ?? 0));', '', 'Lebenszeichen immer 0'],
     ['module.php', "\$this->UpdateFormField('CheckStatus', 'caption', \$line);", '', 'Zustandszeile wird nicht aufgefrischt'],
@@ -62,7 +96,7 @@ $skipped = 0;
 
 foreach ($mutations as [$file, $search, $replace, $desc]) {
     $code = file_get_contents($src . '/' . $file);
-    if (strpos($code, $search) === false) { $skipped++; continue; }   // Variante trifft nicht zu (z. B. andere Anführungszeichen)
+    if (strpos($code, $search) === false) { $skipped++; echo "  ⏭  nicht anwendbar: $desc\n"; continue; }   // Variante trifft nicht zu (z. B. andere Anführungszeichen)
     $dir = $tmpBase . '/m';
     @mkdir($dir);
     foreach (glob($src . '/*') as $f) { copy($f, $dir . '/' . basename($f)); }

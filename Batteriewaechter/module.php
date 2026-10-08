@@ -27,6 +27,7 @@
 // ===========================================================================
 
 require_once __DIR__ . '/BWACHLogik.php';
+require_once __DIR__ . '/BWACHMeldung.php';
 
 class Batteriewaechter extends IPSModule
 {
@@ -34,6 +35,11 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.2.0' => [
+            '• Meldungen ohne Nerven: erste Meldung, Erinnerung nach N Tagen (kritische Geräte früher), Ruhezeiten, Wochenbericht — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Mehrere Befunde eines Laufs kommen als EINE Nachricht. Standardmäßig AUS, bis Sie „Meldungen aktiv“ einschalten.',
+            '• Quittieren: „Habe ich getauscht“, „Erinnere mich später“, „Außer Betrieb“. Eskalation für kritische Geräte, die niemand beachtet.',
+            '• Batterietagebuch: ein Batteriewechsel wird erkannt (Prozentwert springt hoch, „schwach“-Flag wird zurückgesetzt) oder von Hand eingetragen und samt Datum festgehalten.',
+        ],
         '0.1.0' => [
             '• Erstes Release: findet Batteriesignale automatisch (Profile ~Battery/~Battery.100/~Battery.Reversed, typische Idents) und führt sie je Gerät zusammen.',
             '• Status ok/schwach/leer/unbekannt mit Datenqualität: Widerspruch zwischen Flag und Prozent, unplausible Werte, veraltete Batteriewerte.',
@@ -41,6 +47,11 @@ class Batteriewaechter extends IPSModule
             '• Trockenlauf „Was würde gefunden?“ mit Begründung für jeden Ausschluss; Ergebnis als Tabelle und Kennzahlen-Variablen.',
         ],
     ];
+    // Push-Ziele (SUITE.md Stolperstein 22): klassisches WebFront UND Kachel-Visualisierung, je eigene Funktion
+    private const WEBFRONT_GUID = '{3565B1F2-8F7B-4311-A4B6-1BF1D868F39E}';
+    private const KACHEL_GUID   = '{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}';
+    private const MAX_DIARY_ROWS = 50;
+
     private const REPO_URL    = 'https://github.com/DG65/Batteriewaechter';
     private const LICENSE_URL = 'https://github.com/DG65/Batteriewaechter/blob/beta/LICENSE';
     private const PAYPAL_URL  = 'https://paypal.me/DietmarGureth';
@@ -68,6 +79,29 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyString('ManualVariables', '[]');
         $this->RegisterPropertyString('DeviceSettings', '[]');
 
+        // Meldungen — bewusst AUS, bis der Nutzer sie einschaltet
+        $this->RegisterPropertyBoolean('NotificationsActive', false);
+        $this->RegisterPropertyBoolean('NotifyPush', true);
+        $this->RegisterPropertyString('PushTargets', '[]');
+        $this->RegisterPropertyBoolean('NotifyMail', false);
+        $this->RegisterPropertyInteger('MailInstance', 0);
+        $this->RegisterPropertyString('MailTo', '');
+        $this->RegisterPropertyInteger('ReminderDays', 7);
+        $this->RegisterPropertyInteger('CriticalReminderDays', 2);
+        $this->RegisterPropertyInteger('SnoozeDays', 7);
+        $this->RegisterPropertyInteger('EscalateHours', 24);
+        $this->RegisterPropertyBoolean('EscalatePush', true);
+        $this->RegisterPropertyBoolean('EscalateMail', true);
+        $this->RegisterPropertyBoolean('QuietEnabled', true);
+        $this->RegisterPropertyInteger('QuietFromHour', 22);
+        $this->RegisterPropertyInteger('QuietToHour', 7);
+        $this->RegisterPropertyBoolean('CriticalIgnoresQuiet', true);
+        $this->RegisterPropertyBoolean('DigestEnabled', true);
+        $this->RegisterPropertyInteger('DigestWeekday', 1);
+        $this->RegisterPropertyInteger('DigestHour', 8);
+        $this->RegisterPropertyBoolean('DigestWhenOk', false);
+        $this->RegisterPropertyInteger('ReplaceJumpPercent', 25);
+
         $this->RegisterAttributeString('Found', '');
         $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
         $this->RegisterAttributeInteger('LastCheckTs', 0);
@@ -94,6 +128,19 @@ class Batteriewaechter extends IPSModule
         $this->MaintainVariable('StatusLine', 'Zusammenfassung', VARIABLETYPE_STRING, '', 70, true);
         $this->MaintainVariable('TableProblems', 'Handlungsbedarf', VARIABLETYPE_STRING, '~HTMLBox', 80, true);
         $this->MaintainVariable('TableAll', 'Alle Geräte', VARIABLETYPE_STRING, '~HTMLBox', 90, true);
+        $this->MaintainVariable('TableDiary', 'Batterietagebuch', VARIABLETYPE_STRING, '~HTMLBox', 100, true);
+        // Zustandsspeicher als versteckte Variablen (wie Schein): Attribute gehen beim Neu-Registrieren des
+        // Moduls verloren (SUITE.md Stolperstein 5), Variablen bleiben.
+        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges'] as $ident => $name) {
+            $existed = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+            $this->MaintainVariable($ident, $name, VARIABLETYPE_STRING, '', 200, true);
+            if ($existed === false) {
+                $id = IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+                if ($id !== false) {
+                    IPS_SetHidden($id, true);
+                }
+            }
+        }
 
         $this->SetStatus(102);
 
@@ -185,8 +232,13 @@ class Batteriewaechter extends IPSModule
         $now  = $this->now();
         $line = $this->summaryLine($sum, $now);
         $this->setStringIfChanged('StatusLine', $line);
-        $this->setStringIfChanged('TableAll', $this->renderTable($rows, false));
-        $this->setStringIfChanged('TableProblems', $this->renderTable($rows, true));
+        $this->detectReplacements($rows, $now);
+        $this->processNotifications($rows, $sum, $now);
+
+        $notes = $this->snoozeNotes($now);
+        $this->setStringIfChanged('TableAll', $this->renderTable($rows, false, $notes));
+        $this->setStringIfChanged('TableProblems', $this->renderTable($rows, true, $notes));
+        $this->setStringIfChanged('TableDiary', $this->renderDiary());
         $this->WriteAttributeInteger('LastCheckTs', $now);
         $this->UpdateFormField('CheckStatus', 'caption', $line);
         return $line;
@@ -260,6 +312,353 @@ class Batteriewaechter extends IPSModule
     {
         $this->WriteAttributeBoolean('ForumHintGone', true);
         $this->UpdateFormField('ForumHintPanel', 'visible', false);
+    }
+
+    // =====================================================================
+    //  Quittieren, Tagebuch, Meldungen
+    // =====================================================================
+
+    /**
+     * Quittiert ein Gerät: 'getauscht' (Batteriewechsel, kommt ins Tagebuch), 'zurueckgestellt'
+     * (Erinnerung später) oder 'ausser_betrieb' (Gerät dauerhaft ausnehmen).
+     */
+    public function Acknowledge(string $key, string $action): string
+    {
+        if ($key === '') {
+            return 'ℹ️ Bitte zuerst ein Gerät wählen.';
+        }
+        if (!in_array($action, [BWACHMeldung::ACK_REPLACED, BWACHMeldung::ACK_SNOOZE, BWACHMeldung::ACK_RETIRED], true)) {
+            return '⛔ Unbekannte Aktion „' . $action . '“.';
+        }
+        $found = $this->found();
+        $name  = null;
+        $row   = null;
+        if ($found !== null && isset($found['devices'][$key])) {
+            foreach ($this->evaluateAll($found) as $r) {
+                if ($r['id'] === $key) {
+                    $row = $r;
+                    break;
+                }
+            }
+            $name = $row !== null ? $row['name'] : (string)$found['devices'][$key]['name'];
+        }
+        if ($name === null) {
+            return '⛔ Gerät „' . $key . '“ nicht gefunden (vielleicht schon außer Betrieb oder ausgenommen).';
+        }
+        $now   = $this->now();
+        $state = $this->loadJson('NotifyState');
+
+        if ($action === BWACHMeldung::ACK_REPLACED) {
+            $diary = BWACHMeldung::diaryAdd($this->loadJson('Diary'), ['t' => $now, 'key' => $key, 'name' => $name, 'type' => 'manuell', 'note' => 'von Hand eingetragen']);
+            $this->saveJson('Diary', $diary);
+            $msg = '✅ Batteriewechsel bei „' . $name . '“ eingetragen. Der Wächter wartet ' . BWACHMeldung::REPLACE_GRACE_DAYS . ' Tage, bis das Gerät den neuen Stand meldet.';
+        } elseif ($action === BWACHMeldung::ACK_SNOOZE) {
+            $days = $this->ReadPropertyInteger('SnoozeDays');
+            $msg  = '✅ „' . $name . '“ zurückgestellt bis ' . date('d.m.Y', $now + max(1, $days) * 86400) . '. Danach meldet sich der Wächter wieder, falls der Befund bleibt.';
+        } else {
+            $retired = $this->loadJson('Retired');
+            $retired[$key] = $now;
+            $this->saveJson('Retired', $retired);
+            $msg = '✅ „' . $name . '“ ist außer Betrieb und wird nicht mehr überwacht. Wieder aufnehmen: „Außer Betrieb“-Liste unter „Quittieren“.';
+        }
+        $this->saveJson('NotifyState', BWACHMeldung::acknowledge($state, $key, $action, $now, $this->ReadPropertyInteger('SnoozeDays')));
+        $this->Check();
+        $this->UpdateFormField('AckStatus', 'caption', $msg);
+        return $msg;
+    }
+
+    /** Nimmt ein Gerät, das außer Betrieb gesetzt war, wieder auf. */
+    public function Unretire(string $key): string
+    {
+        $retired = $this->loadJson('Retired');
+        if (!isset($retired[$key])) {
+            return 'ℹ️ Gerät „' . $key . '“ stand nicht auf der Liste „Außer Betrieb“.';
+        }
+        unset($retired[$key]);
+        $this->saveJson('Retired', $retired);
+        $this->Check();
+        return '✅ Gerät wieder aufgenommen.';
+    }
+
+    /** Nimmt alle außer Betrieb gesetzten Geräte wieder auf. */
+    public function UnretireAll(): string
+    {
+        $n = count($this->loadJson('Retired'));
+        $this->saveJson('Retired', []);
+        $this->Check();
+        $msg = $n === 0 ? 'ℹ️ Es war kein Gerät außer Betrieb.' : '✅ ' . $n . ($n === 1 ? ' Gerät wieder aufgenommen.' : ' Geräte wieder aufgenommen.');
+        $this->UpdateFormField('AckStatus', 'caption', $msg);
+        return $msg;
+    }
+
+    /** Schickt eine Testmeldung über die eingestellten Wege und sagt, was ankam. */
+    public function SendTest(): string
+    {
+        $m = ['title' => '🧪 Batteriewächter Test', 'text' => 'Wenn diese Meldung ankommt, funktioniert der Zustellweg. Keine echte Batteriemeldung.', 'sound' => 'bell'];
+        $parts = [];
+        if ($this->ReadPropertyBoolean('NotifyPush')) {
+            $r = $this->sendPush($m['title'], $m['text'], $m['sound']);
+            $parts[] = $r['targets'] === 0
+                ? 'Push: ⚠️ keine Push-Ziele gefunden (weder Kachel-Visualisierung noch WebFront)'
+                : 'Push: ' . ($r['ok'] === $r['targets'] ? '✅ ' : '⚠️ ') . $r['ok'] . ' von ' . $r['targets'] . ' Zielen';
+        }
+        if ($this->ReadPropertyBoolean('NotifyMail')) {
+            $parts[] = 'E-Mail: ' . ($this->sendMail($m['title'], $m['text']) ? '✅ gesendet' : '⚠️ nicht gesendet (SMTP-Instanz und Empfänger prüfen, Details im Meldungslog)');
+        }
+        $out = $parts ? implode(' · ', $parts) : 'ℹ️ Kein Zustellweg ausgewählt (Push oder E-Mail unter „Meldungen“ ankreuzen).';
+        $this->UpdateFormField('NotifyStatus', 'caption', $out);
+        return $out;
+    }
+
+    private function loadJson(string $ident): array
+    {
+        $d = json_decode((string)$this->GetValue($ident), true);
+        return is_array($d) ? $d : [];
+    }
+
+    private function saveJson(string $ident, array $data): void
+    {
+        $this->setStringIfChanged($ident, json_encode($data, JSON_UNESCAPED_UNICODE));
+    }
+
+    /** Hinweistexte für zurückgestellte Geräte in den Tabellen. */
+    private function snoozeNotes(int $now): array
+    {
+        $out = [];
+        foreach ($this->loadJson('NotifyState') as $key => $s) {
+            if ((int)$s['snooze'] > $now) {
+                $out[(string)$key] = '💤 bis ' . date('d.m.Y', (int)$s['snooze']);
+            }
+        }
+        return $out;
+    }
+
+    /** Erkennt Batteriewechsel (Prozentwert springt hoch, Flag wird zurückgesetzt) und schreibt sie ins Tagebuch. */
+    private function detectReplacements(array $rows, int $now): void
+    {
+        $last  = $this->loadJson('LastSeen');
+        $diary = $this->loadJson('Diary');
+        $state = $this->loadJson('NotifyState');
+        $jump  = $this->ReadPropertyInteger('ReplaceJumpPercent');
+        $newLast = $last;
+        $changed = false;
+
+        foreach ($rows as $row) {
+            $key = $row['id'];
+            $cur = ['p' => $row['r']['percent'], 'f' => $row['r']['flagLow']];
+            $prev = isset($last[$key]) ? ['p' => $last[$key]['p'] ?? null, 'f' => $last[$key]['f'] ?? null] : null;
+            $desc = BWACHMeldung::detectReplacement($prev, $cur, $jump);
+            if ($desc !== null) {
+                $diary = BWACHMeldung::diaryAdd($diary, ['t' => $now, 'key' => $key, 'name' => $row['name'], 'type' => 'erkannt', 'note' => $desc]);
+                // Der alte Befund ist erledigt; ein neuer Befund wäre eine neue Meldung
+                unset($state[$key]);
+                $changed = true;
+            }
+            if ($prev === null || $prev['p'] !== $cur['p'] || $prev['f'] !== $cur['f']) {
+                $newLast[$key] = $cur + ['t' => $now];
+            }
+        }
+        if ($newLast !== $last) {
+            $this->saveJson('LastSeen', $newLast);
+        }
+        if ($changed) {
+            $this->saveJson('Diary', $diary);
+            $this->saveJson('NotifyState', $state);
+        }
+    }
+
+    /** Meldungen und Wochenbericht — nur, wenn „Meldungen aktiv“ eingeschaltet ist. */
+    private function processNotifications(array $rows, array $sum, int $now): void
+    {
+        if (!$this->ReadPropertyBoolean('NotificationsActive')) {
+            return;
+        }
+        $byKey   = [];
+        $current = [];
+        foreach ($rows as $row) {
+            $probs = BWACHMeldung::problems($row['r']);
+            $byKey[$row['id']] = $row;
+            if ($probs) {
+                $current[$row['id']] = ['probs' => $probs, 'critical' => (bool)$row['r']['critical']];
+            }
+        }
+        $old = $this->loadJson('NotifyState');
+        $res = BWACHMeldung::decide($old, $current, $now, [
+            'remDays'     => $this->ReadPropertyInteger('ReminderDays'),
+            'critRemDays' => $this->ReadPropertyInteger('CriticalReminderDays'),
+            'escHours'    => $this->ReadPropertyInteger('EscalateHours'),
+            'clearHours'  => 24,
+            'quiet'       => BWACHMeldung::isQuiet($now, $this->ReadPropertyBoolean('QuietEnabled'), $this->ReadPropertyInteger('QuietFromHour'), $this->ReadPropertyInteger('QuietToHour')),
+            'ignoreQuiet' => $this->ReadPropertyBoolean('CriticalIgnoresQuiet'),
+        ]);
+        $state = $res['state'];
+
+        $normal = ['push' => $this->ReadPropertyBoolean('NotifyPush'), 'mail' => $this->ReadPropertyBoolean('NotifyMail')];
+        $esc    = ['push' => $this->ReadPropertyBoolean('EscalatePush'), 'mail' => $this->ReadPropertyBoolean('EscalateMail')];
+        foreach (['neu' => $normal, 'erinnerung' => $normal, 'eskalation' => $esc] as $kind => $channels) {
+            $keys = $res['events'][$kind];
+            if (!$keys) {
+                continue;
+            }
+            $items = [];
+            foreach ($keys as $k) {
+                $r = $byKey[$k];
+                $items[] = ['name' => $r['name'], 'place' => $r['place'], 'probs' => $current[$k]['probs'], 'text' => implode('; ', $r['r']['reasons']), 'critical' => (bool)$r['r']['critical']];
+            }
+            $m = BWACHMeldung::message($kind, $items);
+            if ($this->deliver($m['title'], $m['text'], $m['sound'], $channels) === 0) {
+                // Nichts zugestellt: nicht als gemeldet verbuchen, beim nächsten Lauf erneut versuchen
+                foreach ($keys as $k) {
+                    $state[$k]['notified'] = (int)($old[$k]['notified'] ?? 0);
+                    $state[$k]['cnt']      = (int)($old[$k]['cnt'] ?? 0);
+                    if ($kind === 'eskalation') {
+                        $state[$k]['esc'] = (bool)($old[$k]['esc'] ?? false);
+                    }
+                }
+            }
+        }
+        $this->saveJson('NotifyState', $state);
+        $this->sendDigestIfDue($rows, $sum, $now);
+    }
+
+    private function sendDigestIfDue(array $rows, array $sum, int $now): void
+    {
+        $meta = $this->loadJson('Meta');
+        $key  = BWACHMeldung::digestDue($now, $this->ReadPropertyBoolean('DigestEnabled'), $this->ReadPropertyInteger('DigestWeekday'), $this->ReadPropertyInteger('DigestHour'), (string)($meta['digest'] ?? ''));
+        if ($key === null) {
+            return;
+        }
+        $list = [];
+        foreach ($rows as $r) {
+            $list[] = ['name' => $r['name'], 'place' => $r['place'], 'text' => implode('; ', $r['r']['reasons']), 'urgency' => $r['r']['urgency']];
+        }
+        $d = BWACHMeldung::digest($sum, $list);
+        if (!$d['anyProblem'] && !$this->ReadPropertyBoolean('DigestWhenOk')) {
+            $meta['digest'] = $key;
+            $this->saveJson('Meta', $meta);
+            return;
+        }
+        $channels = ['push' => $this->ReadPropertyBoolean('NotifyPush'), 'mail' => $this->ReadPropertyBoolean('NotifyMail')];
+        if ($this->deliver($d['title'], $d['text'], $d['sound'], $channels) > 0) {
+            $meta['digest'] = $key;
+            $this->saveJson('Meta', $meta);
+        }
+    }
+
+    /** Stellt über die gewählten Wege zu. Rückgabe: Anzahl erfolgreicher Wege (0 = nichts angekommen). */
+    private function deliver(string $title, string $text, string $sound, array $channels): int
+    {
+        $ok = 0;
+        if (!empty($channels['push'])) {
+            $r = $this->sendPush($title, $text, $sound);
+            if ($r['ok'] > 0) {
+                $ok++;
+            }
+        }
+        if (!empty($channels['mail']) && $this->sendMail($title, $text)) {
+            $ok++;
+        }
+        if ($ok === 0) {
+            IPS_LogMessage('Batteriewächter', 'Meldung „' . $title . '“ konnte über keinen Weg zugestellt werden (Push-Ziele und E-Mail unter „Meldungen“ prüfen).');
+        }
+        return $ok;
+    }
+
+    /** @return array ['targets'=>int,'ok'=>int] */
+    protected function sendPush(string $title, string $text, string $sound): array
+    {
+        $targets = $this->pushTargets();
+        $ok = 0;
+        foreach ($targets as $id => $type) {
+            try {
+                if ($type === 'kachel') {
+                    $good = function_exists('VISU_PostNotificationEx') && VISU_PostNotificationEx($id, BWACHMeldung::truncateBytes($title, 32), BWACHMeldung::truncateBytes($text, 256), 'Alert', $sound, 0);
+                } else {
+                    $good = function_exists('WFC_PushNotification') && WFC_PushNotification($id, BWACHMeldung::truncateBytes($title, 32), BWACHMeldung::truncateBytes($text, 256), $sound, 0);
+                }
+            } catch (\Throwable $e) {
+                $good = false;
+            }
+            if ($good) {
+                $ok++;
+            } else {
+                IPS_LogMessage('Batteriewächter', 'Push an Instanz #' . $id . ' (' . $type . ') fehlgeschlagen.');
+            }
+        }
+        return ['targets' => count($targets), 'ok' => $ok];
+    }
+
+    /** Push-Ziele: Kachel-Visualisierung UND klassisches WebFront (SUITE.md Stolperstein 22); Auswahl in den Einstellungen oder alle gefundenen. */
+    private function pushTargets(): array
+    {
+        $all = [];
+        foreach ((array)IPS_GetInstanceListByModuleID(self::KACHEL_GUID) as $id) {
+            $all[(int)$id] = 'kachel';
+        }
+        foreach ((array)IPS_GetInstanceListByModuleID(self::WEBFRONT_GUID) as $id) {
+            $all[(int)$id] = 'webfront';
+        }
+        $rows = json_decode((string)$this->ReadPropertyString('PushTargets'), true);
+        $chosen = [];
+        if (is_array($rows)) {
+            foreach ($rows as $r) {
+                $id = (int)($r['Instance'] ?? 0);
+                if ($id > 0) {
+                    $chosen[$id] = true;
+                }
+            }
+        }
+        return $chosen ? array_intersect_key($all, $chosen) : $all;
+    }
+
+    protected function sendMail(string $title, string $text): bool
+    {
+        $inst = $this->ReadPropertyInteger('MailInstance');
+        if ($inst <= 0 || !IPS_InstanceExists($inst)) {
+            return false;
+        }
+        $to = trim($this->ReadPropertyString('MailTo'));
+        try {
+            if ($to === '') {
+                // Ohne Empfänger gilt der in der SMTP-Instanz eingestellte
+                if (!function_exists('SMTP_SendMail')) {
+                    return false;
+                }
+                return (bool)SMTP_SendMail($inst, $title, $text);
+            }
+            if (!function_exists('SMTP_SendMailEx')) {
+                return false;
+            }
+            $body = '<html><body>' . nl2br(htmlspecialchars($text)) . '</body></html>';
+            $sent = false;
+            foreach (array_filter(array_map('trim', preg_split('/[,;]+/', $to))) as $addr) {
+                if (SMTP_SendMailEx($inst, $addr, $title, $body)) {
+                    $sent = true;
+                } else {
+                    IPS_LogMessage('Batteriewächter', 'E-Mail an „' . $addr . '“ fehlgeschlagen.');
+                }
+            }
+            return $sent;
+        } catch (\Throwable $e) {
+            IPS_LogMessage('Batteriewächter', 'E-Mail-Versand fehlgeschlagen: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function renderDiary(): string
+    {
+        $diary = array_reverse($this->loadJson('Diary'));
+        if (!$diary) {
+            return '<div style="padding:8px">ℹ️ Noch keine Batteriewechsel erfasst. Der Wächter erkennt sie selbst oder Sie tragen sie unter „Quittieren“ ein.</div>';
+        }
+        $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
+        $body = '';
+        foreach (array_slice($diary, 0, self::MAX_DIARY_ROWS) as $d) {
+            $body .= '<tr><td>' . $e(date('d.m.Y H:i', (int)$d['t'])) . '</td><td>' . $e($d['name']) . '</td><td>'
+                . ($d['type'] === 'erkannt' ? '🔎 erkannt' : '✍️ eingetragen') . '</td><td>' . $e($d['note']) . '</td></tr>';
+        }
+        return '<style>.bw{border-collapse:collapse;width:100%;font-size:14px}.bw th,.bw td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(128,128,128,.35)}</style>'
+            . '<table class="bw"><tr><th>Wann</th><th>Gerät</th><th>Art</th><th>Hinweis</th></tr>' . $body . '</table>';
     }
 
     // =====================================================================
@@ -396,13 +795,14 @@ class Batteriewaechter extends IPSModule
     {
         $now      = $this->now();
         $settings = $this->deviceSettings();
+        $retired  = $this->loadJson('Retired');
         $rows     = [];
 
         foreach ($found['devices'] as $key => $d) {
             // Geteilte Einträge (mehrere Sensoren einer Instanz) tragen die Instanz in 'parent'.
             $id = (int)($d['parent'] ?? $key);
             $st = $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false];
-            if ($st['excluded']) {
+            if ($st['excluded'] || isset($retired[(string)$key])) {
                 continue;
             }
             $isInstance = IPS_InstanceExists($id);
@@ -438,7 +838,7 @@ class Batteriewaechter extends IPSModule
                 $parent = (int)IPS_GetParent($id);
                 $place  = $parent > 0 ? IPS_GetName($parent) : '';
             }
-            $rows[] = ['id' => $key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r];
+            $rows[] = ['id' => (string)$key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r];
         }
         usort($rows, function ($a, $b) {
             return [$b['r']['urgency'], $a['name']] <=> [$a['r']['urgency'], $b['name']];
@@ -579,7 +979,7 @@ class Batteriewaechter extends IPSModule
             . ' (geprüft ' . date('d.m.Y H:i', $now) . ' Uhr).';
     }
 
-    private function renderTable(array $rows, bool $onlyProblems): string
+    private function renderTable(array $rows, bool $onlyProblems, array $notes = []): string
     {
         $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
         $body = '';
@@ -604,7 +1004,7 @@ class Batteriewaechter extends IPSModule
             }
             $age  = $r['valueAge'] === null ? '—' : BWACHLogik::days($r['valueAge']);
             $life = $r['lifeAge'] === null ? '—' : (($r['funk'] === 'still' ? '🔇 ' : '') . BWACHLogik::days($r['lifeAge']));
-            $mark = $r['critical'] ? ' ❗' : '';
+            $mark = ($r['critical'] ? ' ❗' : '') . (isset($notes[$row['id']]) ? ' ' . $notes[$row['id']] : '');
             $body .= '<tr><td>' . $e($row['name']) . $mark . '</td><td>' . $e($row['place']) . '</td><td>' . $e($bat) . '</td><td>'
                 . $e($age) . '</td><td>' . $e($life) . '</td><td>' . $e(implode('; ', $r['reasons'])) . '</td></tr>';
         }
@@ -714,7 +1114,9 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => 'Status: „leer“ und „schwach“ aus dem Prozentwert (Schwellen unten) oder dem Flag des Geräts; „unbekannt“, wenn nichts Auswertbares da ist (z. B. nur eine Spannung — die Auswertung nach Zelltyp folgt in einer späteren Version). Meldet ein Gerät Flag und Prozent und beide widersprechen sich, zeigt der Wächter den Widerspruch und bewertet nach dem neueren Signal; bei kritischen Geräten gilt die schlechtere Aussage.'],
                 ['type' => 'Label', 'caption' => 'Funkstille: Standard 7 Tage ohne Lebenszeichen. Geräte, die nur bei Ereignissen senden (Fenster-, Rauchmelder), gehören unter „Geräte-Einstellungen“ in die Gruppe „Ereignismelder“ (Standard 30 Tage).'],
                 ['type' => 'Label', 'caption' => 'Ergebnis: Kennzahlen-Variablen (leer, schwach, Funkstille …) und zwei Tabellen-Variablen („Handlungsbedarf“, „Alle Geräte“), die sich per Verknüpfung ins WebFront legen lassen.'],
-                ['type' => 'Label', 'caption' => 'Skripte: BWACH_Search(<InstanzID>) sucht neu, BWACH_Check(<InstanzID>) bewertet, BWACH_Preview(<InstanzID>) liefert den Trockenlauf als Text.'],
+                ['type' => 'Label', 'caption' => 'Meldungen (unter „🔔 Meldungen“, standardmäßig aus): erste Meldung, Erinnerung nach N Tagen, Ruhezeit, Wochenbericht, Eskalation für kritische Geräte — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Unter „✅ Quittieren“ sagen Sie dem Wächter, was mit einem Gerät ist.'],
+                ['type' => 'Label', 'caption' => 'Batterietagebuch: Der Wächter erkennt einen Batteriewechsel am Sprung des Prozentwerts oder am zurückgesetzten „schwach“-Flag und hält ihn mit Datum fest. Die Auswertung (Lebensdauer je Gerät und Zelltyp) folgt, sobald genug Wechsel gesammelt sind.'],
+                ['type' => 'Label', 'caption' => 'Skripte: BWACH_Search(<InstanzID>) sucht neu, BWACH_Check(<InstanzID>) bewertet, BWACH_Preview(<InstanzID>) liefert den Trockenlauf als Text, BWACH_Acknowledge(<InstanzID>, \'<Schlüssel>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') quittiert, BWACH_SendTest(<InstanzID>) schickt eine Testmeldung.'],
             ],
         ];
     }
@@ -753,6 +1155,124 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Button', 'caption' => '🔄 Jetzt prüfen', 'onClick' => 'echo BWACH_Check($id);'],
                 ['type' => 'Label', 'name' => 'CheckStatus', 'caption' => $line],
                 ['type' => 'Label', 'caption' => 'Die Tabellen „Handlungsbedarf“ und „Alle Geräte“ liegen als Variablen unter dieser Instanz.'],
+            ],
+        ];
+    }
+
+    private function NotifyPanel(): array
+    {
+        $targets = $this->pushTargets();
+        $nK = count(array_filter($targets, function ($x) { return $x === 'kachel'; }));
+        $nW = count($targets) - $nK;
+        $chosen = trim($this->ReadPropertyString('PushTargets')) !== '' && trim($this->ReadPropertyString('PushTargets')) !== '[]';
+        $pushLine = count($targets) === 0
+            ? 'ℹ️ Keine Push-Ziele gefunden (weder Kachel-Visualisierung noch klassisches WebFront) — Push bleibt wirkungslos, E-Mail geht trotzdem.'
+            : '✅ Push-Ziele: ' . $nK . ' Kachel-Visualisierung' . ($nK === 1 ? '' : 'en') . ', ' . $nW . ' WebFront' . ($chosen ? ' (nach Ihrer Auswahl unten)' : ' (alle gefundenen, solange unten nichts ausgewählt ist)') . '.';
+        $mi = $this->ReadPropertyInteger('MailInstance');
+        if (!$this->ReadPropertyBoolean('NotifyMail')) {
+            $mailLine = 'ℹ️ E-Mail ist aus.';
+        } elseif ($mi <= 0 || !IPS_InstanceExists($mi)) {
+            $mailLine = '⚠️ E-Mail ist eingeschaltet, aber es ist keine SMTP-Instanz ausgewählt.';
+        } else {
+            $to = trim($this->ReadPropertyString('MailTo'));
+            $mailLine = '✅ E-Mail über „' . IPS_GetName($mi) . '“ an ' . ($to !== '' ? $to : 'den in der SMTP-Instanz eingestellten Empfänger') . '.';
+        }
+        $head = $this->ReadPropertyBoolean('NotificationsActive')
+            ? '🔔 Meldungen sind AN.'
+            : 'ℹ️ Meldungen sind AUS — es wird nichts verschickt, bis Sie „Meldungen aktiv“ einschalten.';
+
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => true,
+            'caption' => '🔔  Meldungen',
+            'items' => [
+                ['type' => 'CheckBox', 'name' => 'NotificationsActive', 'caption' => 'Meldungen aktiv'],
+                ['type' => 'Label', 'name' => 'NotifyStatus', 'caption' => $head . ' ' . $pushLine . ' ' . $mailLine],
+                ['type' => 'Label', 'caption' => 'Gemeldet werden „Batterie leer“, „Batterie schwach“ und „Funkstille“. Zweifelhafte Daten (veraltet, Widerspruch) stehen nur im Wochenbericht und in den Tabellen. Mehrere Befunde eines Laufs kommen als EINE Nachricht.'],
+                ['type' => 'CheckBox', 'name' => 'NotifyPush', 'caption' => 'Per Push melden (Kachel-Visualisierung und WebFront)'],
+                [
+                    'type' => 'List', 'name' => 'PushTargets', 'caption' => 'Nur diese Push-Ziele (leer = alle gefundenen)', 'rowCount' => 3, 'add' => true, 'delete' => true,
+                    'columns' => [
+                        ['caption' => 'Instanz', 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
+                    ],
+                ],
+                ['type' => 'CheckBox', 'name' => 'NotifyMail', 'caption' => 'Per E-Mail melden'],
+                ['type' => 'SelectInstance', 'name' => 'MailInstance', 'caption' => 'SMTP-Instanz'],
+                ['type' => 'ValidationTextBox', 'name' => 'MailTo', 'caption' => 'Empfänger (mehrere mit Komma; leer = der in der SMTP-Instanz eingestellte)'],
+                ['type' => 'Button', 'caption' => '📨 Testmeldung senden', 'onClick' => 'echo BWACH_SendTest($id);'],
+                ['type' => 'NumberSpinner', 'name' => 'ReminderDays', 'caption' => 'Erinnerung, solange der Befund bleibt, alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
+                ['type' => 'NumberSpinner', 'name' => 'CriticalReminderDays', 'caption' => 'Erinnerung bei kritischen Geräten alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 30],
+                ['type' => 'NumberSpinner', 'name' => 'SnoozeDays', 'caption' => '„Erinnere mich später“ verschiebt um', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
+                ['type' => 'NumberSpinner', 'name' => 'EscalateHours', 'caption' => 'Eskalation für kritische Geräte, wenn niemand reagiert, nach (0 = aus)', 'suffix' => ' Stunden', 'minimum' => 0, 'maximum' => 720],
+                ['type' => 'CheckBox', 'name' => 'EscalatePush', 'caption' => 'Eskalation per Push'],
+                ['type' => 'CheckBox', 'name' => 'EscalateMail', 'caption' => 'Eskalation per E-Mail'],
+                ['type' => 'CheckBox', 'name' => 'QuietEnabled', 'caption' => 'Ruhezeit: nachts nicht melden (die Meldung wird danach nachgeholt)'],
+                ['type' => 'NumberSpinner', 'name' => 'QuietFromHour', 'caption' => 'Ruhezeit von', 'suffix' => ' Uhr', 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'NumberSpinner', 'name' => 'QuietToHour', 'caption' => 'Ruhezeit bis', 'suffix' => ' Uhr', 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'CheckBox', 'name' => 'CriticalIgnoresQuiet', 'caption' => 'Kritische Geräte dürfen die Ruhezeit durchbrechen'],
+                ['type' => 'CheckBox', 'name' => 'DigestEnabled', 'caption' => 'Wochenbericht senden'],
+                ['type' => 'Select', 'name' => 'DigestWeekday', 'caption' => 'Wochentag', 'options' => [
+                    ['caption' => 'Montag', 'value' => 1], ['caption' => 'Dienstag', 'value' => 2], ['caption' => 'Mittwoch', 'value' => 3],
+                    ['caption' => 'Donnerstag', 'value' => 4], ['caption' => 'Freitag', 'value' => 5], ['caption' => 'Samstag', 'value' => 6], ['caption' => 'Sonntag', 'value' => 7],
+                ]],
+                ['type' => 'NumberSpinner', 'name' => 'DigestHour', 'caption' => 'Ab', 'suffix' => ' Uhr', 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'CheckBox', 'name' => 'DigestWhenOk', 'caption' => 'Wochenbericht auch senden, wenn alles in Ordnung ist'],
+                ['type' => 'PopupButton', 'caption' => 'Wie arbeiten Meldung, Erinnerung und Eskalation zusammen?', 'width' => '480px', 'popup' => [
+                    'caption' => 'Meldungen',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => 'Erste Meldung: sobald ein Gerät „leer“, „schwach“ oder „still“ ist. Danach nur noch die Erinnerung im eingestellten Abstand, solange der Befund bleibt. Ein NEUER, schlimmerer Befund (z. B. von „schwach“ auf „leer“) ist wieder eine erste Meldung.'],
+                        ['type' => 'Label', 'caption' => 'Ruhezeit: Meldungen werden nicht verworfen, sondern nach der Ruhezeit nachgeholt. Kritische Geräte dürfen sie durchbrechen, wenn das angekreuzt ist.'],
+                        ['type' => 'Label', 'caption' => 'Eskalation: nur für kritische Geräte. Hat niemand nach der eingestellten Zeit quittiert, geht eine zweite Meldung über die Eskalationswege.'],
+                        ['type' => 'Label', 'caption' => 'Wackelnde Werte: Ein Befund gilt erst als beendet, wenn er 24 Stunden lang weg war. So meldet ein Gerät, das zwischen „leer“ und „ok“ springt, nicht jedes Mal neu.'],
+                        ['type' => 'Label', 'caption' => 'Zustellung: Kann eine Meldung über keinen Weg zugestellt werden, steht das im Symcon-Meldungslog, und der Wächter versucht es beim nächsten Lauf erneut.'],
+                    ],
+                ]],
+            ],
+        ];
+    }
+
+    private function AckPanel(): array
+    {
+        $found = $this->found();
+        $options = [['caption' => '— Gerät wählen —', 'value' => '']];
+        if ($found !== null) {
+            $rows = $this->evaluateAll($found);
+            usort($rows, function ($a, $b) { return [$b['r']['urgency'], $a['name']] <=> [$a['r']['urgency'], $b['name']]; });
+            foreach ($rows as $r) {
+                $suffix = $r['r']['urgency'] > 0 ? ' — ' . implode('; ', array_slice($r['r']['reasons'], 0, 1)) : '';
+                $options[] = ['caption' => $r['name'] . $suffix, 'value' => $r['id']];
+            }
+        }
+        $retired = $this->loadJson('Retired');
+        $retLine = 'ℹ️ Kein Gerät ist außer Betrieb gesetzt.';
+        if ($retired) {
+            $names = [];
+            foreach (array_keys($retired) as $k) {
+                $names[] = $found !== null && isset($found['devices'][$k]) ? (string)$found['devices'][$k]['name'] : (string)$k;
+            }
+            $retLine = '💤 Außer Betrieb (' . count($names) . '): ' . implode(', ', array_slice($names, 0, 8)) . (count($names) > 8 ? ' …' : '');
+        }
+        $diary = array_reverse($this->loadJson('Diary'));
+        $dl = [];
+        foreach (array_slice($diary, 0, 6) as $d) {
+            $dl[] = date('d.m.Y', (int)$d['t']) . ' ' . $d['name'] . ' (' . ($d['type'] === 'erkannt' ? 'erkannt' : 'eingetragen') . ')';
+        }
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => true,
+            'caption' => '✅  Quittieren und Batterietagebuch',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Gerät wählen und sagen, was damit ist: „Habe ich getauscht“ trägt den Wechsel ins Tagebuch ein (3 Tage Wartezeit, bis das Gerät den neuen Stand meldet), „Erinnere mich später“ stellt die Meldung zurück, „Außer Betrieb“ nimmt das Gerät dauerhaft aus der Überwachung.'],
+                ['type' => 'Select', 'name' => 'AckDevice', 'caption' => 'Gerät', 'options' => $options],
+                ['type' => 'Select', 'name' => 'AckAction', 'caption' => 'Was ist damit?', 'options' => [
+                    ['caption' => 'Habe ich getauscht', 'value' => BWACHMeldung::ACK_REPLACED],
+                    ['caption' => 'Erinnere mich später', 'value' => BWACHMeldung::ACK_SNOOZE],
+                    ['caption' => 'Gerät ist außer Betrieb', 'value' => BWACHMeldung::ACK_RETIRED],
+                ]],
+                ['type' => 'Button', 'caption' => '✔️ Ausführen', 'onClick' => 'echo BWACH_Acknowledge($id, $AckDevice, $AckAction);'],
+                ['type' => 'Label', 'name' => 'AckStatus', 'caption' => 'ℹ️ Noch nichts quittiert.'],
+                ['type' => 'Label', 'caption' => $retLine],
+                ['type' => 'Button', 'caption' => '↩️ Alle außer Betrieb gesetzten Geräte wieder aufnehmen', 'onClick' => 'echo BWACH_UnretireAll($id);'],
+                ['type' => 'Label', 'caption' => $dl ? '📓 Zuletzt im Tagebuch: ' . implode(' · ', $dl) : '📓 Das Batterietagebuch ist noch leer. Wechsel werden erkannt (Prozentwert springt hoch, „schwach“-Flag wird zurückgesetzt) oder hier eingetragen. Die ganze Liste steht in der Variable „Batterietagebuch“.'],
+                ['type' => 'NumberSpinner', 'name' => 'ReplaceJumpPercent', 'caption' => 'Wechsel erkennen, wenn der Prozentwert um mindestens so viel steigt', 'suffix' => ' Prozentpunkte', 'minimum' => 5, 'maximum' => 90],
             ],
         ];
     }
@@ -869,7 +1389,7 @@ class Batteriewaechter extends IPSModule
 
         $elements = array_values(array_filter([
             $this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(),
-            $this->DiscoveryPanel(), $this->StatusPanel(), $this->ThresholdPanel(),
+            $this->DiscoveryPanel(), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ThresholdPanel(),
             $this->DevicesPanel(), $this->ManualPanel(),
             $this->ForumHint(), $this->LicenseHint(),
         ]));
