@@ -41,7 +41,7 @@
 - Die **Prognose** braucht Wochen Verlauf und Geräte, die den Ladezustand fein genug melden. Z-Wave-Sensoren, die bis kurz vor leer „100 %“ zeigen, bekommen keine; dort hilft nur „leer/schwach“ und die Funkstille-Erkennung.
 - **Lebensdauer, Kälteeinfluss und der Gleichartigen-Vergleich** brauchen Daten, die erst über Monate entstehen. Im Prüfstand sind sie mit simulierten Verläufen belegt, nicht mit Langzeitdaten echter Geräte.
 - Eine **Zelltyp-Bibliothek nach Gerätemodell** gibt es bewusst nicht: Ohne eine belastbare, gepflegte Quelle würde sie Modelle raten. Der Wächter nennt Kandidaten aus der Spannung, der Zelltyp wird je Gerät von Hand gewählt.
-- Zigbee2MQTT und HomeMatic sind nach Dokumentation angebunden, aber nicht an echten Batteriegeräten geprüft. Matter ist an einem Gerät geprüft (IKEA-Öffnungskontakt: Batteriestand, „Ersatz erforderlich“, Ersatz-Beschreibung); die Batteriespannung über Matter wurde noch an keinem Gerät gesehen. Matter-Batterien stehen in einer eigenen Instanz für den Endpunkt 0 (Stromversorgung), die man im Matter Konfigurator anlegt.
+- Zigbee2MQTT und HomeMatic sind nach Dokumentation angebunden, aber nicht an echten Batteriegeräten geprüft. Matter ist an einem Gerät geprüft (IKEA-Öffnungskontakt: Batteriestand, „Ersatz erforderlich“, Ersatz-Beschreibung); die Batteriespannung über Matter wurde noch an keinem Gerät gesehen. Matter-Batterien stehen in einer eigenen Instanz für den Endpunkt 0 (Stromversorgung). Der Matter Konfigurator bietet sie nicht an: man legt sie von Hand an (Instanz hinzufügen, Matter Gerät, Knoten-ID, Endpunkt 0) und sieht sie dort rot, sie arbeiten trotzdem.
 
 ## Kachel
 

@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.6.3' => [
+            '• Der Matter-Hinweis sagt jetzt, wie die Stromversorgung angelegt wird: Instanz „Matter Gerät“ von Hand hinzufügen (Knoten-ID des Geräts, Endpunkt 0). Der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot, ohne dass etwas nicht stimmt.',
+        ],
         '0.6.2' => [
             '• Matter: Das Formular „Gefundene Geräte“ nennt Matter-Geräte, für die es noch keine Instanz für die Stromversorgung (Endpunkt 0) gibt. Symcon legt sie nicht von allein an, ohne sie fehlt der Batteriewert. Netzbetriebene Geräte brauchen keine.',
         ],
@@ -1598,7 +1601,7 @@ class Batteriewaechter extends IPSModule
         $shown = array_slice($names, 0, 8);
         $more  = count($names) - count($shown);
         return "\n\nℹ️ Matter: Für " . count($names) . ($more === 0 && count($names) === 1 ? ' Gerät gibt es' : ' Geräte gibt es') . ' keine Instanz für die Stromversorgung (Endpunkt 0): '
-            . implode(', ', $shown) . ($more > 0 ? ' und ' . $more . ' weitere' : '') . '. Hat ein Gerät eine Batterie, fehlt dem Wächter ihr Wert, bis im Matter Konfigurator die Instanz „Stromversorgung“ (Endpunkt 0) dafür angelegt ist. Netzbetriebene Geräte haben keine Batterie.';
+            . implode(', ', $shown) . ($more > 0 ? ' und ' . $more . ' weitere' : '') . '. Hat ein Gerät eine Batterie, fehlt dem Wächter ihr Wert, bis dafür eine Instanz „Matter Gerät“ mit der Knoten-ID des Geräts und dem Endpunkt 0 angelegt ist (Objektbaum: Instanz hinzufügen; der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot). Netzbetriebene Geräte haben keine Batterie.';
     }
 
     private function summaryLine(array $sum, int $now): string

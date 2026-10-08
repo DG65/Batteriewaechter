@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.6.3] - 2026-10-09
+
+### Changed
+- Der Matter-Hinweis nennt den Weg zur Stromversorgungs-Instanz: „Instanz hinzufügen“, Modul „Matter Gerät“, Knoten-ID und Endpunkt 0 von Hand. Der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot (mit Pfad statt Name, ohne ID-Nummer und Info-Symbol); sie arbeiten trotzdem richtig. So an einer Anlage mit 15 Knoten bestätigt (09.10.2026).
+
 ## [0.6.2] - 2026-10-08
 
 ### Added
