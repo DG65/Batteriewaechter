@@ -136,6 +136,25 @@ final class BWACHLogik
         return null;
     }
 
+    /**
+     * Gerätename eines Matter-Knotens. Hat der Knoten genau eine Funktionsinstanz (Kontakt), gilt deren Name.
+     * Hat er mehrere (Licht- und Anwesenheitssensor), wäre jede Wahl zufällig: dann gilt der Name der
+     * Stromversorgungs-Instanz ohne den Zusatz „Stromversorgung“.
+     *
+     * @param string[] $functionNames Namen der Funktionsinstanzen, nach Endpunkt sortiert
+     */
+    public static function matterDeviceName(string $ownName, array $functionNames): string
+    {
+        if (count($functionNames) === 1) {
+            return (string)$functionNames[0];
+        }
+        if (count($functionNames) > 1) {
+            $base = trim((string)preg_replace('/\s*Stromversorgung\s*$/iu', '', $ownName));
+            return $base !== '' ? $base : $ownName;
+        }
+        return $ownName;
+    }
+
     /** Namen, die einen Sammelwert über mehrere Geräte beschreiben („Schwächste Batterie“ eines Raums). */
     public static function isAggregateName(string $name): bool
     {

@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.6.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.6.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.6.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.6.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.6.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.6.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -1404,6 +1404,18 @@ check('Matter 8 (= 4 %) und „Ersatz erforderlich“: Batterie leer', $dn3['sta
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5022]['var']['value'] = false;
 $mn->props['DeviceSettings'] = json_encode([['Instance' => 502, 'Group' => 'ereignis', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aaa_nimh', 'Cells' => 2, 'Poll' => false]]); $mn->ApplyChanges();
 check('Vom Nutzer gewählter Zelltyp hat Vorrang vor der Gerätebeschreibung', strpos(json_decode(end($mn->visUpdates), true)['devices'][0]['cellText'], '2× AAA Akku NiMH') === 0 && strpos(json_decode(end($mn->visUpdates), true)['devices'][0]['cellText'], 'laut Gerät') === false);
+
+check('Matter-Name: eine Funktionsinstanz → deren Name', BWACHLogik::matterDeviceName('Badfenster Senkrecht Stromversorgung', ['Badfenster Senkrecht']) === 'Badfenster Senkrecht');
+check('Matter-Name: mehrere Funktionsinstanzen → eigener Name ohne „Stromversorgung“', BWACHLogik::matterDeviceName('Anwesenheitssensor Stromversorgung', ['Lichtsensor', 'Anwesenheitssensor']) === 'Anwesenheitssensor');
+check('Matter-Name: mehrere Instanzen und der Name besteht nur aus „Stromversorgung“ → eigener Name bleibt', BWACHLogik::matterDeviceName('Stromversorgung', ['A', 'B']) === 'Stromversorgung');
+check('Matter-Name: keine Funktionsinstanz → eigener Name', BWACHLogik::matterDeviceName('Solo Stromversorgung', []) === 'Solo Stromversorgung');
+$GLOBALS['OBJ'][504] = ['type' => 1, 'parent' => 900, 'ident' => '', 'name' => 'Lichtsensor', 'module' => 'Matter Device', 'config' => ['NodeId' => 3, 'EndpointId' => 1]];
+$GLOBALS['OBJ'][505] = ['type' => 1, 'parent' => 900, 'ident' => '', 'name' => 'Anwesenheitssensor', 'module' => 'Matter Device', 'config' => ['NodeId' => 3, 'EndpointId' => 2]];
+$GLOBALS['OBJ'][506] = ['type' => 1, 'parent' => 900, 'ident' => '', 'name' => 'Anwesenheitssensor Stromversorgung', 'module' => 'Matter Device', 'config' => ['NodeId' => 3, 'EndpointId' => 0]];
+mkvar(5061, 506, 'PowerSource_BatPercentRemaining', 'Batteriestand', 1, 200, $GLOBALS['CLOCK'] - 60);
+mkvar(5041, 504, 'IlluminanceMeasurement_Measured', 'Helligkeit', 2, 10.0, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 503, 504, 505, 506]]; $mn->ApplyChanges();
+check('Knoten mit Licht- und Anwesenheitssensor: Gerät heißt „Anwesenheitssensor“', in_array('Anwesenheitssensor', array_column(json_decode(end($mn->visUpdates), true)['devices'], 'name'), true), json_encode(array_column(json_decode(end($mn->visUpdates), true)['devices'], 'name'), JSON_UNESCAPED_UNICODE));
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

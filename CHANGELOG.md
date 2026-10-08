@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.6.1] - 2026-10-08
+
+### Changed
+- Matter-Knoten mit mehreren Funktionsinstanzen (Knoten 3: Lichtsensor und Anwesenheitssensor): Der Gerätename ist der Name der Stromversorgungs-Instanz ohne den Zusatz „Stromversorgung“ („Anwesenheitssensor“). Vorher wurde zufällig die erste Funktionsinstanz genommen („Lichtsensor“). Bei genau einer Funktionsinstanz (Kontakt) bleibt es bei deren Namen.
+
 ## [0.6.0] - 2026-10-08
 
 ### Added

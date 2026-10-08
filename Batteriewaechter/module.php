@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.6.1' => [
+            '• Matter: Hat ein Knoten mehrere Funktionsinstanzen (z. B. Licht- und Anwesenheitssensor), heißt das Gerät wie die Stromversorgungs-Instanz ohne den Zusatz „Stromversorgung“ („Anwesenheitssensor“), statt zufällig wie die erste Funktionsinstanz („Lichtsensor“).',
+        ],
         '0.6.0' => [
             '• Matter: Die Batterie eines Matter-Geräts steht in einer eigenen Instanz für die „Stromversorgung“ (Endpunkt 0), die man im Matter Konfigurator anlegt. Der Wächter erkennt sie, fasst sie mit dem Kontakt desselben Knotens zu einem Gerät zusammen und nimmt dessen Namen.',
             '• Als Lebenszeichen zählt bei Matter auch der Kontakt: Er meldet bei jedem Öffnen, die Stromversorgung nur selten. Ein Fensterkontakt gilt so nicht mehr fälschlich als still.',
@@ -1320,7 +1323,7 @@ class Batteriewaechter extends IPSModule
             ]);
             $name = (string)$d['name'];
             if ($isInstance) {
-                $name = IPS_GetName($sibs ? $sibs[0] : $id);
+                $name = BWACHLogik::matterDeviceName(IPS_GetName($id), array_map('IPS_GetName', $sibs));
                 if (isset($d['parent'])) {
                     $first = null;
                     foreach ($d['signals'] as $list) {
