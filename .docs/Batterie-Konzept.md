@@ -228,3 +228,7 @@ Lebenszeichen zählt nur noch Variablen ohne Aktion (Gegenprobe am Privat-Symcon
 ## 13. Stand Meilenstein 3 (08.10.2026)
 
 Kachel gebaut (`module.html`, gleiche Instanz, `SetVisualizationType(1)`). Live-Test von 0.2.0 durch Dietmar am 08.10.2026: Instanz gefunden 48 Geräte, Quittieren per Formular funktioniert (`$AckDevice` kommt an), Push kommt an, E-Mail noch nicht geprüft. Dabei fiel auf: Tagebuch- und „Außer Betrieb“-Zeile blieben bis zum Neuöffnen alt (behoben), Dietmar fand die „Tabellen“ nicht (HTML-Variablen im Objektbaum, keine Kachel) — daher die echte Kachel. Kachel-JavaScript wird im Prüfstand unter Node mit einem Minimal-DOM geprüft und wurde im Browser in Desktop- und Handybreite angesehen; in der echten Kachel-Visualisierung noch nicht gesehen.
+
+## 14. Stand Stufe 2 (08.10.2026, Version 0.4.0)
+
+Gebaut: Zelltypen und Spannungskurven, Verlauf im Modul, Restlaufzeit-Prognose (Theil-Sen, Sicherheit hoch/mittel/gering/unbekannt), „bald leer“ als Meldung, Einkaufsliste, Tauschrunde, Lebensdauerstatistik, gelerntes Meldeverhalten, Verwaist-Vorschlag, Kachel-Ansichten. **Ehrliche Grenzen:** Die Entladekurven sind typische Näherungen, nicht gemessen und nicht herstellerspezifisch. Die Prognose ist bei Dietmars Geräten für die meisten (Z-Wave-Sensoren mit 100 %-Stufen) noch gar nicht möglich und entsteht erst mit Wochen an Verlauf; die Lebensdauerstatistik erst nach den ersten Wechseln. Bisher nur im Prüfstand mit simulierten Verläufen belegt, nicht an echten Langzeitdaten.

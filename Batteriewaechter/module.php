@@ -31,6 +31,7 @@
 
 require_once __DIR__ . '/BWACHLogik.php';
 require_once __DIR__ . '/BWACHMeldung.php';
+require_once __DIR__ . '/BWACHPrognose.php';
 
 class Batteriewaechter extends IPSModule
 {
@@ -41,6 +42,12 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.4.0' => [
+            '• Prognose: Der Wächter schreibt den Verlauf jedes Geräts mit und schätzt die Restlaufzeit („reicht noch etwa 23 Tage, mittlere Sicherheit“) — oder sagt ehrlich, warum er es nicht kann. Neue Meldung „Batterie bald leer“ bei ausreichender Sicherheit.',
+            '• Zelltyp je Gerät (CR2032, AA, AAA …): Spannungen werden in einen Ladezustand umgerechnet (Näherung, als solche gekennzeichnet), der Wächter erkennt, wenn die Spannung nicht zum Zelltyp passt.',
+            '• Einkaufsliste („4× CR2032, 7× AAA“) und Tauschrunde (nach Ort gebündelt, mit Vorschlag bis wann), Lebensdauerstatistik je Gerät, Zelltyp und System; im Wochenbericht und als Variablen.',
+            '• Gelernter Meldetakt: Sendet ein Gerät sehr regelmäßig, erkennt der Wächter Funkstille früher. Geräte, die seit über 60 Tagen still sind, schlägt er als „vermutlich ausgebaut“ vor.',
+        ],
         '0.3.1' => [
             '• Testmeldung nennt bei einem fehlgeschlagenen E-Mail-Versand die Ursache, z. B. „Anmeldung abgelehnt: Benutzername oder Passwort der SMTP-Instanz stimmen nicht“, statt auf das Meldungslog zu verweisen. Die Ursache steht auch im Meldungslog.',
         ],
@@ -88,6 +95,10 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyInteger('StillDaysEvent', 30);
         $this->RegisterPropertyInteger('CheckIntervalMin', 60);
         $this->RegisterPropertyString('ExcludedModules', implode(', ', BWACHLogik::DEFAULT_EXCLUDED_MODULES));
+        $this->RegisterPropertyInteger('ForecastHorizonDays', 30);
+        $this->RegisterPropertyInteger('SoonDays', 14);
+        $this->RegisterPropertyBoolean('LearnIntervals', true);
+        $this->RegisterPropertyInteger('OrphanDays', 60);
         $this->RegisterPropertyBoolean('TileAllowAck', true);
         $this->RegisterPropertyBoolean('NameSearch', false);
         $this->RegisterPropertyString('ManualVariables', '[]');
@@ -144,10 +155,13 @@ class Batteriewaechter extends IPSModule
         $this->MaintainVariable('StatusLine', 'Zusammenfassung', VARIABLETYPE_STRING, '', 70, true);
         $this->MaintainVariable('TableProblems', 'Handlungsbedarf', VARIABLETYPE_STRING, '~HTMLBox', 80, true);
         $this->MaintainVariable('TableAll', 'Alle Geräte', VARIABLETYPE_STRING, '~HTMLBox', 90, true);
+        $this->MaintainVariable('Soon', 'Bald leer', VARIABLETYPE_INTEGER, '', 55, true);
         $this->MaintainVariable('TableDiary', 'Batterietagebuch', VARIABLETYPE_STRING, '~HTMLBox', 100, true);
+        $this->MaintainVariable('TableShopping', 'Einkauf und Tauschrunde', VARIABLETYPE_STRING, '~HTMLBox', 110, true);
+        $this->MaintainVariable('TableStats', 'Lebensdauer und Entladung', VARIABLETYPE_STRING, '~HTMLBox', 120, true);
         // Zustandsspeicher als versteckte Variablen (wie Schein): Attribute gehen beim Neu-Registrieren des
         // Moduls verloren (SUITE.md Stolperstein 5), Variablen bleiben.
-        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges'] as $ident => $name) {
+        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges', 'History' => 'Verlauf', 'LifeObs' => 'Meldeverhalten'] as $ident => $name) {
             $existed = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             $this->MaintainVariable($ident, $name, VARIABLETYPE_STRING, '', 200, true);
             if ($existed === false) {
@@ -237,6 +251,8 @@ class Batteriewaechter extends IPSModule
         $rows    = $this->evaluateAll($found);
         $results = array_column($rows, 'r');
         $sum     = BWACHLogik::summarize($results);
+        $sum['soon'] = count(array_filter($results, function ($r) { return !empty($r['soon']); }));
+        $this->setIntIfChanged('Soon', $sum['soon']);
 
         $this->setIntIfChanged('Total', $sum['total']);
         $this->setIntIfChanged('Empty', $sum['empty']);
@@ -248,6 +264,7 @@ class Batteriewaechter extends IPSModule
         $now  = $this->now();
         $line = $this->summaryLine($sum, $now);
         $this->setStringIfChanged('StatusLine', $line);
+        $this->updateHistory($rows, $now);
         $this->detectReplacements($rows, $now);
         $this->processNotifications($rows, $sum, $now);
 
@@ -255,7 +272,10 @@ class Batteriewaechter extends IPSModule
         $this->setStringIfChanged('TableAll', $this->renderTable($rows, false, $notes));
         $this->setStringIfChanged('TableProblems', $this->renderTable($rows, true, $notes));
         $this->setStringIfChanged('TableDiary', $this->renderDiary());
-        $this->UpdateVisualizationValue($this->tilePayload($rows, $sum, $now, $notes));
+        $views = $this->views($rows, $now);
+        $this->setStringIfChanged('TableShopping', $this->renderShopping($views));
+        $this->setStringIfChanged('TableStats', $this->renderStats($views));
+        $this->UpdateVisualizationValue($this->tilePayload($rows, $sum, $now, $notes, $views));
         $this->WriteAttributeInteger('LastCheckTs', $now);
         $this->UpdateFormField('CheckStatus', 'caption', $line);
         return $line;
@@ -332,6 +352,133 @@ class Batteriewaechter extends IPSModule
     }
 
     // =====================================================================
+    //  Verlauf, Einkauf, Tauschrunde, Statistik
+    // =====================================================================
+
+    /** Schreibt Verlauf und Meldeverhalten mit; beides lebt im Modul, ein Symcon-Archiv ist nicht nötig. */
+    private function updateHistory(array $rows, int $now): void
+    {
+        $hist = $this->loadJson('History');
+        $obs  = $this->loadJson('LifeObs');
+        $h0   = $hist;
+        $o0   = $obs;
+        foreach ($rows as $row) {
+            $key = $row['id'];
+            $series = BWACHPrognose::historyAdd($hist[$key] ?? [], $now, $row['r']['percent'], $this->outdoorTemp());
+            if ($series) {
+                $hist[$key] = $series;
+            }
+            $obs[$key]  = BWACHPrognose::observeLife($obs[$key] ?? [], (int)$row['life']);
+        }
+        if ($hist !== $h0) {
+            $this->saveJson('History', $hist);
+        }
+        if ($obs !== $o0) {
+            $this->saveJson('LifeObs', $obs);
+        }
+    }
+
+    /** Außentemperatur für den Verlauf; ohne Auswahl null. */
+    protected function outdoorTemp(): ?float
+    {
+        return null;
+    }
+
+    /** Einkaufsliste, Tauschrunde und Lebensdauerstatistik aus den aktuellen Zeilen. */
+    private function views(array $rows, int $now): array
+    {
+        $horizon = $this->ReadPropertyInteger('ForecastHorizonDays');
+        $items   = [];
+        $cellOf  = [];
+        $modOf   = [];
+        foreach ($rows as $row) {
+            $f = $row['forecast'];
+            $items[] = [
+                'name'   => $row['name'],
+                'place'  => $row['place'],
+                'cell'   => $row['cell'],
+                'cells'  => $row['cells'],
+                'status' => $row['r']['status'],
+                'days'   => ($f['days'] !== null && $f['confidence'] !== 'keine') ? $f['days'] : null,
+                'text'   => $row['r']['status'] === BWACHLogik::ST_OK ? BWACHPrognose::forecastText($f) : implode('; ', array_slice($row['r']['reasons'], 0, 1)),
+            ];
+            $cellOf[$row['id']] = BWACHZelle::isKnown($row['cell']) ? BWACHZelle::shopLabel($row['cell']) : '';
+            $modOf[$row['id']]  = $row['module'];
+        }
+        $life = BWACHPrognose::lifetimes($this->loadJson('Diary'));
+        return [
+            'horizon'  => $horizon,
+            'shopping' => BWACHPrognose::shopping($items, $horizon),
+            'round'    => BWACHPrognose::tauschrunde($items, $horizon, $now),
+            'life'     => $life,
+            'byCell'   => BWACHPrognose::lifetimeByGroup($life, $cellOf),
+            'byModule' => BWACHPrognose::lifetimeByGroup($life, $modOf),
+            'items'    => $items,
+        ];
+    }
+
+    private function renderShopping(array $v): string
+    {
+        $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
+        $css = '<style>.bw{border-collapse:collapse;width:100%;font-size:14px}.bw th,.bw td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(128,128,128,.35)}</style>';
+        $out = $css . '<div style="padding:4px 2px"><b>🛒 Einkaufsliste für die nächsten ' . (int)$v['horizon'] . ' Tage</b></div>';
+        $sh = $v['shopping'];
+        if (!$sh['need']) {
+            return $out . '<div style="padding:8px">✅ Nichts zu besorgen: kein Gerät ist schwach oder laut Prognose bald leer.</div>';
+        }
+        $out .= '<div style="padding:4px 2px">' . ($sh['lines'] ? $e(implode(', ', $sh['lines'])) : 'Keine Zelltypen bekannt.') . '</div>';
+        if ($sh['missing']) {
+            $out .= '<div style="padding:4px 2px;opacity:.8">ℹ️ Zelltyp fehlt bei: ' . $e(implode(', ', $sh['missing'])) . ' (unter „Geräte-Einstellungen“ eintragen, dann zählt die Liste mit).</div>';
+        }
+        $r = $v['round'];
+        $out .= '<div style="padding:10px 2px 4px"><b>🔧 Tauschrunde</b>' . ($r['until'] !== null ? ' — am besten bis ' . date('d.m.Y', $r['until']) : '') . ' (' . $r['count'] . ($r['count'] === 1 ? ' Gerät' : ' Geräte') . ')</div>';
+        $body = '';
+        foreach ($r['places'] as $place => $devs) {
+            foreach ($devs as $d) {
+                $cell = BWACHZelle::shopLabel((string)$d['cell']);
+                $body .= '<tr><td>' . $e($place) . '</td><td>' . $e($d['name']) . '</td><td>' . $e($cell !== null ? max(1, (int)$d['cells']) . '× ' . $cell : '—') . '</td><td>' . $e($d['text']) . '</td></tr>';
+            }
+        }
+        return $out . '<table class="bw"><tr><th>Ort</th><th>Gerät</th><th>Batterie</th><th>Stand</th></tr>' . $body . '</table>';
+    }
+
+    private function renderStats(array $v): string
+    {
+        $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
+        $css = '<style>.bw{border-collapse:collapse;width:100%;font-size:14px}.bw th,.bw td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(128,128,128,.35)}</style>';
+        $out = $css;
+        $out .= '<div style="padding:4px 2px"><b>📈 Restlaufzeit je Gerät</b></div>';
+        $body = '';
+        $items = $v['items'];
+        usort($items, function ($a, $b) { return [$a['days'] === null ? 1 : 0, $a['days'] ?? 0, $a['name']] <=> [$b['days'] === null ? 1 : 0, $b['days'] ?? 0, $b['name']]; });
+        foreach ($items as $i) {
+            $body .= '<tr><td>' . $e($i['name']) . '</td><td>' . $e($i['place']) . '</td><td>' . $e($i['text']) . '</td></tr>';
+        }
+        $out .= '<table class="bw"><tr><th>Gerät</th><th>Ort</th><th>Restlaufzeit</th></tr>' . $body . '</table>';
+
+        $out .= '<div style="padding:10px 2px 4px"><b>⏱ Lebensdauer (Zeit zwischen zwei Batteriewechseln)</b></div>';
+        if (!$v['life']) {
+            return $out . '<div style="padding:8px">ℹ️ Noch zu wenig Daten: je Gerät braucht es mindestens zwei erfasste Batteriewechsel.</div>';
+        }
+        $body = '';
+        foreach ($v['life'] as $l) {
+            $body .= '<tr><td>' . $e($l['name']) . '</td><td>' . $e(implode(', ', array_map(function ($d) { return BWACHLogik::num($d) . ' Tage'; }, $l['days']))) . '</td></tr>';
+        }
+        $out .= '<table class="bw"><tr><th>Gerät</th><th>Lebensdauern</th></tr>' . $body . '</table>';
+        foreach (['byCell' => 'je Zelltyp', 'byModule' => 'je System'] as $k => $title) {
+            if (!$v[$k]) {
+                continue;
+            }
+            $body = '';
+            foreach ($v[$k] as $g => $s) {
+                $body .= '<tr><td>' . $e($g) . '</td><td>' . BWACHLogik::num($s['median']) . ' Tage</td><td>' . $s['n'] . ' Intervalle, ' . $s['devices'] . ($s['devices'] === 1 ? ' Gerät' : ' Geräte') . '</td></tr>';
+            }
+            $out .= '<div style="padding:10px 2px 4px"><b>Mittlere Lebensdauer ' . $title . '</b></div><table class="bw"><tr><th>' . ($k === 'byCell' ? 'Zelle' : 'System') . '</th><th>Median</th><th>Grundlage</th></tr>' . $body . '</table>';
+        }
+        return $out;
+    }
+
+    // =====================================================================
     //  Kachel
     // =====================================================================
 
@@ -374,7 +521,7 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Daten für die Kachel. Alle Texte kommen fertig formuliert, die Kachel setzt nur noch zusammen. */
-    private function tilePayload(array $rows, array $sum, int $now, array $notes): string
+    private function tilePayload(array $rows, array $sum, int $now, array $notes, ?array $views = null): string
     {
         $devices = [];
         foreach ($rows as $row) {
@@ -397,12 +544,17 @@ class Batteriewaechter extends IPSModule
                 'urgency'      => $r['urgency'],
                 'reasons'      => $r['reasons'],
                 'note'         => $notes[$row['id']] ?? '',
+                'soon'         => !empty($r['soon']),
+                'forecastText' => $r['percent'] === null ? '' : BWACHPrognose::forecastText($row['forecast']),
+                'cellText'     => BWACHZelle::isKnown($row['cell']) ? ($row['cells'] > 1 ? $row['cells'] . '× ' : '') . BWACHZelle::label($row['cell']) : '',
+                'derived'      => !empty($r['derived']),
             ];
         }
         $diary = [];
         foreach (array_slice(array_reverse($this->loadJson('Diary')), 0, 25) as $d) {
             $diary[] = ['when' => date('d.m.Y', (int)$d['t']), 'name' => (string)$d['name'], 'type' => $d['type'] === 'erkannt' ? 'erkannt' : 'eingetragen', 'note' => (string)$d['note']];
         }
+        $views   = $views ?? $this->views($rows, $now);
         $meta    = $this->loadJson('Meta');
         $message = (isset($meta['ack']) && $now - (int)$meta['ack']['t'] <= 30) ? (string)$meta['ack']['m'] : '';
         return json_encode([
@@ -410,6 +562,7 @@ class Batteriewaechter extends IPSModule
             'devices'  => $devices,
             'diary'    => $diary,
             'allowAck' => $this->ReadPropertyBoolean('TileAllowAck'),
+            'shopping' => $this->tileShopping($views),
             'asOf'     => date('H:i', $now) . ' Uhr',
             'message'  => $message,
         ], JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
@@ -636,7 +789,12 @@ class Batteriewaechter extends IPSModule
         foreach ($rows as $r) {
             $list[] = ['name' => $r['name'], 'place' => $r['place'], 'text' => implode('; ', $r['r']['reasons']), 'urgency' => $r['r']['urgency']];
         }
-        $d = BWACHMeldung::digest($sum, $list);
+        $extra = [];
+        $views = $this->views($rows, $now);
+        if ($views['shopping']['lines']) {
+            $extra[] = '🛒 Einkauf für die nächsten ' . $views['horizon'] . ' Tage: ' . implode(', ', $views['shopping']['lines']) . ($views['shopping']['missing'] ? ' (Zelltyp fehlt bei ' . count($views['shopping']['missing']) . ' Gerät' . (count($views['shopping']['missing']) === 1 ? '' : 'en') . ')' : '');
+        }
+        $d = BWACHMeldung::digest($sum, $list, $extra);
         if (!$d['anyProblem'] && !$this->ReadPropertyBoolean('DigestWhenOk')) {
             $meta['digest'] = $key;
             $this->saveJson('Meta', $meta);
@@ -900,6 +1058,8 @@ class Batteriewaechter extends IPSModule
                         'critical'  => (bool)($r['Critical'] ?? false),
                         'ignoreAge' => (bool)($r['IgnoreAge'] ?? false),
                         'excluded'  => (bool)($r['Excluded'] ?? false),
+                        'cell'      => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
+                        'cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     ];
                 }
             }
@@ -917,12 +1077,15 @@ class Batteriewaechter extends IPSModule
         $now      = $this->now();
         $settings = $this->deviceSettings();
         $retired  = $this->loadJson('Retired');
+        $hist     = $this->loadJson('History');
+        $lifeObs  = $this->loadJson('LifeObs');
+        $learn    = $this->ReadPropertyBoolean('LearnIntervals');
         $rows     = [];
 
         foreach ($found['devices'] as $key => $d) {
             // Geteilte Einträge (mehrere Sensoren einer Instanz) tragen die Instanz in 'parent'.
             $id = (int)($d['parent'] ?? $key);
-            $st = $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false];
+            $st = $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1];
             if ($st['excluded'] || isset($retired[(string)$key])) {
                 continue;
             }
@@ -930,7 +1093,13 @@ class Batteriewaechter extends IPSModule
             $sig  = $this->readSignals($d['signals']);
             $life = $this->lifeSign($id, $isInstance, $d['signals']);
 
+            $defaultStill = ($st['group'] === BWACHLogik::GROUP_EVENT ? $this->ReadPropertyInteger('StillDaysEvent') : $this->ReadPropertyInteger('StillDays')) * 86400;
+            $stillSec = $learn ? BWACHPrognose::learnedThreshold($lifeObs[(string)$key] ?? [], $defaultStill) : $defaultStill;
             $r = BWACHLogik::evaluate($sig, $life, $now, [
+                'cell'           => $st['cell'],
+                'cells'          => $st['cells'],
+                'stillSec'       => $stillSec < $defaultStill ? $stillSec : 0,
+                'orphanDays'     => $this->ReadPropertyInteger('OrphanDays'),
                 'critical'       => $st['critical'],
                 'group'          => $st['group'],
                 'ignoreAge'      => $st['ignoreAge'],
@@ -959,7 +1128,16 @@ class Batteriewaechter extends IPSModule
                 $parent = (int)IPS_GetParent($id);
                 $place  = $parent > 0 ? IPS_GetName($parent) : '';
             }
-            $rows[] = ['id' => (string)$key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r];
+            // Prognose aus dem im Modul geführten Verlauf; „bald leer“ nur bei ausreichender Sicherheit
+            $f = BWACHPrognose::forecast($hist[(string)$key] ?? [], (float)$this->ReadPropertyInteger('EmptyPercent'), $this->ReadPropertyInteger('ReplaceJumpPercent'));
+            $r['soon'] = false;
+            if ($r['status'] === BWACHLogik::ST_OK && $f['days'] !== null && in_array($f['confidence'], ['hoch', 'mittel'], true) && $f['days'] <= $this->ReadPropertyInteger('SoonDays')) {
+                $r['soon'] = true;
+                $r['reasons'][] = 'Batterie bald leer: ' . BWACHPrognose::forecastText($f);
+                $r['urgency'] = max($r['urgency'], 650 + ($r['critical'] ? 100 : 0));
+            }
+            $rows[] = ['id' => (string)$key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r,
+                'forecast' => $f, 'cell' => $st['cell'], 'cells' => $st['cells'], 'life' => $life];
         }
         usort($rows, function ($a, $b) {
             return [$b['r']['urgency'], $a['name']] <=> [$a['r']['urgency'], $b['name']];
@@ -1092,10 +1270,11 @@ class Batteriewaechter extends IPSModule
         $bad = [];
         if ($sum['empty'] > 0) { $bad[] = $sum['empty'] . ' leer'; }
         if ($sum['low'] > 0) { $bad[] = $sum['low'] . ' schwach'; }
+        if (($sum['soon'] ?? 0) > 0) { $bad[] = $sum['soon'] . ' bald leer'; }
         if ($sum['silent'] > 0) { $bad[] = $sum['silent'] . ' Funkstille'; }
         if ($sum['check'] > 0) { $bad[] = $sum['check'] . ' mit zweifelhaften Daten'; }
         if ($sum['unknown'] > 0) { $bad[] = $sum['unknown'] . ' unbekannt'; }
-        $icon = ($sum['empty'] > 0 || $sum['low'] > 0 || $sum['silent'] > 0) ? '⚠️' : ($bad ? 'ℹ️' : '✅');
+        $icon = ($sum['empty'] > 0 || $sum['low'] > 0 || $sum['silent'] > 0 || ($sum['soon'] ?? 0) > 0) ? '⚠️' : ($bad ? 'ℹ️' : '✅');
         return $icon . ' ' . $sum['total'] . ' Geräte überwacht: ' . ($bad ? implode(', ', $bad) : 'alles in Ordnung')
             . ' (geprüft ' . date('d.m.Y H:i', $now) . ' Uhr).';
     }
@@ -1126,14 +1305,16 @@ class Batteriewaechter extends IPSModule
             $age  = $r['valueAge'] === null ? '—' : BWACHLogik::days($r['valueAge']);
             $life = $r['lifeAge'] === null ? '—' : (($r['funk'] === 'still' ? '🔇 ' : '') . BWACHLogik::daysDat($r['lifeAge']));
             $mark = ($r['critical'] ? ' ❗' : '') . (isset($notes[$row['id']]) ? ' ' . $notes[$row['id']] : '');
+            $f = $row['forecast'];
+            $left = $f['days'] !== null ? '≈ ' . BWACHLogik::days((int)($f['days'] * 86400)) . ' (' . $f['confidence'] . ')' : ($f['confidence'] === 'keine' ? 'keine Entladung' : '—');
             $body .= '<tr><td>' . $e($row['name']) . $mark . '</td><td>' . $e($row['place']) . '</td><td>' . $e($bat) . '</td><td>'
-                . $e($age) . '</td><td>' . $e($life) . '</td><td>' . $e(implode('; ', $r['reasons'])) . '</td></tr>';
+                . $e($age) . '</td><td>' . $e($life) . '</td><td>' . $e($left) . '</td><td>' . $e(implode('; ', $r['reasons'])) . '</td></tr>';
         }
         if ($n === 0) {
             return '<div style="padding:8px">' . ($onlyProblems ? '✅ Kein Handlungsbedarf.' : 'ℹ️ Keine Geräte.') . '</div>';
         }
         return '<style>.bw{border-collapse:collapse;width:100%;font-size:14px}.bw th,.bw td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(128,128,128,.35)}</style>'
-            . '<table class="bw"><tr><th>Gerät</th><th>Ort</th><th>Batterie</th><th>Wert-Alter</th><th>Lebenszeichen vor</th><th>Befund</th></tr>' . $body . '</table>';
+            . '<table class="bw"><tr><th>Gerät</th><th>Ort</th><th>Batterie</th><th>Wert-Alter</th><th>Lebenszeichen vor</th><th>Restlaufzeit</th><th>Befund</th></tr>' . $body . '</table>';
     }
 
     private function setIntIfChanged(string $ident, int $value): void
@@ -1236,6 +1417,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => 'Funkstille: Standard 7 Tage ohne Lebenszeichen. Geräte, die nur bei Ereignissen senden (Fenster-, Rauchmelder), gehören unter „Geräte-Einstellungen“ in die Gruppe „Ereignismelder“ (Standard 30 Tage).'],
                 ['type' => 'Label', 'caption' => 'Ergebnis: Kennzahlen-Variablen (leer, schwach, Funkstille …) und zwei Tabellen-Variablen („Handlungsbedarf“, „Alle Geräte“), die sich per Verknüpfung ins WebFront legen lassen.'],
                 ['type' => 'Label', 'caption' => 'Meldungen (unter „🔔 Meldungen“, standardmäßig aus): erste Meldung, Erinnerung nach N Tagen, Ruhezeit, Wochenbericht, Eskalation für kritische Geräte — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Unter „✅ Quittieren“ sagen Sie dem Wächter, was mit einem Gerät ist.'],
+                ['type' => 'Label', 'caption' => 'Prognose, Einkauf, Tauschrunde: Unter „🧮 Prognose und Einkauf“ einstellbar. Je Gerät den Zelltyp unter „Geräte-Einstellungen“ eintragen, dann kann der Wächter Spannungen umrechnen und die Einkaufsliste zählen. Die Ergebnisse stehen als Variablen „Einkauf und Tauschrunde“ und „Lebensdauer und Entladung“ unter der Instanz.'],
                 ['type' => 'Label', 'caption' => 'Kachel: Instanz in der Kachel-Visualisierung als Kachel hinzufügen. Antippen einer Zeile klappt sie auf (Gründe, Alter, Schaltflächen zum Quittieren), die Filterzeile oben zeigt nur, was gerade wichtig ist.'],
                 ['type' => 'Label', 'caption' => 'Batterietagebuch: Der Wächter erkennt einen Batteriewechsel am Sprung des Prozentwerts oder am zurückgesetzten „schwach“-Flag und hält ihn mit Datum fest. Die Auswertung (Lebensdauer je Gerät und Zelltyp) folgt, sobald genug Wechsel gesammelt sind.'],
                 ['type' => 'Label', 'caption' => 'Skripte: BWACH_Search(<InstanzID>) sucht neu, BWACH_Check(<InstanzID>) bewertet, BWACH_Preview(<InstanzID>) liefert den Trockenlauf als Text, BWACH_Acknowledge(<InstanzID>, \'<Schlüssel>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') quittiert, BWACH_SendTest(<InstanzID>) schickt eine Testmeldung.'],
@@ -1354,10 +1536,42 @@ class Batteriewaechter extends IPSModule
         ];
     }
 
+    /** Einkauf, Tauschrunde und Statistik in der Form, die die Kachel braucht. */
+    private function tileShopping(array $v): array
+    {
+        $places = [];
+        foreach ($v['round']['places'] as $place => $devs) {
+            $list = [];
+            foreach ($devs as $d) {
+                $cell = BWACHZelle::shopLabel((string)$d['cell']);
+                $list[] = ['name' => $d['name'], 'need' => $cell !== null ? max(1, (int)$d['cells']) . '× ' . $cell : '', 'text' => $d['text']];
+            }
+            $places[] = ['place' => $place, 'devices' => $list];
+        }
+        $stats = [];
+        foreach (['byCell', 'byModule'] as $k) {
+            foreach ($v[$k] as $g => $s) {
+                $stats[] = ['group' => ($k === 'byCell' ? 'Zelle ' : 'System ') . $g, 'text' => BWACHLogik::num($s['median']) . ' Tage (' . $s['n'] . ' Intervalle)'];
+            }
+        }
+        foreach ($v['life'] as $l) {
+            $stats[] = ['group' => $l['name'], 'text' => implode(', ', array_map(function ($d) { return BWACHLogik::num($d) . ' Tage'; }, $l['days']))];
+        }
+        return [
+            'horizon' => $v['horizon'],
+            'lines'   => $v['shopping']['lines'],
+            'missing' => $v['shopping']['missing'],
+            'count'   => $v['round']['count'],
+            'until'   => $v['round']['until'] === null ? '' : date('d.m.Y', $v['round']['until']),
+            'places'  => $places,
+            'stats'   => $stats,
+        ];
+    }
+
     /** Die wichtigste Begründung eines Geräts für die Unterzeile der Kachel. */
     private function headline(array $r): string
     {
-        $want = $r['status'] === BWACHLogik::ST_EMPTY || $r['status'] === BWACHLogik::ST_LOW ? 'Batterie ' : ($r['funk'] === 'still' ? 'Funkstille' : '');
+        $want = $r['status'] === BWACHLogik::ST_EMPTY || $r['status'] === BWACHLogik::ST_LOW ? 'Batterie ' : ($r['funk'] === 'still' ? 'Funkstille' : (!empty($r['soon']) ? 'Batterie bald leer' : ''));
         foreach ($r['reasons'] as $reason) {
             if ($want !== '' && strpos($reason, $want) === 0) {
                 return $reason;
@@ -1433,6 +1647,30 @@ class Batteriewaechter extends IPSModule
         ];
     }
 
+    private function ForecastPanel(): array
+    {
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🧮  Prognose und Einkauf',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Der Wächter schreibt von jedem Gerät den Verlauf mit (im Modul selbst, ein Symcon-Archiv ist nicht nötig) und schätzt daraus, wie lange die Batterie noch reicht. Das klappt nur, wo das Gerät den Ladezustand fein genug und oft genug meldet; sonst steht dort ehrlich „Restlaufzeit unbekannt“ mit Grund. Eine Prognose braucht mindestens 4 Messpunkte über 14 Tage seit dem letzten Batteriewechsel.'],
+                ['type' => 'NumberSpinner', 'name' => 'ForecastHorizonDays', 'caption' => 'Einkaufsliste und Tauschrunde für die nächsten', 'suffix' => ' Tage', 'minimum' => 7, 'maximum' => 365],
+                ['type' => 'NumberSpinner', 'name' => 'SoonDays', 'caption' => '„Bald leer“ melden, wenn die Batterie laut Prognose noch höchstens', 'suffix' => ' Tage reicht', 'minimum' => 3, 'maximum' => 90],
+                ['type' => 'Label', 'caption' => 'ℹ️ „Bald leer“ wird nur bei hoher oder mittlerer Sicherheit der Prognose gemeldet, nie bei geringer.'],
+                ['type' => 'CheckBox', 'name' => 'LearnIntervals', 'caption' => 'Meldeverhalten lernen (Funkstille früher erkennen, wenn ein Gerät sonst sehr regelmäßig sendet)'],
+                ['type' => 'NumberSpinner', 'name' => 'OrphanDays', 'caption' => 'Gerät als „vermutlich ausgebaut“ vorschlagen, wenn es so lange still ist (0 = aus)', 'suffix' => ' Tage', 'minimum' => 0, 'maximum' => 720],
+                ['type' => 'PopupButton', 'caption' => 'Wie sicher ist die Prognose, und was heißt „aus Spannung berechnet“?', 'width' => '500px', 'popup' => [
+                    'caption' => 'Prognose und Spannung',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => 'Die Restlaufzeit ist eine Schätzung aus dem bisherigen Verlauf (robuste Gerade, unempfindlich gegen einzelne Ausreißer). Hohe Sicherheit: gleichmäßiger Verlauf über mindestens 60 Tage und 8 Messpunkte; mittlere: mindestens 30 Tage; sonst gering. Batterien entladen sich nicht immer gleichmäßig (Kälte, Last, Funkprobleme) — die Zahl ist eine Orientierung, kein Versprechen.'],
+                        ['type' => 'Label', 'caption' => 'Meldet ein Gerät nur eine Spannung, rechnet der Wächter sie mit einer typischen Entladekurve des gewählten Zelltyps in einen Ladezustand um. Das ist eine Näherung (keine Datenblattwerte eines Herstellers) und steht in der Anzeige immer als „aus Spannung berechnet“. Passt die Spannung nicht zum gewählten Zelltyp, meldet der Wächter das, statt zu raten.'],
+                        ['type' => 'Label', 'caption' => 'Den Zelltyp kann der Wächter aus der Spannung nicht sicher erkennen (3 V können eine Knopfzelle oder zwei Alkali-Zellen sein). Er nennt Kandidaten, wählt aber nie selbst.'],
+                    ],
+                ]],
+            ],
+        ];
+    }
+
     private function ThresholdPanel(): array
     {
         return [
@@ -1464,7 +1702,7 @@ class Batteriewaechter extends IPSModule
             'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => '🏷️  Geräte-Einstellungen',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Nur nötig für Geräte, die vom Standard abweichen: Ereignismelder (Fenster-, Rauchmelder), kritische Geräte (früher und dringlicher), Geräte ohne Altersprüfung oder Geräte, die ganz ausgenommen werden sollen.'],
+                ['type' => 'Label', 'caption' => 'Nur nötig für Geräte, die vom Standard abweichen: Ereignismelder (Fenster-, Rauchmelder), kritische Geräte (früher und dringlicher), Geräte ohne Altersprüfung oder Geräte, die ganz ausgenommen werden sollen. Mit dem Zelltyp (z. B. CR2032, AAA) und der Anzahl Zellen rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen.'],
                 [
                     'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Geräte', 'rowCount' => 8, 'add' => true, 'delete' => true,
                     'columns' => [
@@ -1476,6 +1714,8 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Kritisch', 'name' => 'Critical', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ohne Altersprüfung', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
+                        ['caption' => 'Anzahl Zellen', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
                     ],
                 ],
             ],
@@ -1545,7 +1785,7 @@ class Batteriewaechter extends IPSModule
 
         $elements = array_values(array_filter([
             $this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(),
-            $this->DiscoveryPanel(), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ThresholdPanel(),
+            $this->DiscoveryPanel(), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ForecastPanel(), $this->ThresholdPanel(),
             $this->DevicesPanel(), $this->ManualPanel(),
             $this->ForumHint(), $this->LicenseHint(),
         ]));

@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.4.0] - 2026-10-08
+
+### Added
+- **Zelltyp je Gerät** (CR2032, CR2450, CR123A, AA/AAA Alkali, AA/AAA NiMH, AA Lithium, 9-V-Block, Li-Ion/LiPo) und Anzahl Zellen. Meldet ein Gerät nur eine Spannung, rechnet der Wächter sie mit einer typischen Entladekurve in einen Ladezustand um (Näherung, in der Anzeige immer „aus Spannung berechnet“). Passt die Spannung nicht zum Zelltyp, meldet er das, statt zu raten. Ohne Zelltyp nennt er Kandidaten für die Spannung, wählt aber nie selbst.
+- **Verlauf und Prognose:** Der Wächter schreibt den Verlauf jedes Geräts im Modul selbst mit (kein Symcon-Archiv) und schätzt die Restlaufzeit mit einer robusten Geraden (Theil-Sen), mit Sicherheit hoch/mittel/gering. Nur der Abschnitt seit dem letzten Batteriewechsel zählt. Zu wenig Verlauf, zu grobe Stufen oder keine erkennbare Entladung werden ehrlich benannt, nie geraten.
+- **„Batterie bald leer“** als eigener Befund und eigene Meldung, nur bei hoher oder mittlerer Sicherheit der Prognose und unter einer einstellbaren Restlaufzeit.
+- **Einkaufsliste** („4× CR2032, 7× AAA“, nach Zellenzahl) und **Tauschrunde** (nach Ort gebündelt, mit „am besten bis TT.MM.JJJJ“), in der Kachel, als Variable „Einkauf und Tauschrunde“ und vorn im Wochenbericht.
+- **Lebensdauerstatistik** aus den Batteriewechseln: je Gerät, je Zelltyp und je System; Restlaufzeit je Gerät. Variable „Lebensdauer und Entladung“ und Kachel-Ansicht „📈 Statistik“.
+- **Gelerntes Meldeverhalten:** Sendet ein Gerät sehr regelmäßig, wird Funkstille früher erkannt (3× das 90. Perzentil der beobachteten Abstände, mindestens 6 Stunden, nie über der eingestellten Schwelle). Abschaltbar.
+- **Verwaist-Vorschlag:** Ein Gerät, das seit über 60 Tagen still ist (einstellbar), wird als „vermutlich ausgebaut“ vorgeschlagen.
+- Kachel: Filter „⏳ bald leer“, Ansichten „🛒 Einkauf“ und „📈 Statistik“, Prognose und Zelltyp beim Aufklappen. Neue Kennzahl „Bald leer“ und Spalte „Restlaufzeit“ in den Tabellen.
+
+### Changed
+- Der Wochenbericht nennt Kennzahlen und Einkauf vorn (Push kürzt bei 256 Byte), die Geräteliste danach.
+
 ## [0.3.1] - 2026-10-08
 
 ### Changed

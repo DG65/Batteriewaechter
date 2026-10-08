@@ -15,14 +15,15 @@ $root = dirname(__DIR__);
 $src  = $root . '/Batteriewaechter';
 
 // [Datei, Suchtext, Ersatz, Beschreibung]
-// Bewusst NICHT aufgenommen: Wegfall des Kurzschlusses in truncateBytes (gleiches Ergebnis).
+// Bewusst NICHT aufgenommen: die Grenzfälle „Spannung genau am Kurvenende“ (die Zwischenrechnung liefert dort dasselbe)
+// und Wegfall des Kurzschlusses in truncateBytes (gleiches Ergebnis).
 // Bewusst NICHT aufgenommen (gleichwertige Mutanten, Verhalten bleibt identisch): Wegfall der Namenssperre
 // „ladung“ (die Namenserkennung lässt „Batterieladung“ ohnehin nicht zu) und Wegfall von „$found === null“
 // im Tick (LastDiscoveryTs = 0 löst dieselbe Suche aus).
 $mutations = [
     ['BWACHLogik.php', '$pct <= $emptyThr ? self::ST_EMPTY', '$pct < $emptyThr ? self::ST_EMPTY', 'Grenze „leer“ ≤ → <'],
     ['BWACHLogik.php', '$pct < $lowThr ? self::ST_LOW', '$pct <= $lowThr ? self::ST_LOW', 'Grenze „schwach“ < → ≤'],
-    ['BWACHLogik.php', '$lifeAge > $stillDays * 86400', '$lifeAge >= $stillDays * 86400', 'Funkstille > → ≥'],
+    ['BWACHLogik.php', '$lifeAge > $stillSec) {', '$lifeAge >= $stillSec) {', 'Funkstille > → ≥'],
     ['BWACHLogik.php', '$valueAge > $oldDays * 86400', '$valueAge >= $oldDays * 86400', 'Wertalter > → ≥'],
     ['BWACHLogik.php', '$score += 100', '$score += 50', 'Kritisch-Zuschlag'],
     ['BWACHLogik.php', '($flagLow && $pct >= $lowThr)', '($flagLow && $pct > $lowThr)', 'Widerspruch: ≥ → >'],
@@ -92,6 +93,37 @@ $mutations = [
     ['module.php', "'⚠️ nicht gesendet — ' . \$this->lastMailError", "'⚠️ nicht gesendet'", 'Testmeldung ohne Ursache'],
     ['module.php', "IPS_LogMessage('Batteriewächter', 'E-Mail-Versand fehlgeschlagen: ' . \$this->lastMailError);", "", 'Ursache nicht im Meldungslog'],
     ['module.php', "\$this->UpdateFormField('NotifyStatus', 'caption', \$out);", "", 'Testmeldung frischt die Statuszeile nicht auf'],
+    // --- 0.4.0: Zelltypen, Prognose, Einkauf, Statistik
+    ['BWACHZelle.php', 'if ($v > $top * 1.12 || $v < $low * 0.6) {', 'if (false) {', 'Spannung, die nicht zum Zelltyp passt, wird umgerechnet'],
+    ['BWACHZelle.php', "\$volt / \$cells", "\$volt", 'Zellenzahl wird ignoriert'],
+    ['BWACHPrognose.php', 'if ($n < self::FORECAST_MIN_POINTS || $span < self::FORECAST_MIN_SPAN) {', 'if ($n < 2) {', 'Prognose schon mit 2 Punkten'],
+    ['BWACHPrognose.php', '$span < self::FORECAST_MIN_SPAN', '$span < 0', 'Prognose ohne Mindestzeitraum'],
+    ['BWACHPrognose.php', 'if ($distinct < self::FORECAST_MIN_DISTINCT) {', 'if (false) {', 'Prognose aus groben Stufen'],
+    ['BWACHPrognose.php', 'if ($slope >= self::NO_DISCHARGE_SLOPE) {', 'if (false) {', 'Keine-Entladung-Erkennung entfällt'],
+    ['BWACHPrognose.php', 'if ($r2 >= 0.85 && $span >= 60 * 86400 && $n >= 8) {', 'if (true) {', 'Immer hohe Sicherheit'],
+    ['BWACHPrognose.php', '} elseif ($r2 >= 0.6 && $span >= 30 * 86400) {', '} elseif (true) {', 'Immer mindestens mittlere Sicherheit'],
+    ['BWACHPrognose.php', "if (\$series[\$i][1] - \$series[\$i - 1][1] >= \$jump) {", "if (\$series[\$i][1] - \$series[\$i - 1][1] > \$jump) {", 'Wechselsprung: ≥ → >'],
+    ['BWACHPrognose.php', "return array_slice(\$series, \$start);", "return \$series;", 'Alter Abschnitt vor dem Wechsel zählt mit'],
+    ['BWACHPrognose.php', 'if (abs($pct - $last[1]) < self::HISTORY_MIN_DELTA && $t - $last[0] < self::HISTORY_MIN_GAP) {', 'if (false) {', 'Verlauf speichert jeden Wert'],
+    ['BWACHPrognose.php', 'if ($t <= $last[0]) {', 'if (false) {', 'Verlauf nimmt Zeit rückwärts an'],
+    ['BWACHPrognose.php', 'if (count($series) > self::HISTORY_CAP) {', 'if (false) {', 'Verlauf unbegrenzt'],
+    ['BWACHPrognose.php', '$soon = $i[\'days\'] !== null && $i[\'days\'] <= $horizonDays;', '$soon = $i[\'days\'] !== null && $i[\'days\'] < $horizonDays;', 'Einkauf: Horizont ≤ → <'],
+    ['BWACHPrognose.php', "if (in_array(\$i['status'], ['leer', 'schwach'], true) || \$soon) {", "if (\$soon) {", 'Einkauf ignoriert akut schwache Geräte'],
+    ['BWACHPrognose.php', "\$count[\$label] = (\$count[\$label] ?? 0) + max(1, (int)\$i['cells']);", "\$count[\$label] = (\$count[\$label] ?? 0) + 1;", 'Einkauf zählt Zellen je Gerät nicht'],
+    ['BWACHPrognose.php', "\$t = max(\$now, \$t);", "", 'Tauschrunde darf in der Vergangenheit liegen'],
+    ['BWACHPrognose.php', "- \$marginDays * 86400;", ";", 'Tauschrunde ohne Reserve'],
+    ['BWACHPrognose.php', "if (count(\$gaps) < self::GAPS_MIN) {", "if (false) {", 'Gelernte Schwelle schon bei wenigen Beobachtungen'],
+    ['BWACHPrognose.php', "max(6 * 3600, min(\$default, 3 * \$p90))", "min(\$default, 3 * \$p90)", 'Gelernte Schwelle ohne Untergrenze'],
+    ['BWACHPrognose.php', "max(6 * 3600, min(\$default, 3 * \$p90))", "max(6 * 3600, 3 * \$p90)", 'Gelernte Schwelle über der eingestellten'],
+    ['BWACHPrognose.php', "\$obs['gaps'] = array_slice(\$obs['gaps'], -self::GAPS_CAP);", "", 'Abstände unbegrenzt'],
+    ['BWACHPrognose.php', "if (\$obs['last'] > 0 && \$life > \$obs['last']) {", "if (\$life > 0) {", 'Erste Beobachtung erzeugt einen Abstand'],
+    ['BWACHLogik.php', "if (\$orphanDays > 0 && \$lifeAge > \$orphanDays * 86400) {", "if (\$orphanDays > 0 && \$lifeAge > 0) {", 'Verwaist-Vorschlag sofort'],
+    ['BWACHLogik.php', "\$stillSec  = isset(\$p['stillSec']) && (int)\$p['stillSec'] > 0 ? (int)\$p['stillSec'] : \$stillDays * 86400;", "\$stillSec  = \$stillDays * 86400;", 'Gelernte Schwelle wirkungslos'],
+    ['module.php', "in_array(\$f['confidence'], ['hoch', 'mittel'], true) && \$f['days'] <= \$this->ReadPropertyInteger('SoonDays')", "\$f['days'] <= \$this->ReadPropertyInteger('SoonDays')", '„Bald leer“ auch bei geringer Sicherheit'],
+    ['module.php', "\$f['days'] <= \$this->ReadPropertyInteger('SoonDays')", "\$f['days'] < 0", '„Bald leer“ nie'],
+    ['module.php', "\$stillSec < \$defaultStill ? \$stillSec : 0", "0", 'Gelernte Schwelle kommt nicht an'],
+    ['module.php', "if (\$series) {\n                \$hist[\$key] = \$series;\n            }", "\$hist[\$key] = \$series;", 'Leere Verläufe werden gespeichert'],
+    ['BWACHMeldung.php', "if (!empty(\$r['soon'])) {\n            \$p[] = self::PROB_SOON;\n        }", "", '„Bald leer“ löst keine Meldung aus'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],
     ['module.php', 'htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, \'UTF-8\')', '(string)$s', 'HTML-Maskierung entfällt'],

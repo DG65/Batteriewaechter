@@ -20,6 +20,8 @@
 // Modul kollidieren (SUITE.md, ModbusTcpClient-Vorfall).
 // ===========================================================================
 
+require_once __DIR__ . '/BWACHZelle.php';
+
 final class BWACHLogik
 {
     // Art des Signals
@@ -284,6 +286,29 @@ final class BWACHLogik
                 $pct = $raw;
             }
         }
+        // Nur Spannung, aber ein Zelltyp gewählt: Ladezustand aus der Entladekurve (Näherung)
+        $derived  = false;
+        $suggest  = '';
+        $cell     = (string)($p['cell'] ?? BWACHZelle::UNKNOWN);
+        $cells    = max(1, (int)($p['cells'] ?? 1));
+        $voltOnly = empty($sig['percent']) && !empty($sig['voltage']);
+        if ($voltOnly) {
+            $volt = (float)$sig['voltage']['value'];
+            if (BWACHZelle::isKnown($cell)) {
+                $d = BWACHZelle::percentFromVoltage($cell, $cells, $volt);
+                if ($d === null) {
+                    $quality[] = 'zelltyp_passt_nicht';
+                    $reasons[] = 'Spannung ' . self::num($volt) . ' V passt nicht zum gewählten Zelltyp (' . ($cells > 1 ? $cells . '× ' : '') . BWACHZelle::label($cell) . ')';
+                } else {
+                    $pct = $d;
+                    $pctUpdated = (int)$sig['voltage']['updated'];
+                    $derived = true;
+                }
+            } else {
+                $suggest = BWACHZelle::suggest($volt);
+            }
+        }
+
         $flagLow = null;
         $flagUpdated = 0;
         if (!empty($sig['flag'])) {
@@ -323,8 +348,10 @@ final class BWACHLogik
                 $status = $stPct;
             }
         } elseif (!empty($sig['voltage'])) {
-            $reasons[] = 'nur Spannung vorhanden (' . self::num((float)$sig['voltage']['value']) . ' V), Zelltyp-Auswertung folgt in Stufe 2';
-            $quality[] = 'nur_spannung';
+            if (!in_array('zelltyp_passt_nicht', $quality, true)) {
+                $reasons[] = 'nur Spannung vorhanden (' . self::num((float)$sig['voltage']['value']) . ' V): Zelltyp wählen, dann rechnet der Wächter den Ladezustand aus' . ($suggest !== '' ? ' (' . $suggest . ')' : '');
+                $quality[] = 'nur_spannung';
+            }
         } else {
             $reasons[] = 'kein auswertbares Batteriesignal';
         }
@@ -341,20 +368,28 @@ final class BWACHLogik
         // --- Funkstille -------------------------------------------------------
         $group     = (string)($p['group'] ?? self::GROUP_STANDARD);
         $stillDays = (int)($group === self::GROUP_EVENT ? ($p['stillDaysEvent'] ?? 30) : ($p['stillDays'] ?? 7));
+        $stillSec  = isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? (int)$p['stillSec'] : $stillDays * 86400;   // gelernte Schwelle, wenn vorhanden
         $lifeAge   = $life > 0 ? max(0, $now - $life) : null;
+        $orphan    = false;
         if ($lifeAge === null) {
             $funk = 'unbekannt';
-        } elseif ($lifeAge > $stillDays * 86400) {
+        } elseif ($lifeAge > $stillSec) {
             $funk = 'still';
-            $reasons[] = 'Funkstille: seit ' . self::daysDat($lifeAge) . ' kein Lebenszeichen (Schwelle ' . $stillDays . ' Tage)';
+            $reasons[] = 'Funkstille: seit ' . self::daysDat($lifeAge) . ' kein Lebenszeichen (Schwelle ' . self::days($stillSec) . (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? ', aus dem Meldeverhalten gelernt' : '') . ')';
+            $orphanDays = (int)($p['orphanDays'] ?? 60);
+            if ($orphanDays > 0 && $lifeAge > $orphanDays * 86400) {
+                $orphan = true;
+                $reasons[] = 'Seit über ' . $orphanDays . ' Tagen still: vermutlich ausgebaut oder defekt. Falls ausgebaut, „Außer Betrieb“ wählen';
+            }
         } else {
             $funk = 'aktiv';
         }
 
+        $pctText = $pct !== null ? ' (' . ($derived ? '≈' : '') . self::num($pct) . ' %' . ($derived ? ', aus Spannung berechnet' : '') . ')' : '';
         if ($status === self::ST_EMPTY) {
-            array_unshift($reasons, 'Batterie leer' . ($pct !== null ? ' (' . self::num($pct) . ' %)' : ''));
+            array_unshift($reasons, 'Batterie leer' . $pctText);
         } elseif ($status === self::ST_LOW) {
-            array_unshift($reasons, 'Batterie schwach' . ($pct !== null ? ' (' . self::num($pct) . ' %)' : ''));
+            array_unshift($reasons, 'Batterie schwach' . $pctText);
         }
 
         // --- Dringlichkeit für die Sortierung ---------------------------------
@@ -363,7 +398,7 @@ final class BWACHLogik
         if ($status === self::ST_LOW) { $score = max($score, 700); }
         if ($funk === 'still') { $score = max($score, 600); }
         if (in_array('widerspruch', $quality, true)) { $score = max($score, 500); }
-        if (in_array('unplausibel', $quality, true)) { $score = max($score, 400); }
+        if (in_array('unplausibel', $quality, true) || in_array('zelltyp_passt_nicht', $quality, true)) { $score = max($score, 400); }
         if (in_array('veraltet', $quality, true)) { $score = max($score, 300); }
         if ($status === self::ST_UNKNOWN) { $score = max($score, 200); }
         if ($critical && $score > 0) { $score += 100; }
@@ -378,6 +413,9 @@ final class BWACHLogik
             'valueAge' => $valueAge,
             'lifeAge'  => $lifeAge,
             'critical' => $critical,
+            'derived'  => $derived,
+            'orphan'   => $orphan,
+            'cell'     => $cell,
             'urgency'  => $score,
             'reasons'  => $reasons,
         ];

@@ -471,7 +471,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.3.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.4.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -495,11 +495,11 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.3.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.4.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.3.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.4.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
-check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 9);
+check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
     foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save'])) { return false; } } } } }
     return true;
@@ -899,10 +899,11 @@ function click(pred){ var t=all(global.ROOT).filter(pred)[0]; if(!t||!t.onclick)
 JS;
 $testJs = <<<'JS'
 var P = {summary:{total:3},asOf:'10:00 Uhr',allowAck:true,message:'',diary:[{when:'07.10.2026',name:'A',type:'erkannt',note:'x'}],
+ shopping:{horizon:30,lines:['3× AAA','1× CR2032'],missing:['Ohne Typ'],count:2,until:'12.10.2026',places:[{place:'Flur',devices:[{name:'Alpha <b>',need:'1× CR2032',text:'Batterie leer'}]}],stats:[{group:'Zelle CR2032',text:'395 Tage (3 Intervalle)'}]},
  devices:[
- {id:'1',name:'Alpha <b>',place:'Flur',module:'Z',status:'leer',funk:'aktiv',percent:3,percentText:'3 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 5 Minuten',critical:true,quality:[],urgency:1100,reasons:['Batterie leer (3 %)'],note:''},
- {id:'2',name:'Beta',place:'',module:'',status:'ok',funk:'still',percent:80,percentText:'80 %',voltageText:'',valueAgeText:'—',lifeText:'vor 9 Tage',critical:false,quality:['veraltet'],urgency:600,reasons:['Funkstille'],note:'💤 bis 15.10.2026'},
- {id:'3',name:'Gamma',place:'Bad',module:'',status:'ok',funk:'aktiv',percent:100,percentText:'100 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 1 Minute',critical:false,quality:[],urgency:0,reasons:[],note:''}]};
+ {id:'1',name:'Alpha <b>',place:'Flur',module:'Z',status:'leer',funk:'aktiv',percent:3,percentText:'3 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 5 Minuten',critical:true,quality:[],urgency:1100,reasons:['Batterie leer (3 %)'],note:'',soon:false,forecastText:'reicht noch etwa 4 Tage (mittlere Sicherheit)',cellText:'CR2032 (Knopfzelle, 3 V)',derived:true},
+ {id:'2',name:'Beta',place:'',module:'',status:'ok',funk:'still',percent:80,percentText:'80 %',voltageText:'',valueAgeText:'—',lifeText:'vor 9 Tage',critical:false,quality:['veraltet'],urgency:600,reasons:['Funkstille'],note:'💤 bis 15.10.2026',soon:true,forecastText:'Restlaufzeit unbekannt: zu wenig Verlauf (1 Messpunkte über 0 Tage)',cellText:'',derived:false},
+ {id:'3',name:'Gamma',place:'Bad',module:'',status:'ok',funk:'aktiv',percent:100,percentText:'100 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 1 Minute',critical:false,quality:[],urgency:0,reasons:[],note:'',soon:false,forecastText:'',cellText:'',derived:false}]};
 handleMessage(JSON.stringify(P));
 var ok = true; function chk(n,c){ if(!c){ ok=false; console.log('FAIL '+n); } }
 var t = texts(global.ROOT);
@@ -913,6 +914,7 @@ click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] &&
 chk('Filter Alle zeigt auch Gamma', texts(global.ROOT).indexOf('Gamma')>=0);
 click(function(e){ return e.className==='bw-top' && texts(e).indexOf('Alpha')>=0; });
 t = texts(global.ROOT);
+chk('Aufklappen zeigt Prognose, Zelltyp und den Hinweis „aus Spannung berechnet“', texts(global.ROOT).indexOf('📈 reicht noch etwa 4 Tage')>=0 && texts(global.ROOT).indexOf('CR2032 (Knopfzelle, 3 V) · Ladezustand aus der Spannung berechnet')>=0);
 chk('Aufklappen zeigt Gründe, Alter und Schaltflächen', t.indexOf('Batterie leer (3 %)')>=0 && t.indexOf('Batteriewert gemeldet: vor 1 Tag')>=0 && t.indexOf('✔ Habe ich getauscht')>=0);
 click(function(e){ return e.textContent==='✔ Habe ich getauscht'; });
 chk('„getauscht“ sendet ack an den Rückkanal', global.sent.length===1 && global.sent[0][0]==='ack' && JSON.parse(global.sent[0][1]).key==='1' && JSON.parse(global.sent[0][1]).action==='getauscht');
@@ -925,6 +927,15 @@ click(function(e){ return e.className==='bw-top' && texts(e).indexOf('Alpha')>=0
 chk('Ohne Quittier-Erlaubnis keine Schaltflächen', texts(global.ROOT).indexOf('Habe ich getauscht')<0);
 P.message='✅ erledigt'; handleMessage(P);
 chk('Rückmeldung wird angezeigt', texts(global.ROOT).indexOf('✅ erledigt')>=0);
+click(function(e){ return e.textContent==='🛒 Einkauf'; });
+t = texts(global.ROOT);
+chk('Einkauf: Zeilen, fehlender Zelltyp, Tauschrunde mit Ort und Datum', t.indexOf('3× AAA, 1× CR2032')>=0 && t.indexOf('Zelltyp fehlt bei: Ohne Typ')>=0 && t.indexOf('Tauschrunde (2 Geräte) — am besten bis 12.10.2026')>=0 && t.indexOf('Flur')>=0 && t.indexOf('Alpha <b> — 1× CR2032 · Batterie leer')>=0);
+chk('Einkauf: Namen als Text, nicht als HTML', all(global.ROOT).every(function(e){ return e.tag!=='b'; }));
+click(function(e){ return e.textContent==='📈 Statistik'; });
+t = texts(global.ROOT);
+chk('Statistik: Lebensdauer und Restlaufzeit je Gerät', t.indexOf('Zelle CR2032')>=0 && t.indexOf('395 Tage (3 Intervalle)')>=0 && t.indexOf('Restlaufzeit je Gerät')>=0 && t.indexOf('reicht noch etwa 4 Tage')>=0 && t.indexOf('Für 1 Gerät gibt es noch keine Prognose')>=0 && t.indexOf('Restlaufzeit unbekannt: zu wenig')<0);
+click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='⏳ bald leer'; });
+chk('Filter „bald leer“ zeigt nur Geräte mit Prognose-Warnung', texts(global.ROOT).indexOf('Beta')>=0 && texts(global.ROOT).indexOf('Gamma')<0 && texts(global.ROOT).indexOf('Alpha <b>')<0);
 click(function(e){ return e.textContent==='📓 Tagebuch'; });
 chk('Tagebuch-Ansicht zeigt Einträge', texts(global.ROOT).indexOf('07.10.2026')>=0 && texts(global.ROOT).indexOf('erkannt')>=0);
 P.devices=[]; P.summary.total=0; handleMessage(P); click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='Alle'; });
@@ -977,6 +988,263 @@ check('Ohne SMTP-Instanz: Testmeldung sagt, dass keine ausgewählt ist', strpos(
 // Meldungs-Zustellung nennt die Ursache im Log
 $m = freshModule(['NotificationsActive' => true, 'NotifyPush' => false, 'NotifyMail' => true, 'MailInstance' => 14223, 'MailTo' => 'a@example.org'], false);
 check('Meldung ohne Zustellweg: Meldungslog nennt auch den E-Mail-Grund', (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'konnte über keinen Weg zugestellt werden') !== false; }));
+
+
+// ===========================================================================
+heading('10 Zelltypen und Spannungskurven');
+// ===========================================================================
+check('Frische Alkali-AA (1,6 V) = 100 %, leere (1,0 V) = 0 %', BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.6) === 100.0 && BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.0) === 0.0);
+check('Kurve interpoliert zwischen Stützpunkten (1,35 V Alkali = 52,5 %)', BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.35) === 52.5);
+check('Mehrere Zellen in Reihe: 3× AA bei 4,71 V = 1,57 V je Zelle = 95,5 %, bei 4,8 V = 100 %', BWACHZelle::percentFromVoltage('aa_alkali', 3, 4.71) === 95.5 && BWACHZelle::percentFromVoltage('aa_alkali', 3, 4.8) === 100.0);
+check('3× AA bei 3,9 V (1,3 V je Zelle) = 40 %', BWACHZelle::percentFromVoltage('aa_alkali', 3, 3.9) === 40.0);
+check('CR2032: 3,0 V = 100 %, 2,7 V = 40 %, 2,0 V = 0 %', BWACHZelle::percentFromVoltage('cr2032', 1, 3.0) === 100.0 && BWACHZelle::percentFromVoltage('cr2032', 1, 2.7) === 40.0 && BWACHZelle::percentFromVoltage('cr2032', 1, 2.0) === 0.0);
+check('Li-Ion: 4,2 V = 100 %, 3,7 V = 35 %', BWACHZelle::percentFromVoltage('liion', 1, 4.2) === 100.0 && BWACHZelle::percentFromVoltage('liion', 1, 3.7) === 35.0);
+check('Spannung passt nicht zum Typ → null (4,7 V an einer CR2032, 1 Zelle)', BWACHZelle::percentFromVoltage('cr2032', 1, 4.7) === null);
+check('Offenbar defekte Messung (0,3 V an AA) → null', BWACHZelle::percentFromVoltage('aa_alkali', 1, 0.3) === null);
+check('Unbekannter Zelltyp oder 0 Zellen → null', BWACHZelle::percentFromVoltage('unbekannt', 1, 3.0) === null && BWACHZelle::percentFromVoltage('aa_alkali', 0, 1.5) === null);
+check('Kurven fallen monoton (keine Stützpunkt-Verwechslung)', (function () {
+    foreach (['cr2032', 'aa_alkali', 'aa_nimh', 'aa_lithium', 'block9v', 'liion'] as $t) { $last = 101; for ($v = 0.5; $v <= 10; $v += 0.05) { $p = BWACHZelle::percentFromVoltage($t, 1, $v); if ($p === null) { continue; } if ($p < 0 || $p > 100) { return false; } } }
+    foreach (['aa_alkali', 'cr2032', 'liion'] as $t) { $prev = -1; for ($v = 1.0; $v <= 4.2; $v += 0.01) { $p = BWACHZelle::percentFromVoltage($t, 1, $v); if ($p === null) { continue; } if ($p + 0.0001 < $prev) { return false; } $prev = $p; } }
+    return true;
+})());
+check('Vorschlag aus der Spannung nennt Kandidaten, wählt nichts: 4,71 V → 3× AA/AAA, auch 4× Akku', strpos(BWACHZelle::suggest(4.71), '3× AA') !== false && strpos(BWACHZelle::suggest(4.71), 'passt zu:') === 0);
+check('Vorschlag bei 3,0 V nennt Knopfzellen UND 2× AA (mehrdeutig)', strpos(BWACHZelle::suggest(3.0), 'CR2032') !== false && strpos(BWACHZelle::suggest(3.0), '2× AA') !== false);
+check('Vorschlag bei unmöglicher Spannung (20 V)', BWACHZelle::suggest(20.0) === 'passt zu keinem bekannten Zelltyp');
+check('Einkaufsbezeichnungen: CR2032, AAA, AA (Akku)', BWACHZelle::shopLabel('cr2032') === 'CR2032' && BWACHZelle::shopLabel('aaa_alkali') === 'AAA' && BWACHZelle::shopLabel('aa_nimh') === 'AA (Akku)' && BWACHZelle::shopLabel('unbekannt') === null);
+check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 11);
+
+$n = $NOW;
+$volt = ['voltage' => ['value' => 4.71, 'updated' => $n - 60]];
+$r = ev($volt, $n - 60, ['cell' => 'aa_alkali', 'cells' => 3]);
+check('Nur Spannung + Zelltyp: Ladezustand berechnet, als „aus Spannung berechnet“ gekennzeichnet', $r['percent'] === 95.5 && $r['derived'] === true && $r['status'] === 'ok');
+$r = ev(['voltage' => ['value' => 3.4, 'updated' => $n - 60]], $n - 60, ['cell' => 'aa_alkali', 'cells' => 3]);
+check('3× AA bei 3,4 V (≈1,13 V je Zelle, 12 %) → schwach, Grund nennt „≈“ und „aus Spannung berechnet“', $r['status'] === 'schwach' && strpos($r['reasons'][0], '≈') !== false && strpos($r['reasons'][0], 'aus Spannung berechnet') !== false, implode(' | ', $r['reasons']));
+$r = ev(['voltage' => ['value' => 4.71, 'updated' => $n - 60]], $n - 60, ['cell' => 'cr2032', 'cells' => 1]);
+check('Spannung passt nicht zum gewählten Zelltyp: Status unbekannt, Hinweis, Dringlichkeit 400', $r['status'] === 'unbekannt' && in_array('zelltyp_passt_nicht', $r['quality'], true) && $r['urgency'] === 400 && strpos(implode(' ', $r['reasons']), 'passt nicht zum gewählten Zelltyp') !== false);
+$r = ev($volt, $n - 60);
+check('Nur Spannung ohne Zelltyp: Hinweis „Zelltyp wählen“ mit Vorschlag', in_array('nur_spannung', $r['quality'], true) && strpos(implode(' ', $r['reasons']), 'Zelltyp wählen') !== false && strpos(implode(' ', $r['reasons']), 'passt zu:') !== false);
+$r = ev(array_merge(pctSig(80, $n - 60), $volt), $n - 60, ['cell' => 'aa_alkali', 'cells' => 3]);
+check('Prozent UND Spannung: der gemeldete Prozentwert gilt, nichts wird berechnet', $r['percent'] === 80.0 && $r['derived'] === false);
+$r = ev(pctSig(50, $n - 60), $n - 60, ['stillSec' => 3600]);
+check('Gelernte Schwelle (1 Stunde) gilt statt der festen 7 Tage', ev(pctSig(50, $n), $n - 7200, ['stillSec' => 3600])['funk'] === 'still' && ev(pctSig(50, $n), $n - 7200)['funk'] === 'aktiv');
+check('Gelernte Schwelle steht im Grund', strpos(implode(' ', ev(pctSig(50, $n), $n - 7200, ['stillSec' => 3600])['reasons']), 'gelernt') !== false);
+$r = ev(pctSig(50, $n - 86400), $n - 61 * 86400);
+check('Verwaist: über 60 Tage still → Hinweis auf „Außer Betrieb“', $r['orphan'] === true && strpos(implode(' ', $r['reasons']), 'Außer Betrieb') !== false);
+check('Nicht verwaist: 20 Tage still, oder Verwaist-Prüfung aus (0)', ev(pctSig(50, $n - 86400), $n - 20 * 86400)['orphan'] === false && ev(pctSig(50, $n - 86400), $n - 61 * 86400, ['orphanDays' => 0])['orphan'] === false);
+
+// ===========================================================================
+heading('11 Verlauf und Prognose');
+// ===========================================================================
+$T0 = ts('2026-06-01 12:00'); $Dd = 86400;
+$series = [];
+foreach ([[0, 100], [10, 95], [20, 90], [30, 85], [40, 80], [50, 75], [60, 70], [70, 65]] as [$d, $p]) { $series = BWACHPrognose::historyAdd($series, $T0 + $d * $Dd, (float)$p); }
+$f = BWACHPrognose::forecast($series, 5.0);
+check('Gleichmäßiger Abfall (0,5 %/Tag): Steigung −0,5, Restlaufzeit 120 Tage, Sicherheit hoch', $f['slope'] === -0.5 && $f['days'] === 120.0 && $f['confidence'] === 'hoch', json_encode($f));
+check('Leerzeitpunkt = letzter Punkt + Restlaufzeit', $f['emptyAt'] === $T0 + 70 * $Dd + 120 * $Dd);
+check('Text: „reicht noch etwa 120 Tage (hohe Sicherheit)“', BWACHPrognose::forecastText($f) === 'reicht noch etwa 120 Tage (hohe Sicherheit)');
+// Ausreißer
+$noisy = $series; $noisy[3][1] = 40.0; $noisy[5][1] = 99.0;
+$f2 = BWACHPrognose::forecast($noisy, 5.0);
+check('Zwei Ausreißer verschieben die Steigung kaum (Theil-Sen): −0,4 bis −0,6 %/Tag', $f2['slope'] <= -0.4 && $f2['slope'] >= -0.6, (string)$f2['slope']);
+check('…aber die Sicherheit sinkt', $f2['confidence'] !== 'hoch', $f2['confidence']);
+// zu wenig
+$few = BWACHPrognose::historyAdd(BWACHPrognose::historyAdd([], $T0, 100.0), $T0 + 5 * $Dd, 98.0);
+$f = BWACHPrognose::forecast($few, 5.0);
+check('Zwei Punkte über 5 Tage: ehrlich „unbekannt“ mit Grund', $f['days'] === null && $f['confidence'] === 'unbekannt' && strpos(BWACHPrognose::forecastText($f), 'Restlaufzeit unbekannt: zu wenig Verlauf (2 Messpunkte über 5 Tage') === 0, BWACHPrognose::forecastText($f));
+// vier Punkte, aber nur 9 Tage
+$short = [];
+foreach ([[0, 100], [3, 98], [6, 96], [9, 94]] as [$d, $p]) { $short = BWACHPrognose::historyAdd($short, $T0 + $d * $Dd, (float)$p); }
+$f = BWACHPrognose::forecast($short, 5.0);
+check('4 Messpunkte über nur 9 Tage: keine Prognose (Mindestzeitraum 14 Tage)', $f['days'] === null && strpos($f['why'], '4 Messpunkte über 9 Tage') !== false, $f['why']);
+$f = BWACHPrognose::forecast(array_merge($short, [[$T0 + 14 * $Dd, 92.0, null]]), 5.0);
+check('…mit dem Punkt am 14. Tag genau an der Grenze gibt es eine Prognose', $f['days'] !== null);
+// stufig
+$steps = [];
+foreach ([[0, 100], [15, 100], [30, 100], [45, 100], [60, 90]] as [$d, $p]) { $steps = BWACHPrognose::historyAdd($steps, $T0 + $d * $Dd, (float)$p); }
+$f = BWACHPrognose::forecast($steps, 5.0);
+check('Grobe Stufen (nur 2 verschiedene Werte): keine Prognose, Grund genannt', $f['days'] === null && strpos($f['why'], 'zu selten') !== false, $f['why']);
+// flach
+$flat = [];
+foreach ([0, 15, 30, 45, 60] as $d) { $flat = BWACHPrognose::historyAdd($flat, $T0 + $d * $Dd, 100.0 - $d * 0.001); }
+$flat[1][1] = 99.95; $flat[2][1] = 99.9; $flat[3][1] = 99.95; $flat[4][1] = 99.9;
+$f = BWACHPrognose::forecast($flat, 5.0);
+check('Praktisch keine Entladung: „keine Entladung erkennbar“ statt Millionen Tage', $f['confidence'] === 'keine' && BWACHPrognose::forecastText($f) === 'keine Entladung erkennbar', json_encode($f));
+// Wechsel beendet den Abschnitt
+$withSwap = $series; $withSwap = BWACHPrognose::historyAdd($withSwap, $T0 + 75 * $Dd, 100.0);
+foreach ([85, 95, 105, 115] as $d) { $withSwap = BWACHPrognose::historyAdd($withSwap, $T0 + $d * $Dd, 100.0 - ($d - 75) * 0.2); }
+$f = BWACHPrognose::forecast($withSwap, 5.0);
+check('Nach einem Batteriewechsel zählt nur der neue Abschnitt (Steigung −0,2, nicht −0,5)', $f['slope'] === -0.2 && $f['points'] === 5, json_encode($f));
+check('Abschnitt seit Wechsel erkennt den Sprung ab 25 Punkten, nicht davor', count(BWACHPrognose::segmentSinceReplacement([[1, 50, null], [2, 74, null]], 25)) === 2 && count(BWACHPrognose::segmentSinceReplacement([[1, 50, null], [2, 75, null]], 25)) === 1);
+// Verlauf
+$s = BWACHPrognose::historyAdd([], $T0, 80.0);
+check('Verlauf: gleicher Wert wenige Tage später wird nicht doppelt gespeichert', count(BWACHPrognose::historyAdd($s, $T0 + 3600, 80.2)) === 1);
+check('Verlauf: Änderung ab 0,5 Punkten wird sofort gespeichert', count(BWACHPrognose::historyAdd($s, $T0 + 3600, 79.4)) === 2);
+check('Verlauf: nach 3 Tagen auch ohne Änderung ein Punkt', count(BWACHPrognose::historyAdd($s, $T0 + 3 * $Dd, 80.0)) === 2 && count(BWACHPrognose::historyAdd($s, $T0 + 3 * $Dd - 1, 80.0)) === 1);
+check('Verlauf: Zeit rückwärts oder fehlender Wert ändert nichts', BWACHPrognose::historyAdd($s, $T0 - 5, 50.0) === $s && BWACHPrognose::historyAdd($s, $T0 + 9 * $Dd, null) === $s);
+$cap = []; for ($i = 0; $i < 150; $i++) { $cap = BWACHPrognose::historyAdd($cap, $T0 + $i * 4 * $Dd, 100.0 - $i * 0.1); }
+check('Verlauf ist auf 90 Punkte begrenzt (die jüngsten bleiben)', count($cap) === 90 && $cap[89][0] === $T0 + 149 * 4 * $Dd);
+check('Außentemperatur wird mit dem Messpunkt gespeichert', BWACHPrognose::historyAdd([], $T0, 80.0, 3.44)[0][2] === 3.4);
+check('Prognose über 3 Jahre wird gedeckelt, Text in Jahren', (function () { $T = ts('2026-06-01'); $se = []; foreach ([0, 20, 40, 60, 80, 100] as $d) { $se = BWACHPrognose::historyAdd($se, $T + $d * 86400, 100.0 - $d * 0.0301); } $f = BWACHPrognose::forecast($se, 5.0); return $f['days'] > 365 && strpos(BWACHPrognose::forecastText($f), 'Jahre') !== false; })());
+
+// ===========================================================================
+heading('12 Einkaufsliste, Tauschrunde, Lebensdauer, gelernte Intervalle');
+// ===========================================================================
+$items = [
+    ['name' => 'A', 'place' => 'Flur', 'cell' => 'cr2032', 'cells' => 1, 'status' => 'schwach', 'days' => null],
+    ['name' => 'B', 'place' => 'Flur', 'cell' => 'cr2032', 'cells' => 1, 'status' => 'ok', 'days' => 20.0],
+    ['name' => 'C', 'place' => 'Bad', 'cell' => 'aaa_alkali', 'cells' => 3, 'status' => 'ok', 'days' => 29.9],
+    ['name' => 'D', 'place' => 'Bad', 'cell' => 'aaa_alkali', 'cells' => 3, 'status' => 'ok', 'days' => 31.0],
+    ['name' => 'E', 'place' => '', 'cell' => 'unbekannt', 'cells' => 1, 'status' => 'leer', 'days' => null],
+    ['name' => 'F', 'place' => 'Keller', 'cell' => 'aa_nimh', 'cells' => 2, 'status' => 'ok', 'days' => null],
+];
+$sh = BWACHPrognose::shopping($items, 30);
+check('Einkaufsliste: 2× CR2032 (A, B), 3× AAA (C; D erst nach 31 Tagen), unbekannter Typ gesondert', $sh['lines'] === ['3× AAA', '2× CR2032'] || $sh['lines'] === ['2× CR2032', '3× AAA'], json_encode($sh['lines'], JSON_UNESCAPED_UNICODE));
+check('Gerät ohne Zelltyp steht unter „fehlt“, nicht stillschweigend weg', $sh['missing'] === ['E']);
+check('Geräte ohne Prognose und ohne Befund (F) werden nicht eingekauft', !in_array('F', array_column($sh['need'], 'name'), true));
+check('Genau am Horizont (30,0 Tage) zählt noch mit, 30,1 nicht', count(BWACHPrognose::due([['status' => 'ok', 'days' => 30.0]], 30)) === 1 && count(BWACHPrognose::due([['status' => 'ok', 'days' => 30.1]], 30)) === 0);
+check('Horizont 45 Tage nimmt D mit (6× AAA)', in_array('6× AAA', BWACHPrognose::shopping($items, 45)['lines'], true));
+check('Anzahl Zellen zählt: 3× AAA je Gerät', in_array('3× AAA', $sh['lines'], true));
+$tr = BWACHPrognose::tauschrunde($items, 30, $NOW);
+check('Tauschrunde: nach Ort gebündelt (Flur, Bad, ohne Ort), 4 Geräte', array_keys($tr['places']) === ['Bad', 'Flur', 'ohne Ort'] && $tr['count'] === 4, json_encode(array_keys($tr['places']), JSON_UNESCAPED_UNICODE));
+check('Tauschrunde: „bis wann“ = jetzt, solange ein Gerät schon schwach/leer ist', $tr['until'] === $NOW);
+$tr2 = BWACHPrognose::tauschrunde([$items[1], $items[2]], 30, $NOW);
+check('Tauschrunde ohne akutes Gerät: früheste Restlaufzeit minus 3 Tage Reserve (B: 20 − 3 = 17 Tage)', $tr2['until'] === $NOW + 17 * 86400, (string)(($tr2['until'] - $NOW) / 86400));
+$trSoon = BWACHPrognose::tauschrunde([['name' => 'S', 'place' => 'Flur', 'cell' => 'cr2032', 'cells' => 1, 'status' => 'ok', 'days' => 1.0]], 30, $NOW);
+check('Tauschrunde liegt nie in der Vergangenheit (Restlaufzeit 1 Tag minus 3 Tage Reserve → heute)', $trSoon['until'] === $NOW);
+check('Leere Tauschrunde', BWACHPrognose::tauschrunde([], 30, $NOW) === ['places' => [], 'until' => null, 'count' => 0]);
+// Lebensdauer
+$diary = [['t' => $T0, 'key' => 'k1', 'name' => 'Sensor 1'], ['t' => $T0 + 400 * $Dd, 'key' => 'k1', 'name' => 'Sensor 1'], ['t' => $T0 + 780 * $Dd, 'key' => 'k1', 'name' => 'Sensor 1'], ['t' => $T0, 'key' => 'k2', 'name' => 'Sensor 2'], ['t' => $T0 + 200 * $Dd, 'key' => 'k2', 'name' => 'Sensor 2'], ['t' => $T0, 'key' => 'k3', 'name' => 'Einzeln']];
+$lf = BWACHPrognose::lifetimes($diary);
+check('Lebensdauer: Abstände zwischen Wechseln je Gerät; ein einzelner Wechsel ergibt keine', $lf['k1']['days'] === [400.0, 380.0] && $lf['k2']['days'] === [200.0] && !isset($lf['k3']));
+$grp = BWACHPrognose::lifetimeByGroup($lf, ['k1' => 'CR2032', 'k2' => 'CR2032', 'k3' => 'AA']);
+check('Lebensdauer je Zelltyp: Median 380 Tage aus 3 Intervallen bei 2 Geräten', $grp['CR2032'] === ['median' => 380.0, 'n' => 3, 'devices' => 2] && !isset($grp['AA']), json_encode($grp));
+check('Median: gerade und ungerade Anzahl, leer', BWACHPrognose::median([1, 3, 2]) === 2.0 && BWACHPrognose::median([1, 2, 3, 4]) === 2.5 && BWACHPrognose::median([]) === 0.0);
+// Intervalle lernen
+$obs = [];
+foreach ([0, 3000, 6000, 9000, 12000, 15000, 18000, 21000, 24000] as $s) { $obs = BWACHPrognose::observeLife($obs, 1000000 + $s); }
+check('Meldeintervalle: 8 gleiche Abstände von 50 Minuten gelernt', count($obs['gaps']) === 8 && $obs['gaps'][0] === 3000);
+check('Gelernte Schwelle = 3× 50 min = 2,5 h, aber mindestens 6 Stunden', BWACHPrognose::learnedThreshold($obs, 7 * 86400) === 6 * 3600);
+$obs2 = []; $t = 1000000; foreach ([2, 2, 3, 2, 3, 2, 2, 3, 2] as $dd) { $t += $dd * 86400; $obs2 = BWACHPrognose::observeLife($obs2, $t); }
+check('Gerät meldet alle 2–3 Tage: gelernte Schwelle 9 Tage (3× P90 = 3× 3 Tage)', BWACHPrognose::learnedThreshold($obs2, 30 * 86400) === 9 * 86400, (string)(BWACHPrognose::learnedThreshold($obs2, 30 * 86400) / 86400));
+check('Gelernte Schwelle macht nur empfindlicher: nie über der eingestellten', BWACHPrognose::learnedThreshold($obs2, 5 * 86400) === 5 * 86400);
+check('Zu wenige Beobachtungen: eingestellte Schwelle gilt', BWACHPrognose::learnedThreshold(['gaps' => [100, 200, 300]], 7 * 86400) === 7 * 86400);
+check('Gleiches Lebenszeichen zweimal gesehen erzeugt keinen Abstand; ältere Zeit wird ignoriert', count(BWACHPrognose::observeLife(['last' => 500, 'gaps' => []], 500)['gaps']) === 0 && BWACHPrognose::observeLife(['last' => 500, 'gaps' => []], 400)['last'] === 500);
+check('Nur die letzten 20 Abstände bleiben', (function () { $o = []; for ($i = 1; $i <= 40; $i++) { $o = BWACHPrognose::observeLife($o, $i * 1000); } return count($o['gaps']) === 20; })());
+
+
+// ===========================================================================
+heading('13 Prognose, Einkauf und Statistik im Modul');
+// ===========================================================================
+function setHistory(BWTest $m, string $key, array $points): void { $m->SetValue('History', json_encode([$key => $points])); }
+$cellSettings = json_encode([
+    ['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'cr2032', 'Cells' => 1],
+    ['Instance' => 106, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aa_alkali', 'Cells' => 3],
+]);
+$m = freshModule(['NotificationsActive' => false, 'DeviceSettings' => $cellSettings]);
+$pl = json_decode(end($m->visUpdates), true);
+$shelly = array_values(array_filter($pl['devices'], function ($d) { return $d['name'] === 'Shelly H&T'; }))[0];
+check('Shelly mit Prozent UND Spannung: Prozentwert des Geräts gilt, Zelltyp-Text in der Kachel', $shelly['percentText'] === '35 %' && $shelly['cellText'] === '3× AA Alkali (1,5 V)' && $shelly['derived'] === false, json_encode($shelly, JSON_UNESCAPED_UNICODE));
+check('Zelltyp aus den Geräte-Einstellungen kommt in der Zeile an', (function () use ($m) { $f = json_decode($m->GetConfigurationForm(), true); return strpos(json_encode($f, JSON_UNESCAPED_UNICODE), 'CR2032 (Knopfzelle, 3 V)') !== false; })());
+
+// Verlauf wird mitgeschrieben
+$hist = json_decode($m->GetValue('History'), true);
+check('Der Verlauf wird mitgeschrieben (ein Punkt je Gerät mit Prozentwert)', isset($hist['114']) && count($hist['114']) === 1 && $hist['114'][0][1] == 25 && !isset($hist['105-1051']), json_encode(array_keys($hist)));
+shiftWorld(3600); $m->Check();
+check('Eine Stunde später ohne Änderung kein zweiter Punkt', count(json_decode($m->GetValue('History'), true)['114']) === 1);
+$obs = json_decode($m->GetValue('LifeObs'), true);
+check('Meldeverhalten wird beobachtet (Lebenszeichen je Gerät)', isset($obs['101']['last']) && $obs['101']['last'] > 0);
+
+// Prognose wirkt: Rauchmelder fällt gleichmäßig → „bald leer“ (Restlaufzeit ≤ 14 Tage, Sicherheit hoch)
+$now = $GLOBALS['CLOCK']; $pts = [];
+for ($i = 0; $i <= 9; $i++) { $pts[] = [$now - (90 - $i * 10) * 86400, round(60 - $i * 4.0, 1), null]; }   // 60 → 24 über 90 Tage, −0,4 %/Tag
+$GLOBALS['OBJ'][1141]['var']['value'] = 24;
+setHistory($m, '114', $pts);
+$m->Check();
+$pl = json_decode(end($m->visUpdates), true);
+$dev = array_values(array_filter($pl['devices'], function ($d) { return $d['id'] === '114'; }))[0];
+check('Prognose in der Kachel: Text mit Dauer und Sicherheit', preg_match('/^reicht noch etwa \d+ Tage \((hohe|mittlere) Sicherheit\)$/u', $dev['forecastText']) === 1, $dev['forecastText']);
+$dev = array_values(array_filter(json_decode(end($m->visUpdates), true)['devices'], function ($d) { return $d['id'] === '114'; }))[0];
+// ok-Gerät mit Prognose (nicht kritisch, 70 %)
+$GLOBALS['OBJ'][1141]['var']['value'] = 50;
+$pts = []; for ($i = 0; $i <= 9; $i++) { $pts[] = [$now - (90 - $i * 10) * 86400, round(86 - $i * 4.0, 1), null]; }  // endet bei 50 %
+$m->props['DeviceSettings'] = json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'cr2032', 'Cells' => 1]]);
+setHistory($m, '114', $pts); $m->props['SoonDays'] = 14; $m->Check();
+$d114 = function () use ($m) { return array_values(array_filter(json_decode(end($m->visUpdates), true)['devices'], function ($d) { return $d['id'] === '114'; }))[0]; };
+check('Restlaufzeit 112 Tage > 14: nicht „bald leer“, Status ok', $d114()['soon'] === false && $d114()['status'] === 'ok');
+$m->props['SoonDays'] = 150; $m->Check();
+check('Schwelle 150 Tage: jetzt „bald leer“, Dringlichkeit 650, Grund nennt die Prognose', $d114()['soon'] === true && $d114()['urgency'] === 650 && strpos(implode(' ', $d114()['reasons']), 'Batterie bald leer: reicht noch etwa') !== false, json_encode($d114()['reasons'], JSON_UNESCAPED_UNICODE));
+check('Kennzahl „Bald leer“ zählt mit', $m->GetValue('Soon') === 1 && strpos($m->GetValue('StatusLine'), '1 bald leer') !== false, (string)$m->GetValue('Soon'));
+$m->props['NotificationsActive'] = true; $GLOBALS['SENT'] = []; $m->Check();
+$soonMsg = array_values(array_filter($GLOBALS['SENT'], function ($s) { return $s[0] === 'visu' && strpos($s[3], 'Rauchmelder Heizung') !== false; }));
+check('Meldung „bald leer“ wird verschickt (Titel ⏳, Text mit Prognose)', $soonMsg && (strpos($soonMsg[0][2], '⏳') !== false || strpos($soonMsg[0][2], 'Batteriemeldungen') !== false) && strpos($soonMsg[0][3], 'bald leer') !== false, json_encode($soonMsg[0] ?? null, JSON_UNESCAPED_UNICODE));
+// geringe Sicherheit löst nichts aus
+$few = [[$now - 20 * 86400, 80.0, null], [$now - 10 * 86400, 60.0, null], [$now - 5 * 86400, 55.0, null], [$now, 50.0, null]];
+setHistory($m, '114', $few); $m->Check();
+check('Geringe Sicherheit (20 Tage Verlauf): keine Meldung „bald leer“', $d114()['soon'] === false && strpos($d114()['forecastText'], 'geringe Sicherheit') !== false, $d114()['forecastText']);
+setHistory($m, '114', [[$now - 3 * 86400, 50.0, null], [$now, 50.0, null]]); $m->Check();
+check('Zu wenig Verlauf: „Restlaufzeit unbekannt: zu wenig Verlauf (2 Messpunkte über 3 Tage …“', strpos($d114()['forecastText'], 'Restlaufzeit unbekannt: zu wenig Verlauf (2 Messpunkte über 3 Tage') === 0, $d114()['forecastText']);
+
+// Einkauf und Tauschrunde
+$m = freshModule(['NotificationsActive' => false, 'DeviceSettings' => $cellSettings]);
+$all = $m->GetValue('TableShopping');
+check('Einkauf: schwacher kritischer Rauchmelder braucht 1× CR2032', strpos($all, '1× CR2032') !== false && strpos($all, 'Einkaufsliste für die nächsten 30 Tage') !== false, strip_tags($all));
+$noCell = freshModule(['NotificationsActive' => false, 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1]])]);
+check('Einkauf nennt Geräte ohne Zelltyp ehrlich', strpos($noCell->GetValue('TableShopping'), 'Zelltyp fehlt bei: Rauchmelder Heizung') !== false, strip_tags($noCell->GetValue('TableShopping')));
+check('Tauschrunde nennt Ort, Gerät, Batterie und den Vorschlag „bis TT.MM.JJJJ“', strpos($all, 'Tauschrunde') !== false && preg_match('/bis \d\d\.\d\d\.\d{4}/u', $all) === 1 && strpos($all, '<td>Heizung</td><td>Rauchmelder Heizung</td><td>1× CR2032</td>') !== false);
+$pl = json_decode(end($m->visUpdates), true);
+check('Kachel kennt Einkauf und Tauschrunde (Zeilen, Orte, Anzahl)', $pl['shopping']['lines'] === ['1× CR2032'] && $pl['shopping']['count'] >= 1 && $pl['shopping']['places'][0]['place'] !== '' && $pl['shopping']['horizon'] === 30, json_encode($pl['shopping'], JSON_UNESCAPED_UNICODE));
+$m->props['NotificationsActive'] = true;
+clock('2026-10-12 08:05'); $GLOBALS['SENT'] = []; $m->Check();
+$dg = array_values(array_filter($GLOBALS['SENT'], function ($s) { return $s[0] === 'visu' && strpos($s[2], 'Wochenbericht') !== false; }));
+check('Wochenbericht enthält die Einkaufszeile, und zwar vorn (Push kürzt bei 256 Byte)', $dg && strpos($dg[0][3], '🛒 Einkauf für die nächsten 30 Tage: 1× CR2032') !== false && strlen($dg[0][3]) <= 256, $dg[0][3] ?? '');
+
+// Statistik: Lebensdauer
+$m = freshModule(['NotificationsActive' => false, 'DeviceSettings' => $cellSettings]);
+register_shutdown_function(function () use (&$m) { if (getenv('BWACH_DUMP_TILE2')) { file_put_contents(getenv('BWACH_DUMP_TILE2'), end($m->visUpdates)); } });
+$t = $GLOBALS['CLOCK'];
+$m->SetValue('Diary', json_encode([
+    ['t' => $t - 800 * 86400, 'key' => '114', 'name' => 'Rauchmelder Heizung', 'type' => 'erkannt', 'note' => 'x'],
+    ['t' => $t - 400 * 86400, 'key' => '114', 'name' => 'Rauchmelder Heizung', 'type' => 'erkannt', 'note' => 'x'],
+    ['t' => $t - 10 * 86400, 'key' => '114', 'name' => 'Rauchmelder Heizung', 'type' => 'manuell', 'note' => 'x'],
+]));
+$m->Check();
+$st = $m->GetValue('TableStats');
+check('Statistik: Lebensdauer des Rauchmelders 400 und 390 Tage, Median je Zelltyp CR2032 395 Tage', strpos($st, '400 Tage, 390 Tage') !== false && strpos($st, '<td>CR2032</td><td>395 Tage</td>') !== false, strip_tags($st));
+check('Statistik: Median je System (Z-Wave Module)', strpos($st, '<td>Z-Wave Module</td><td>395 Tage</td>') !== false);
+check('Statistik zeigt die Restlaufzeit je Gerät, auch „unbekannt“ mit Grund', strpos($st, 'Restlaufzeit je Gerät') !== false && strpos($st, 'Restlaufzeit unbekannt') !== false);
+$pl = json_decode(end($m->visUpdates), true);
+check('Kachel kennt die Statistik', (bool)array_filter($pl['shopping']['stats'], function ($s) { return strpos($s['group'], 'Zelle CR2032') === 0 && strpos($s['text'], '395 Tage') === 0; }));
+$m6 = freshModule(['NotificationsActive' => false]);
+check('Ohne Wechsel im Tagebuch: ehrlicher Hinweis statt leerer Tabelle', strpos($m6->GetValue('TableStats'), 'mindestens zwei erfasste Batteriewechsel') !== false);
+
+// Spannung → Ladezustand im Modul (nur Spannungsgerät mit Zelltyp)
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Sensoren');
+mkinst(160, 'Spannungsgerät', 'ShellyDevice', 900);
+mkvar(1601, 160, 'devicepower_0_battery_V', 'Batteriespannung', 2, 3.4, $GLOBALS['CLOCK'] - 60);
+mkvar(1602, 160, 'temp', 'Temperatur', 2, 20.0, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = []; $GLOBALS['SENT'] = [];
+$mv = new BWTest(); $mv->Create(); $mv->props['DeviceSettings'] = json_encode([['Instance' => 160, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aa_alkali', 'Cells' => 3]]); $mv->ApplyChanges();
+$pl = json_decode(end($mv->visUpdates), true);
+check('Nur-Spannungsgerät mit Zelltyp 3× AA: schwach, ≈12 %, „aus Spannung berechnet“ in der Kachel', $pl['devices'][0]['status'] === 'schwach' && $pl['devices'][0]['derived'] === true && $pl['devices'][0]['percentText'] === '12 %' && strpos($pl['devices'][0]['headline'], 'aus Spannung berechnet') !== false, json_encode($pl['devices'][0], JSON_UNESCAPED_UNICODE));
+check('Berechneter Ladezustand kommt in den Verlauf (Prognose-Grundlage)', isset(json_decode($mv->GetValue('History'), true)['160']));
+$mv->props['DeviceSettings'] = '[]'; $mv->Check();
+$pl = json_decode(end($mv->visUpdates), true);
+check('Ohne Zelltyp: Status unbekannt, Hinweis mit Vorschlag statt Rate', $pl['devices'][0]['status'] === 'unbekannt' && strpos(implode(' ', $pl['devices'][0]['reasons']), 'Zelltyp wählen') !== false && strpos(implode(' ', $pl['devices'][0]['reasons']), '3× AA') !== false);
+
+// Gelernter Meldetakt und Verwaist im Modul
+$m = freshModule(['NotificationsActive' => false, 'StillDays' => 7]);
+$obsT = []; $tt = $GLOBALS['CLOCK'] - 30 * 3600; $o = [];
+for ($i = 0; $i < 12; $i++) { $tt += 3000; $o = BWACHPrognose::observeLife($o, $tt); }
+$m->SetValue('LifeObs', json_encode(['103' => $o]));
+$m->Check();
+$d103 = array_values(array_filter(json_decode(end($m->visUpdates), true)['devices'], function ($d) { return $d['id'] === '103'; }))[0];
+check('Gelernter Takt (alle 50 Minuten, 12 Beobachtungen): Sensor Heizung wird mit der gelernten Schwelle als still erkannt und der Grund sagt es', $d103['funk'] === 'still' && strpos(implode(' ', $d103['reasons']), 'aus dem Meldeverhalten gelernt') !== false, json_encode($d103['reasons'], JSON_UNESCAPED_UNICODE));
+$m->props['LearnIntervals'] = false; $m->Check();
+$d103 = array_values(array_filter(json_decode(end($m->visUpdates), true)['devices'], function ($d) { return $d['id'] === '103'; }))[0];
+check('Lernen abgeschaltet: feste Schwelle, Grund ohne „gelernt“', strpos(implode(' ', $d103['reasons']), 'gelernt') === false);
+$GLOBALS['OBJ'][1032]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 70 * 86400; $GLOBALS['OBJ'][1031]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 70 * 86400; $m->Check();
+$d103 = array_values(array_filter(json_decode(end($m->visUpdates), true)['devices'], function ($d) { return $d['id'] === '103'; }))[0];
+check('70 Tage still: Vorschlag „vermutlich ausgebaut, Außer Betrieb wählen“', strpos(implode(' ', $d103['reasons']), 'vermutlich ausgebaut oder defekt') !== false);
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

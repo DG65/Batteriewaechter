@@ -23,6 +23,7 @@ final class BWACHMeldung
     public const PROB_EMPTY  = 'leer';
     public const PROB_LOW    = 'schwach';
     public const PROB_SILENT = 'still';
+    public const PROB_SOON   = 'bald';     // laut Prognose bald leer (nur bei ausreichender Sicherheit)
 
     public const ACK_REPLACED = 'getauscht';
     public const ACK_SNOOZE   = 'zurueckgestellt';
@@ -47,6 +48,9 @@ final class BWACHMeldung
         }
         if (($r['funk'] ?? '') === 'still') {
             $p[] = self::PROB_SILENT;
+        }
+        if (!empty($r['soon'])) {
+            $p[] = self::PROB_SOON;
         }
         return $p;
     }
@@ -246,8 +250,10 @@ final class BWACHMeldung
                 $title = '🪫 Batterie leer';
             } elseif (in_array(self::PROB_LOW, $p, true)) {
                 $title = '⚠️ Batterie schwach';
-            } else {
+            } elseif (in_array(self::PROB_SILENT, $p, true)) {
                 $title = '🔇 Funkstille';
+            } else {
+                $title = '⏳ Batterie bald leer';
             }
         } else {
             $title = '🔋 ' . $n . ' Batteriemeldungen';
@@ -266,11 +272,17 @@ final class BWACHMeldung
     }
 
     /** Wochenbericht; $rows = Liste von ['name','place','text','urgency']. */
-    public static function digest(array $sum, array $rows): array
+    public static function digest(array $sum, array $rows, array $extra = []): array
     {
         $head = $sum['total'] . ' Geräte überwacht: ' . $sum['empty'] . ' leer, ' . $sum['low'] . ' schwach, '
+            . (($sum['soon'] ?? 0) > 0 ? $sum['soon'] . ' bald leer, ' : '')
             . $sum['silent'] . ' Funkstille, ' . $sum['check'] . ' mit zweifelhaften Daten.';
-        $lines = [$head, ''];
+        // Kennzahlen und Zusatzzeilen (Einkauf) zuerst: Push kürzt bei 256 Byte, vorn steht das Wichtigste
+        $lines = [$head];
+        foreach ($extra as $l) {
+            $lines[] = $l;
+        }
+        $lines[] = '';
         $shown = 0;
         foreach ($rows as $r) {
             if ($r['urgency'] <= 0) {

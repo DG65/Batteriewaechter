@@ -2,7 +2,7 @@
 
 Überwacht die Batterien der Geräte im Haus (Funksensoren, Thermostate, Fenster- und Rauchmelder …) für IP-Symcon. Findet die Batteriewerte selbst, führt mehrere Signale eines Geräts zusammen und sagt ehrlich dazu, **wie verlässlich** der Wert ist.
 
-> Status: **0.3.0, Beta** (Meilenstein 3). Prognose, Spannungskurven, Einkaufsliste und Statistik folgen in den nächsten Versionen.
+> Status: **0.4.0, Beta**. Funkqualität, Gleichartigen-Vergleich, Kälteeinfluss und die aktive Abfrage schlafender Geräte folgen in 0.5.0.
 
 ## Was es anders macht
 
@@ -18,6 +18,14 @@
 3. „🔎 Jetzt neu suchen“, dann „📋 Was würde gefunden?“ prüfen.
 4. Ereignismelder (Fenster-/Rauchmelder), kritische Geräte und Geräte ohne Altersprüfung unter „Geräte-Einstellungen“ eintragen.
 5. Die Variablen „Handlungsbedarf“ und „Alle Geräte“ (HTML-Tabellen) per Verknüpfung ins WebFront legen.
+
+## Zelltyp, Prognose, Einkauf
+
+- **Zelltyp je Gerät** unter „Geräte-Einstellungen“ (z. B. CR2032, 3× AAA). Damit rechnet der Wächter Spannungen in einen Ladezustand um und zählt die Einkaufsliste. Die Umrechnung ist eine **Näherung** mit typischen Entladekurven je Zellchemie, keine Datenblattwerte eines Herstellers, und wird immer als „aus Spannung berechnet“ gekennzeichnet. Aus der Spannung allein lässt sich der Zelltyp nicht sicher erkennen (3 V: Knopfzelle oder zwei Alkali-Zellen); der Wächter nennt nur Kandidaten.
+- **Prognose:** Er schreibt den Verlauf jedes Geräts im Modul selbst mit und schätzt die Restlaufzeit („reicht noch etwa 23 Tage, mittlere Sicherheit“). Das braucht mindestens 4 Messpunkte über 14 Tage seit dem letzten Batteriewechsel und einen Ladezustand, der sich in feinen Schritten ändert. Viele Geräte melden nur grobe Stufen oder sehr selten; dort steht ehrlich „Restlaufzeit unbekannt“ mit Grund. „Batterie bald leer“ wird nur bei hoher oder mittlerer Sicherheit gemeldet.
+- **Einkaufsliste und Tauschrunde:** „4× CR2032, 7× AAA“ für die nächsten 30 Tage (einstellbar), die Tauschrunde nach Ort gebündelt mit Vorschlag, bis wann. Geräte ohne Zelltyp stehen gesondert dabei.
+- **Lebensdauer:** Aus den erfassten Batteriewechseln (Tagebuch) entsteht je Gerät, Zelltyp und System die Zeit zwischen zwei Wechseln. Das braucht pro Gerät mindestens zwei Wechsel und wächst erst mit der Zeit.
+- **Gelerntes Meldeverhalten und „vermutlich ausgebaut“:** Meldet ein Gerät sehr regelmäßig, erkennt der Wächter Funkstille früher als mit der festen Schwelle (nie später). Ein Gerät, das seit über 60 Tagen still ist, wird als „vermutlich ausgebaut“ vorgeschlagen.
 
 ## Kachel
 

@@ -80,6 +80,14 @@
     .bw-empty { padding: 18px 8px; text-align: center; opacity: .75; font-size: .92em; }
     .bw-foot { margin-top: 8px; font-size: .72em; opacity: .55; text-align: right; }
 
+    /* Einkauf, Tauschrunde, Statistik */
+    .bw-sec { margin-bottom: 12px; }
+    .bw-h { font-weight: 600; font-size: .92em; margin-bottom: 6px; }
+    .bw-big { font-size: 1.05em; padding: 2px 2px 6px; }
+    .bw-note { font-size: .8em; opacity: .75; padding: 2px; }
+    .bw-place { font-size: .82em; opacity: .7; margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .04em; }
+    .bw-dev { font-size: .88em; padding: 3px 2px; }
+
     /* Tagebuch */
     .bw-dia { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: .86em; padding: 2px 4px; }
     .bw-dia .d { opacity: .65; white-space: nowrap; }
@@ -107,6 +115,7 @@
         { id: 'all',      label: 'Alle',            test: function () { return true; },           always: true },
         { id: 'empty',    label: '🪫 leer',          test: function (d) { return d.status === 'leer'; } },
         { id: 'low',      label: '⚠️ schwach',       test: function (d) { return d.status === 'schwach'; } },
+        { id: 'soon',     label: '⏳ bald leer',      test: function (d) { return d.soon; } },
         { id: 'silent',   label: '🔇 Funkstille',    test: function (d) { return d.funk === 'still'; } },
         { id: 'check',    label: '❔ Daten prüfen',   test: bwHasCheck }
     ];
@@ -114,6 +123,7 @@
     function bwIcon(d) {
         if (d.status === 'leer') { return '🪫'; }
         if (d.status === 'schwach') { return '⚠️'; }
+        if (d.soon && d.funk !== 'still') { return '⏳'; }
         if (d.funk === 'still') { return '🔇'; }
         if (bwHasCheck(d) || d.status === 'unbekannt') { return '❔'; }
         return '✅';
@@ -121,7 +131,7 @@
 
     function bwClass(d) {
         if (d.status === 'leer') { return 's-leer'; }
-        if (d.status === 'schwach') { return 's-schwach'; }
+        if (d.status === 'schwach' || (d.soon && d.funk !== 'still')) { return 's-schwach'; }
         if (d.funk === 'still') { return 's-still'; }
         if (bwHasCheck(d) || d.status === 'unbekannt') { return 's-check'; }
         return 's-ok';
@@ -177,6 +187,8 @@
             }
             det.appendChild(bwEl('div', 'facts',
                 'Batteriewert gemeldet: ' + d.valueAgeText + ' · Lebenszeichen: ' + d.lifeText + (d.module ? ' · ' + d.module : '')));
+            if (d.forecastText) { det.appendChild(bwEl('div', 'facts', '📈 ' + d.forecastText)); }
+            if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · Ladezustand aus der Spannung berechnet (Näherung)' : ''))); }
             if (BW.allowAck) {
                 var acts = bwEl('div', 'bw-acts');
                 var b1 = bwEl('button', '', '✔ Habe ich getauscht'); b1.type = 'button';
@@ -191,6 +203,63 @@
             row.appendChild(det);
         }
         return row;
+    }
+
+    function bwShop(root) {
+        var s = BW.shopping;
+        var box = bwEl('div', 'bw-sec');
+        box.appendChild(bwEl('div', 'bw-h', '🛒 Einkauf für die nächsten ' + s.horizon + ' Tage'));
+        if (!s.lines || s.lines.length === 0) {
+            box.appendChild(bwEl('div', 'bw-empty', s.count === 0 ? '✅ Nichts zu besorgen.' : 'Keine Zelltypen bekannt. Den Zelltyp je Gerät in der Instanz eintragen.'));
+        } else {
+            box.appendChild(bwEl('div', 'bw-big', s.lines.join(', ')));
+        }
+        if (s.missing && s.missing.length) {
+            box.appendChild(bwEl('div', 'bw-note', 'ℹ️ Zelltyp fehlt bei: ' + s.missing.join(', ')));
+        }
+        root.appendChild(box);
+        var rd = bwEl('div', 'bw-sec');
+        rd.appendChild(bwEl('div', 'bw-h', '🔧 Tauschrunde' + (s.count ? ' (' + s.count + (s.count === 1 ? ' Gerät' : ' Geräte') + ')' : '') + (s.until ? ' — am besten bis ' + s.until : '')));
+        if (!s.places || s.places.length === 0) {
+            rd.appendChild(bwEl('div', 'bw-empty', 'Keine Tauschrunde nötig.'));
+        }
+        (s.places || []).forEach(function (p) {
+            rd.appendChild(bwEl('div', 'bw-place', p.place));
+            p.devices.forEach(function (d) {
+                rd.appendChild(bwEl('div', 'bw-dev', d.name + (d.need ? ' — ' + d.need : '') + (d.text ? ' · ' + d.text : '')));
+            });
+        });
+        root.appendChild(rd);
+    }
+
+    function bwStats(root) {
+        var rows = (BW.shopping && BW.shopping.stats) || [];
+        var box = bwEl('div', 'bw-sec');
+        box.appendChild(bwEl('div', 'bw-h', '⏱ Lebensdauer zwischen zwei Batteriewechseln'));
+        if (rows.length === 0) {
+            box.appendChild(bwEl('div', 'bw-empty', 'Noch zu wenig Daten: je Gerät braucht es mindestens zwei erfasste Batteriewechsel.'));
+        } else {
+            var g = bwEl('div', 'bw-dia');
+            rows.forEach(function (r) { g.appendChild(bwEl('span', 'd', r.group)); g.appendChild(bwEl('span', '', r.text)); });
+            box.appendChild(g);
+        }
+        root.appendChild(box);
+        var known = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf('Restlaufzeit unbekannt') !== 0; });
+        var unknown = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf('Restlaufzeit unbekannt') === 0; });
+        var box2 = bwEl('div', 'bw-sec');
+        box2.appendChild(bwEl('div', 'bw-h', '📈 Restlaufzeit je Gerät'));
+        if (known.length) {
+            var g2 = bwEl('div', 'bw-dia');
+            known.forEach(function (d) { g2.appendChild(bwEl('span', 'd', d.name)); g2.appendChild(bwEl('span', '', d.forecastText)); });
+            box2.appendChild(g2);
+        }
+        if (unknown.length) {
+            box2.appendChild(bwEl('div', 'bw-note', 'Für ' + unknown.length + (unknown.length === 1 ? ' Gerät' : ' Geräte') + ' gibt es noch keine Prognose: zu wenig Verlauf oder zu grobe Anzeige. Der Grund steht beim Aufklappen der Zeile.'));
+        }
+        if (!known.length && !unknown.length) {
+            box2.appendChild(bwEl('div', 'bw-empty', 'Noch keine Prognose möglich.'));
+        }
+        root.appendChild(box2);
     }
 
     function bwDiary(root) {
@@ -222,6 +291,12 @@
             c.onclick = function () { bwFilter = f.id; bwOpen = null; bwSure = null; bwRender(); };
             chips.appendChild(c);
         });
+        [['shop', '🛒 Einkauf'], ['stats', '📈 Statistik']].forEach(function (v) {
+            var b = bwEl('button', 'bw-chip' + (bwFilter === v[0] ? ' on' : ''), v[1]);
+            b.type = 'button';
+            b.onclick = function () { bwFilter = v[0]; bwOpen = null; bwSure = null; bwRender(); };
+            chips.appendChild(b);
+        });
         var dia = bwEl('button', 'bw-chip' + (bwFilter === 'diary' ? ' on' : ''), '📓 Tagebuch');
         dia.type = 'button';
         dia.onclick = function () { bwFilter = 'diary'; bwOpen = null; bwSure = null; bwRender(); };
@@ -230,6 +305,10 @@
 
         if (bwFilter === 'diary') {
             bwDiary(root);
+        } else if (bwFilter === 'shop') {
+            bwShop(root);
+        } else if (bwFilter === 'stats') {
+            bwStats(root);
         } else {
             var f = BW_FILTERS.filter(function (x) { return x.id === bwFilter; })[0] || BW_FILTERS[0];
             var shown = BW.devices.filter(f.test);
