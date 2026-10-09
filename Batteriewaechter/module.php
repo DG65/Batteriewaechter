@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.10.1' => [
+            '• „Abfragen“ gibt es jetzt auch für Matter-Geräte (Spalte „Abfragen (Z-Wave, Matter)“). Der Wächter ruft dafür MATTER_RequestStatus an der Instanz der Stromversorgung (Endpunkt 0) auf, wenn der Batteriewert älter ist als eingestellt. Bisher war die Spalte nur für Z-Wave und das stand nirgends im Formular.',
+        ],
         '0.10.0' => [
             '• Vorrat: Unter „Prognose und Einkauf“ trägst du ein, wie viele Batterien je Zelltyp zu Hause liegen. Die Einkaufsliste zeigt dann nur, was fehlt („1× AAA, Bedarf 3, 2 vorrätig“), und nennt, wo der Vorrat reicht.',
             '• Vorsorglich tauschen: Für kritische Geräte (z. B. Rauchmelder) lässt sich ein festes Intervall in Monaten einstellen. Ist es seit dem letzten Wechsel um, steht das Gerät in der Tauschrunde und wird gemeldet, auch bei gutem Batteriestand.',
@@ -1603,11 +1606,14 @@ class Batteriewaechter extends IPSModule
     }
 
     /**
-     * Schickt schlafenden Z-Wave-Geräten, deren Batteriewert alt ist, eine Statusanfrage — nur bei Geräten, für die der
+     * Schickt schlafenden Z-Wave- und Matter-Geräten, deren Batteriewert alt ist, eine Statusanfrage — nur bei Geräten, für die der
      * Nutzer das eingeschaltet hat, höchstens alle N Tage und nur mit einer belegt vorhandenen Symcon-Funktion.
      * Ein schlafendes Gerät beantwortet die Anfrage erst beim nächsten Aufwachen; bis dahin liegt sie in der
      * Warteschlange der Z-Wave-Instanz.
      */
+    /** Systeme, für die es eine Statusanfrage gibt: Modulname der Instanz => Symcon-Funktion. */
+    private const POLL_FUNCTIONS = ['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus'];
+
     private function pollDevices(array $rows, int $now): bool
     {
         $state = $this->loadJson('Poll');
@@ -1626,17 +1632,18 @@ class Batteriewaechter extends IPSModule
                     $state[$key]['ans'] = false;
                 }
             }
-            if (!$row['pollOn'] || $row['module'] !== 'Z-Wave Module' || $age === null || $age <= $after) {
+            $fn = self::POLL_FUNCTIONS[$row['module']] ?? null;
+            if (!$row['pollOn'] || $fn === null || $age === null || $age <= $after) {
                 continue;
             }
             if (isset($state[$key]) && $now - (int)$state[$key]['t'] < $every) {
                 continue;
             }
-            if (!function_exists('ZW_RequestStatus') || !IPS_InstanceExists((int)$row['inst'])) {
+            if (!function_exists($fn) || !IPS_InstanceExists((int)$row['inst'])) {
                 continue;
             }
             try {
-                $ok = (bool)ZW_RequestStatus((int)$row['inst']);
+                $ok = (bool)$fn((int)$row['inst']);
             } catch (\Throwable $e) {
                 $ok = false;
                 IPS_LogMessage('Batteriewächter', 'Abfrage von „' . $row['name'] . '“ fehlgeschlagen: ' . $e->getMessage());
@@ -1960,7 +1967,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => 'Meldungen (unter „🔔 Meldungen“, standardmäßig aus): erste Meldung, Erinnerung nach N Tagen, Ruhezeit, Wochenbericht, Eskalation für kritische Geräte — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Unter „✅ Quittieren“ sagen Sie dem Wächter, was mit einem Gerät ist.'],
                 ['type' => 'Label', 'caption' => 'Prognose, Einkauf, Tauschrunde: Unter „🧮 Prognose und Einkauf“ einstellbar. Je Gerät den Zelltyp unter „Geräte-Einstellungen“ eintragen, dann kann der Wächter Spannungen umrechnen und die Einkaufsliste zählen. Die Ergebnisse stehen als Variablen „Einkauf und Tauschrunde“ und „Lebensdauer und Entladung“ unter der Instanz.'],
                 ['type' => 'Label', 'caption' => 'Auffällige Geräte, Funkqualität, Kälte: Entlädt ein Gerät mehr als doppelt so schnell wie vergleichbare (gleiches System, gleicher Zelltyp, mindestens 4 Geräte mit bekannter Entladerate), markiert der Wächter es und nennt mögliche Ursachen (defekt, schlechte Funkverbindung, Dauersenden). Die Funkqualität zeigt er an, wo das Gerät sie liefert (z. B. Zigbee linkquality). Der Kälteeinfluss braucht eine Außentemperatur-Variable und mehrere Wochen Verlauf bei Kälte UND Wärme.'],
-                ['type' => 'Label', 'caption' => 'Abfrage schlafender Geräte: nur Z-Wave, nur wo je Gerät eingeschaltet, nur wenn der Batteriewert älter als eingestellt ist. Der Wächter sagt, ob das Gerät geantwortet hat; antwortet es nach 14 Tagen nicht, steht das als Befund da.'],
+                ['type' => 'Label', 'caption' => 'Abfrage schlafender Geräte: Z-Wave und Matter, nur wo je Gerät eingeschaltet, nur wenn der Batteriewert älter als eingestellt ist. Der Wächter sagt, ob das Gerät geantwortet hat; antwortet es nach 14 Tagen nicht, steht das als Befund da.'],
                 ['type' => 'Label', 'caption' => 'Kachel: Instanz in der Kachel-Visualisierung als Kachel hinzufügen. Antippen einer Zeile klappt sie auf (Gründe, Alter, Schaltflächen zum Quittieren), die Filterzeile oben zeigt nur, was gerade wichtig ist.'],
                 ['type' => 'Label', 'caption' => 'Batterietagebuch: Der Wächter erkennt einen Batteriewechsel am Sprung des Prozentwerts oder am zurückgesetzten „schwach“-Flag und hält ihn mit Datum fest. Die Auswertung (Lebensdauer je Gerät und Zelltyp) folgt, sobald genug Wechsel gesammelt sind.'],
                 ['type' => 'Label', 'caption' => 'Skripte: BWACH_Search(<InstanzID>) sucht neu, BWACH_Check(<InstanzID>) bewertet, BWACH_Preview(<InstanzID>) liefert den Trockenlauf als Text, BWACH_Acknowledge(<InstanzID>, \'<Schlüssel>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') quittiert, BWACH_SendTest(<InstanzID>) schickt eine Testmeldung.'],
@@ -2255,7 +2262,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => 'ℹ️ Der Kälteeinfluss wird erst ausgewertet, wenn mindestens 3 Geräte je 3 Zeitabschnitte bei Kälte und bei Wärme haben — also frühestens nach einem Winter. Bis dahin steht ehrlich „noch nicht genug Daten“.'],
                 ['type' => 'NumberSpinner', 'name' => 'PollAfterDays', 'caption' => 'Abfrage schlafender Geräte, wenn der Batteriewert älter ist als', 'suffix' => ' Tage', 'minimum' => 3, 'maximum' => 365],
                 ['type' => 'NumberSpinner', 'name' => 'PollEveryDays', 'caption' => 'Abfrage höchstens alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
-                ['type' => 'Label', 'caption' => 'ℹ️ Die Abfrage ist je Gerät unter „Geräte-Einstellungen“ (Spalte „Abfragen“) einzuschalten, standardmäßig AUS. Sie gibt es nur für Z-Wave-Geräte. Ein schlafendes Gerät beantwortet sie erst beim nächsten Aufwachen, bis dahin liegt sie in der Warteschlange der Z-Wave-Instanz; zu häufiges Abfragen füllt diese Warteschlange.'],
+                ['type' => 'Label', 'caption' => 'ℹ️ Die Abfrage ist je Gerät unter „Geräte-Einstellungen“ (Spalte „Abfragen“) einzuschalten, standardmäßig AUS. Sie gibt es für Z-Wave- und Matter-Geräte. Ein schlafendes Z-Wave-Gerät beantwortet sie erst beim nächsten Aufwachen, bis dahin liegt sie in der Warteschlange der Z-Wave-Instanz; zu häufiges Abfragen füllt diese Warteschlange. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Bei Matter wird die Instanz der Stromversorgung (Endpunkt 0) abgefragt, denn dort liegt der Batteriestand.'],
                 ['type' => 'NumberSpinner', 'name' => 'OrphanDays', 'caption' => 'Gerät als „vermutlich ausgebaut“ vorschlagen, wenn es so lange still ist (0 = aus)', 'suffix' => ' Tage', 'minimum' => 0, 'maximum' => 720],
                 ['type' => 'PopupButton', 'caption' => 'Wie sicher ist die Prognose?', 'width' => '500px', 'popup' => [
                     'caption' => 'Wie sicher ist die Prognose, und was heißt „aus Spannung berechnet“?',
@@ -2538,7 +2545,7 @@ class Batteriewaechter extends IPSModule
             . "Ohne Altersprüfung: normal gilt ein Batteriewert, der älter als $old Tage ist, als „veraltet“. Mit diesem Haken entfällt das, für Geräte, die ihren Batteriewert nur sehr selten melden. Die Funkstille-Prüfung bleibt davon unberührt.\n\n"
             . "Ausnehmen: das Gerät wird gar nicht überwacht (keine Meldung, nicht in Kachel und Zahlen). Die Zeile bleibt stehen, damit die Einstellung erhalten bleibt. Etwas anderes als „Außer Betrieb“ in der Kachel.\n\n"
             . "Zelltyp und Anzahl Zellen: damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen. Meldet ein Matter-Gerät seinen Zelltyp selbst, steht er schon drin.\n\n"
-            . "Abfragen: nur bei Z-Wave. Ist der Batteriewert älter als $pAfter Tage, schickt der Wächter dem Gerät höchstens alle $pEvery Tage eine Statusanfrage und zeigt, ob es antwortet. Ein schlafendes Gerät antwortet erst beim nächsten Aufwachen. Ob die Anfrage den Batteriewert früher liefert, ist nicht belegt. Bei anderen Systemen tut der Haken nichts.";
+            . "Abfragen: bei Z-Wave und Matter. Ist der Batteriewert älter als $pAfter Tage, schickt der Wächter dem Gerät höchstens alle $pEvery Tage eine Statusanfrage und zeigt, ob es antwortet. Ein schlafendes Z-Wave-Gerät antwortet erst beim nächsten Aufwachen, ob das den Batteriewert früher liefert, ist dort nicht belegt. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Bei anderen Systemen tut der Haken nichts.";
     }
 
     private function DevicesPanel(array $dr): array
@@ -2596,7 +2603,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
                         ['caption' => 'Anzahl Zellen', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
-                        ['caption' => 'Abfragen', 'name' => 'Poll', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                     ],
                 ],
             ],

@@ -59,6 +59,7 @@ function IPS_GetObjectIDByIdent(string $ident, int $parent) { foreach ($GLOBALS[
 $GLOBALS['INSTS'] = []; $GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = true; $GLOBALS['LOG'] = [];
 $GLOBALS['ZW'] = []; $GLOBALS['ZW_OK'] = true;
 function ZW_RequestStatus(int $id) { $GLOBALS['ZW'][] = $id; return $GLOBALS['ZW_OK']; }
+function MATTER_RequestStatus(int $id) { $GLOBALS['MT'][] = $id; return $GLOBALS['ZW_OK']; }
 function IPS_SetHidden(int $id, bool $h): bool { $GLOBALS['OBJ'][$id]['hidden'] = $h; return true; }
 function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INSTS'][$g] ?? []; }
 function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
@@ -475,7 +476,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.10.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.10.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +500,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.10.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.10.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.10.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.10.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 11);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
@@ -1618,7 +1619,7 @@ $mdl->props['NotifyMail'] = false; $mdl->props['MailInstance'] = 0; $mdl->props[
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle'; $mdl->props['ShopLink'] = '';
 
-// ===== 0.10.0: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
+// ===== 0.10.1: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
 $NOW = $GLOBALS['CLOCK'];
 check('Datum: TT.MM.JJJJ und JJJJ-MM-TT werden gelesen (12:00 Uhr)', BWACHMeldung::parseDate('05.03.2026', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate('2026-03-05', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate(' 5.3.2026 ', $NOW) === mktime(12, 0, 0, 3, 5, 2026));
 check('Datum: 31.02., Text, Zukunft und Jahre vor 2015 ergeben null', BWACHMeldung::parseDate('31.02.2026', $NOW) === null && BWACHMeldung::parseDate('gestern', $NOW) === null && BWACHMeldung::parseDate(date('d.m.Y', $NOW + 3 * 86400), $NOW) === null && BWACHMeldung::parseDate('01.01.2014', $NOW) === null && BWACHMeldung::parseDate('', $NOW) === null);
@@ -1763,6 +1764,16 @@ $mo = pollWorld(30, false);
 check('Abfrage ausgeschaltet (Standard): nie eine Anfrage', $GLOBALS['ZW'] === []);
 $mf = pollWorld(5, true);
 check('Batteriewert nur 5 Tage alt (unter 14): keine Anfrage', $GLOBALS['ZW'] === []);
+$GLOBALS['MT'] = []; $mx = pollWorld(30, true, 'Matter Device');
+check('Abfrage bei Matter: MATTER_RequestStatus an der Instanz, nicht ZW_RequestStatus', $GLOBALS['MT'] === [301] && $GLOBALS['ZW'] === [], json_encode([$GLOBALS['MT'], $GLOBALS['ZW']]));
+check('Abfrage bei Matter: Zeitpunkt festgehalten, Antwort noch offen', (function ($ps) { return isset($ps['301']) && array_key_exists('ans', $ps['301']) && $ps['301']['ans'] === null && $ps['301']['t'] === $GLOBALS['CLOCK']; })(json_decode($mx->GetValue('Poll'), true)));
+$GLOBALS['MT'] = []; $mx2 = pollWorld(30, false, 'Matter Device');
+check('Abfrage bei Matter ausgeschaltet: keine Anfrage', $GLOBALS['MT'] === []);
+$GLOBALS['MT'] = []; $mx3 = pollWorld(5, true, 'Matter Device');
+check('Abfrage bei Matter: Wert nur 5 Tage alt, keine Anfrage', $GLOBALS['MT'] === []);
+$GLOBALS['MT'] = []; $mz = pollWorld(30, true, 'ShellyDevice');
+check('Anderes System: weder Z-Wave- noch Matter-Anfrage', $GLOBALS['MT'] === [] && $GLOBALS['ZW'] === []);
+check('Spalte „Abfragen“ nennt die Systeme, für die es sie gibt', (function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { foreach ($it['columns'] as $c) { if ($c['name'] === 'Poll') { return $c['caption'] === 'Abfragen (Z-Wave, Matter)'; } } } } } return false; })(json_decode($mx->GetConfigurationForm(), true)));
 $mz = pollWorld(30, true, 'ShellyDevice');
 check('Anderes System als Z-Wave: keine Anfrage (nur dort ist die Funktion belegt)', $GLOBALS['ZW'] === []);
 $GLOBALS['LOG'] = [];

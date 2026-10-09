@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.10.1] - 2026-10-09
+
+### Added
+- **Abfragen für Matter:** Die Statusanfrage gilt jetzt auch für Matter-Geräte (`MATTER_RequestStatus` an der Instanz der Stromversorgung, Endpunkt 0, wo der Batteriestand liegt). Sie war bisher nur für Z-Wave (`ZW_RequestStatus`) eingebaut, weil das die einzige geprüfte Funktion war; Matter-Instanzen haben aber `MATTER_RequestStatus`. In einem Test an zwei Leckagesensoren, die seit 21 Stunden nichts von sich aus gesendet hatten, kamen neue Werte nach 9 und 15 Sekunden. Eine Anfrage an einen Fensterkontakt (Endpunkt 1) hat den Wert in 15 Sekunden nicht aktualisiert; die Wirkung ist also nicht für jedes Gerät belegt.
+
+### Changed
+- Die Spalte heißt „Abfragen (Z-Wave, Matter)“, Hilfetext, Hinweis und Dokumentation nennen beide Systeme (vorher stand Z-Wave nur im Hinweis weiter unten, nicht an der Spalte).
+
 ## [0.10.0] - 2026-10-09
 
 ### Added
