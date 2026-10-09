@@ -53,6 +53,8 @@ class Batteriewaechter extends IPSModule
     private const MAX_DIARY_ROWS = 50;
 
     private const REPO_URL    = 'https://github.com/DG65/Batteriewaechter';
+    /** Stand des Rückmeldungs-Hinweises: Wer einen älteren weggeklickt hat, sieht den mit dem Forum-Thread einmal wieder. */
+    private const FORUM_HINT_REV = 'thread-144608';
     private const FORUM_URL   = 'https://community.symcon.de/t/beta-modul-dg65-toolkit-batteriewaechter-batterien-aller-funkgeraete-im-blick-mit-prognose-einkaufsliste-tauschrunde-und-meldungen/144608';
     private const LICENSE_URL = 'https://github.com/DG65/Batteriewaechter/blob/beta/LICENSE';
     private const PAYPAL_URL  = 'https://paypal.me/DietmarGureth';
@@ -123,7 +125,8 @@ class Batteriewaechter extends IPSModule
         $this->RegisterAttributeInteger('LastCheckTs', 0);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
-        $this->RegisterAttributeBoolean('ForumHintGone', false);
+        $this->RegisterAttributeBoolean('ForumHintGone', false);   // bis 0.11.3: nur noch aus Kompatibilität angelegt
+        $this->RegisterAttributeString('ForumHintSeen', '');
 
         $this->RegisterTimer('Tick', 0, 'BWACH_Tick($_IPS[\'TARGET\']);');
         $this->RegisterTimer('Debounce', 0, 'BWACH_Debounced($_IPS[\'TARGET\']);');
@@ -341,7 +344,7 @@ class Batteriewaechter extends IPSModule
 
     public function AckForumHint(): void
     {
-        $this->WriteAttributeBoolean('ForumHintGone', true);
+        $this->WriteAttributeString('ForumHintSeen', self::FORUM_HINT_REV);
         $this->UpdateFormField('ForumHintPanel', 'visible', false);
     }
 
@@ -2002,6 +2005,7 @@ class Batteriewaechter extends IPSModule
             'caption' => '📖  Dokumentation & Hilfe',
             'items' => [
                 ['type' => 'Label', 'caption' => $verTxt],
+                ['type' => 'Button', 'caption' => '💬 Forum-Thread', 'onClick' => "echo '" . self::FORUM_URL . "';", 'link' => true],
                 ['type' => 'Label', 'caption' => 'Was gefunden wird: Variablen mit den Symcon-Profilen ~Battery („schwach“-Flag), ~Battery.Reversed („in Ordnung“-Flag) und ~Battery.100 (Prozent) sowie Variablen mit typischen Bezeichnern (z. B. battery, battery_low, LOWBAT, battery_percent, battery_voltage). Mehrere Signale eines Geräts (z. B. Prozent und Flag) werden zu EINEM Gerät zusammengeführt.'],
                 ['type' => 'Label', 'caption' => 'Was bewusst nicht gefunden wird: Heimspeicher und Fahrzeugakkus (Modulliste „Ausgeschlossene Module“), Sammelwerte wie „Schwächste Batterie“ eines Raums und Variablen, die zu keiner Geräteinstanz gehören. Der Trockenlauf nennt zu jedem Ausschluss den Grund.'],
                 ['type' => 'Label', 'caption' => 'Die drei Zeiten: (1) Alter des Batteriewerts — wann das Gerät seinen Batteriestand zuletzt gemeldet hat; manche Geräte tun das nur alle paar Monate. (2) Lebenszeichen — die jüngste Aktualisierung einer Messwert-Variable des Geräts (Variablen mit Aktion wie Sollwerte zählen nicht, die schreibt oft Symcon selbst); bleibt sie aus, ist es Funkstille, keine schwache Batterie. (3) Das Gerät selbst mit seinem Status.'],
@@ -2712,7 +2716,7 @@ class Batteriewaechter extends IPSModule
 
     private function ForumHint(): ?array
     {
-        if ($this->ReadAttributeBoolean('ForumHintGone')) {
+        if ($this->ReadAttributeString('ForumHintSeen') === self::FORUM_HINT_REV) {
             return null;
         }
         return [

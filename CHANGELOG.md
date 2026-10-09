@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.11.4] - 2026-10-10
+
+### Changed
+- **Forum-Link immer erreichbar:** „Dokumentation & Hilfe“ hat die Schaltfläche „💬 Forum-Thread“. Sie bleibt, auch wenn man den Hinweis im Panel „Rückmeldungen“ weggeklickt hat.
+- **Hinweis „Rückmeldungen“ erscheint nach dem Update einmal wieder:** Wer ihn in einer früheren Version mit „Verstanden – nicht mehr anzeigen“ weggeklickt hatte, sah den neuen Hinweis mit dem Forum-Thread nie. Der Hinweis führt jetzt einen Stand mit (`thread-144608`) und erscheint für alle, die einen älteren Stand weggeklickt haben, einmal neu. Der Attributname `ForumHintGone` bleibt aus Kompatibilität angelegt, wird aber nicht mehr gelesen.
+
 ## [0.11.3] - 2026-10-09
 
 ### Fixed

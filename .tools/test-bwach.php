@@ -1727,8 +1727,8 @@ $dgV = [['vid' => 1, 'ident' => 'battery', 'name' => 'Batterie', 'type' => 1, 'p
     ['vid' => 3, 'ident' => 'BATT_STATE', 'name' => 'Akkuzustand', 'type' => 1, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum'],
     ['vid' => 4, 'ident' => 'temp', 'name' => 'Temperatur', 'type' => 2, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum']];
 $dgF = BWACHLogik::classify($dgV, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
-$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.3', '9.0');
-check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.3, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
+$dgT = BWACHLogik::diagnosis($dgV, $dgF, '1.2.3', '9.0');
+check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 1.2.3, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
 check('Diagnose enthält keine Gerätenamen und keine Objekt-IDs', strpos($dgT, 'Wohnzimmer') === false && strpos($dgT, 'Geheimer Raum') === false && strpos($dgT, 'Mein Sensor') === false && strpos($dgT, 'Akkuzustand') === false && strpos($dgT, '#10') === false && strpos($dgT, 'vid') === false);
 $dgV2 = array_merge($dgV, [
     ['vid' => 5, 'ident' => 'battery_script', 'name' => 'x', 'type' => 1, 'profile' => '', 'parentId' => 0, 'parentIsInstance' => false, 'moduleName' => '', 'instanceName' => ''],
@@ -1852,6 +1852,19 @@ $fhPanel = null; foreach (json_decode($mFh->GetConfigurationForm(), true)['eleme
 $fhJson = json_encode($fhPanel, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 check('Rückmeldungen: Schaltfläche „Zum Forum-Thread“ mit der echten Thread-URL (link=true), daneben „Zum Repository“', $fhPanel !== null && strpos($fhJson, 'Zum Forum-Thread') !== false && strpos($fhJson, 'https://community.symcon.de/t/beta-modul-dg65-toolkit-batteriewaechter-batterien-aller-funkgeraete-im-blick-mit-prognose-einkaufsliste-tauschrunde-und-meldungen/144608') !== false && strpos($fhJson, 'Zum Repository') !== false && substr_count($fhJson, '"link":true') === 2, $fhJson);
 check('Rückmeldungen: der Text nennt den Forum-Thread und die Diagnose, nicht mehr nur GitHub', strpos($fhJson, 'im Forum-Thread willkommen') !== false && strpos($fhJson, 'Diagnose fürs Forum') !== false && strpos($fhJson, '(GitHub)') === false);
+
+// Hinweis „Rückmeldungen“: weggeklickt, nach neuem Stand wieder da; Link immer in der Dokumentation
+$hasForumHint = function (BWTest $m) { foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $p) { if (($p['name'] ?? '') === 'ForumHintPanel') { return true; } } return false; };
+$mOld = new BWTest(); $mOld->Create(); $mOld->ApplyChanges();
+check('Rückmeldungen-Hinweis ist bei einer neuen Instanz da', $hasForumHint($mOld));
+$mOld->AckForumHint();
+check('Nach „Verstanden“ ist er weg', !$hasForumHint($mOld));
+$rm = new ReflectionMethod($mOld, 'WriteAttributeString'); $rm->setAccessible(true); $rm->invoke($mOld, 'ForumHintSeen', ''); $rb = new ReflectionMethod($mOld, 'WriteAttributeBoolean'); $rb->setAccessible(true); $rb->invoke($mOld, 'ForumHintGone', true);
+check('Wer ihn in einer älteren Version weggeklickt hat (altes Attribut ForumHintGone, kein Stand), sieht ihn mit dem Forum-Thread einmal wieder', $hasForumHint($mOld));
+$docJson = json_encode((function ($f) { foreach ($f['elements'] as $p) { if (($p['caption'] ?? '') === '📖  Dokumentation & Hilfe') { return $p; } } return []; })(json_decode($mOld->GetConfigurationForm(), true)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+check('„Dokumentation & Hilfe“ hat immer die Schaltfläche „Forum-Thread“ mit der Thread-URL', strpos($docJson, '"type":"Button","caption":"💬 Forum-Thread"') !== false && strpos($docJson, '/144608') !== false && strpos($docJson, '"link":true') !== false, $docJson);
+$mOld->AckForumHint();
+check('…und sie bleibt, auch wenn der Hinweis weggeklickt ist', !$hasForumHint($mOld) && strpos(json_encode(json_decode($mOld->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '💬 Forum-Thread') !== false);
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
