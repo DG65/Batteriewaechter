@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.7.0] - 2026-10-09
+
+### Added
+- **Sortierung in der Kachel:** Dringlichkeit (Standard, wie bisher), Name, Ort, Batteriestand (niedrigster zuerst), Alter des Werts (ältester zuerst), Lebenszeichen (am längsten still zuerst), Zelltyp und System. Ein zweiter Klick auf dieselbe Eigenschaft kehrt die Reihenfolge um. Geräte ohne Wert stehen in jeder Richtung hinten, bei Gleichstand bleibt die Reihenfolge nach Dringlichkeit. Deutsche Sortierung (Umlaute, Zahlen in Namen natürlich: „Fenster 2“ vor „Fenster 10“). Die Wahl wird im Browser gemerkt (nur Komfort, ohne Speicher gilt die Standardreihenfolge). Gilt für alle Listenansichten (Handlungsbedarf, Alle und die Filter).
+- Die Kachel-Daten tragen dafür Alter des Werts und Lebenszeichen in Sekunden sowie den Zelltyp als Kurzbezeichnung.
+
 ## [0.6.4] - 2026-10-09
 
 ### Changed

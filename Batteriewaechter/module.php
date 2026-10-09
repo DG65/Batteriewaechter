@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.7.0' => [
+            '• Die Kachel lässt sich sortieren: nach Dringlichkeit (Standard), Name, Ort, Batteriestand, Alter des Werts, Lebenszeichen, Zelltyp und System. Ein zweiter Klick auf dieselbe Eigenschaft kehrt die Reihenfolge um (↑ ↓). Geräte ohne Wert stehen immer hinten. Die Wahl merkt sich der Browser.',
+        ],
         '0.6.4' => [
             '• „Geräte-Einstellungen“ trägt den Zelltyp ein, den ein Matter-Gerät selbst meldet (z. B. „AAA“, „CR2032“). Er steht in der Liste und wird mit „Übernehmen“ gespeichert; eine eigene Wahl bleibt unberührt. Bei AA/AAA ist nur die Bauform bekannt, Alkali ist angenommen: bei Akkus bitte ändern.',
         ],
@@ -641,6 +644,9 @@ class Batteriewaechter extends IPSModule
                 'percent'      => $r['percent'] === null ? null : round($r['percent'], 1),
                 'percentText'  => $r['percent'] === null ? '' : BWACHLogik::num($r['percent']) . ' %',
                 'voltageText'  => $r['voltage'] === null ? '' : BWACHLogik::num($r['voltage']) . ' V',
+                'valueAgeSec'  => $r['valueAge'],
+                'lifeAgeSec'   => $r['lifeAge'],
+                'cellKey'      => BWACHZelle::isKnown($row['cell']) ? (string)BWACHZelle::shopLabel($row['cell']) : '',
                 'valueAgeText' => $r['valueAge'] === null ? '—' : 'vor ' . BWACHLogik::daysDat($r['valueAge']),
                 'lifeText'     => $r['lifeAge'] === null ? '—' : 'vor ' . BWACHLogik::daysDat($r['lifeAge']),
                 'headline'     => $this->headline($r),

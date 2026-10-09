@@ -26,6 +26,11 @@
     .bw-chip.on { border-color: var(--ui-primary, #4fc3f7); background: var(--ui-elevation-2, rgba(79, 195, 247, .16)); }
     .bw-chip .n { font-weight: 700; margin-left: 4px; }
 
+    /* Sortierzeile */
+    .bw-sorts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -2px 0 10px; font-size: .8em; }
+    .bw-sorts .lbl { opacity: .65; margin-right: 2px; }
+    .bw-sorts .bw-chip { font-size: .95em; padding: 3px 9px; }
+
     /* Zeilen */
     .bw-list { display: flex; flex-direction: column; gap: 6px; }
     .bw-row {
@@ -100,6 +105,11 @@
     var bwFilter = 'problems';
     var bwOpen = null;
     var bwSure = null;
+    var bwSort = { key: 'urgency', dir: 'desc' };
+    try {
+        var bwSaved = JSON.parse(window.localStorage.getItem('bw-sort') || 'null');
+        if (bwSaved && typeof bwSaved.key === 'string' && (bwSaved.dir === 'asc' || bwSaved.dir === 'desc')) { bwSort = bwSaved; }
+    } catch (e) { /* Speicher gesperrt: Standardreihenfolge */ }
 
     function bwEl(tag, cls, text) {
         var e = document.createElement(tag);
@@ -119,6 +129,47 @@
         { id: 'silent',   label: '🔇 Funkstille',    test: function (d) { return d.funk === 'still'; } },
         { id: 'check',    label: '❔ Daten prüfen',   test: bwHasCheck }
     ];
+
+    // Sortierung: Zahlen- und Textwerte; fehlende Werte stehen immer hinten. dir = Voreinstellung je Eigenschaft.
+    var BW_SORTS = [
+        { id: 'urgency',  label: 'Dringlichkeit',  num: true,  dir: 'desc', get: function (d) { return d.urgency; } },
+        { id: 'name',     label: 'Name',           num: false, dir: 'asc',  get: function (d) { return d.name; } },
+        { id: 'place',    label: 'Ort',            num: false, dir: 'asc',  get: function (d) { return d.place; } },
+        { id: 'percent',  label: 'Batteriestand',  num: true,  dir: 'asc',  get: function (d) { return d.percent; } },
+        { id: 'valueAge', label: 'Alter des Werts', num: true, dir: 'desc', get: function (d) { return d.valueAgeSec; } },
+        { id: 'life',     label: 'Lebenszeichen',  num: true,  dir: 'desc', get: function (d) { return d.lifeAgeSec; } },
+        { id: 'cell',     label: 'Zelltyp',        num: false, dir: 'asc',  get: function (d) { return d.cellKey; } },
+        { id: 'module',   label: 'System',         num: false, dir: 'asc',  get: function (d) { return d.module; } }
+    ];
+
+    function bwSortBy(list) {
+        var s = BW_SORTS.filter(function (x) { return x.id === bwSort.key; })[0] || BW_SORTS[0];
+        var sign = bwSort.dir === 'asc' ? 1 : -1;
+        var withIdx = list.map(function (d, i) { return { d: d, i: i }; });
+        function missing(v) { return v === null || v === undefined || v === ''; }
+        withIdx.sort(function (a, b) {
+            var va = s.get(a.d), vb = s.get(b.d);
+            if (missing(va) !== missing(vb)) { return missing(va) ? 1 : -1; }
+            var c = 0;
+            if (!missing(va)) {
+                c = s.num ? (va - vb) : String(va).localeCompare(String(vb), 'de', { numeric: true, sensitivity: 'base' });
+            }
+            return c !== 0 ? sign * c : a.i - b.i;
+        });
+        return withIdx.map(function (x) { return x.d; });
+    }
+
+    function bwSetSort(id) {
+        var s = BW_SORTS.filter(function (x) { return x.id === id; })[0];
+        if (bwSort.key === id) {
+            bwSort = { key: id, dir: bwSort.dir === 'asc' ? 'desc' : 'asc' };
+        } else {
+            bwSort = { key: id, dir: s.dir };
+        }
+        try { window.localStorage.setItem('bw-sort', JSON.stringify(bwSort)); } catch (e) { /* nur Komfort */ }
+        bwOpen = null; bwSure = null;
+        bwRender();
+    }
 
     function bwIcon(d) {
         if (d.status === 'leer') { return '🪫'; }
@@ -319,8 +370,18 @@
             } else if (shown.length === 0) {
                 root.appendChild(bwEl('div', 'bw-empty', bwFilter === 'problems' ? '✅ Alles in Ordnung — kein Gerät braucht Aufmerksamkeit.' : 'Kein Gerät in dieser Ansicht.'));
             } else {
+                var sorts = bwEl('div', 'bw-sorts');
+                sorts.appendChild(bwEl('span', 'lbl', 'Sortieren:'));
+                BW_SORTS.forEach(function (s) {
+                    var on = bwSort.key === s.id;
+                    var b = bwEl('button', 'bw-chip' + (on ? ' on' : ''), s.label + (on ? (bwSort.dir === 'asc' ? ' ↑' : ' ↓') : ''));
+                    b.type = 'button';
+                    b.onclick = function () { bwSetSort(s.id); };
+                    sorts.appendChild(b);
+                });
+                root.appendChild(sorts);
                 var list = bwEl('div', 'bw-list');
-                shown.forEach(function (d) { list.appendChild(bwRow(d)); });
+                bwSortBy(shown).forEach(function (d) { list.appendChild(bwRow(d)); });
                 root.appendChild(list);
             }
         }

@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.6.4', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.7.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.6.4' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.7.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.6.4', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.7.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -905,9 +905,9 @@ $testJs = <<<'JS'
 var P = {summary:{total:3},asOf:'10:00 Uhr',allowAck:true,message:'',diary:[{when:'07.10.2026',name:'A',type:'erkannt',note:'x'}],
  shopping:{horizon:30,lines:['3× AAA','1× CR2032'],missing:['Ohne Typ'],count:2,until:'12.10.2026',places:[{place:'Flur',devices:[{name:'Alpha <b>',need:'1× CR2032',text:'Batterie leer'}]}],stats:[{group:'Zelle CR2032',text:'395 Tage (3 Intervalle)'}]},
  devices:[
- {id:'1',name:'Alpha <b>',place:'Flur',module:'Z',status:'leer',funk:'aktiv',percent:3,percentText:'3 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 5 Minuten',critical:true,quality:[],urgency:1100,reasons:['Batterie leer (3 %)'],note:'',soon:false,forecastText:'reicht noch etwa 4 Tage (mittlere Sicherheit)',cellText:'CR2032 (Knopfzelle, 3 V)',derived:true},
- {id:'2',name:'Beta',place:'',module:'',status:'ok',funk:'still',percent:80,percentText:'80 %',voltageText:'',valueAgeText:'—',lifeText:'vor 9 Tage',critical:false,quality:['veraltet'],urgency:600,reasons:['Funkstille'],note:'💤 bis 15.10.2026',soon:true,forecastText:'Restlaufzeit unbekannt: zu wenig Verlauf (1 Messpunkte über 0 Tage)',cellText:'',derived:false},
- {id:'3',name:'Gamma',place:'Bad',module:'',status:'ok',funk:'aktiv',percent:100,percentText:'100 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 1 Minute',critical:false,quality:[],urgency:0,reasons:[],note:'',soon:false,forecastText:'',cellText:'',derived:false}]};
+ {id:'1',name:'Alpha <b>',place:'Flur',module:'Z',status:'leer',funk:'aktiv',percent:3,percentText:'3 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 5 Minuten',critical:true,valueAgeSec:86400,lifeAgeSec:300,cellKey:'CR2032',quality:[],urgency:1100,reasons:['Batterie leer (3 %)'],note:'',soon:false,forecastText:'reicht noch etwa 4 Tage (mittlere Sicherheit)',cellText:'CR2032 (Knopfzelle, 3 V)',derived:true},
+ {id:'2',name:'Beta',place:'',module:'',status:'ok',funk:'still',percent:80,percentText:'80 %',voltageText:'',valueAgeText:'—',lifeText:'vor 9 Tage',critical:false,valueAgeSec:null,lifeAgeSec:777600,cellKey:'',quality:['veraltet'],urgency:600,reasons:['Funkstille'],note:'💤 bis 15.10.2026',soon:true,forecastText:'Restlaufzeit unbekannt: zu wenig Verlauf (1 Messpunkte über 0 Tage)',cellText:'',derived:false},
+ {id:'3',name:'Gamma',place:'Bad',module:'',status:'ok',funk:'aktiv',percent:100,percentText:'100 %',voltageText:'',valueAgeText:'vor 1 Tag',lifeText:'vor 1 Minute',critical:false,valueAgeSec:86400,lifeAgeSec:60,cellKey:'',quality:[],urgency:0,reasons:[],note:'',soon:false,forecastText:'',cellText:'',derived:false}]};
 handleMessage(JSON.stringify(P));
 var ok = true; function chk(n,c){ if(!c){ ok=false; console.log('FAIL '+n); } }
 var t = texts(global.ROOT);
@@ -938,6 +938,30 @@ chk('Einkauf: Namen als Text, nicht als HTML', all(global.ROOT).every(function(e
 click(function(e){ return e.textContent==='📈 Statistik'; });
 t = texts(global.ROOT);
 chk('Statistik: Lebensdauer und Restlaufzeit je Gerät', t.indexOf('Zelle CR2032')>=0 && t.indexOf('395 Tage (3 Intervalle)')>=0 && t.indexOf('Restlaufzeit je Gerät')>=0 && t.indexOf('reicht noch etwa 4 Tage')>=0 && t.indexOf('Für 1 Gerät gibt es noch keine Prognose')>=0 && t.indexOf('Restlaufzeit unbekannt: zu wenig')<0);
+function order(){ return all(global.ROOT).filter(function(e){return e.className==='bw-name';}).map(function(e){return e.textContent.replace(/ ❗.*/,'').replace(/ 💤.*/,'');}); }
+click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='Alle'; });
+chk('Standard: nach Dringlichkeit (Alpha 1100, Beta 600, Gamma 0)', order().join()==='Alpha <b>,Beta,Gamma');
+click(function(e){ return e.textContent==='Name'; });
+chk('Sortierung nach Name aufsteigend', order().join()==='Alpha <b>,Beta,Gamma' && texts(global.ROOT).indexOf('Name ↑')>=0);
+click(function(e){ return e.textContent==='Name ↑'; });
+chk('Zweiter Klick kehrt um (Name ↓)', order().join()==='Gamma,Beta,Alpha <b>' && texts(global.ROOT).indexOf('Name ↓')>=0);
+click(function(e){ return e.textContent==='Batteriestand'; });
+chk('Batteriestand: niedrigster zuerst (3, 80, 100 %)', order().join()==='Alpha <b>,Beta,Gamma');
+click(function(e){ return e.textContent==='Batteriestand ↑'; });
+chk('Batteriestand umgekehrt: höchster zuerst', order().join()==='Gamma,Beta,Alpha <b>');
+click(function(e){ return e.textContent==='Ort'; });
+chk('Ort: leerer Ort steht hinten (Bad, Flur, dann ohne Ort)', order().join()==='Gamma,Alpha <b>,Beta');
+click(function(e){ return e.textContent==='Ort ↑'; });
+chk('Ort absteigend: leerer Ort bleibt hinten', order().join()==='Alpha <b>,Gamma,Beta');
+click(function(e){ return e.textContent==='Lebenszeichen'; });
+chk('Lebenszeichen: am längsten still zuerst (Beta 9 Tage)', order()[0]==='Beta');
+click(function(e){ return e.textContent==='Alter des Werts'; });
+chk('Alter des Werts: Beta ohne Wertalter steht hinten', order()[order().length-1]==='Beta' && order()[0]==='Alpha <b>');
+click(function(e){ return e.textContent==='Zelltyp'; });
+chk('Zelltyp: Alpha (CR2032) zuerst, ohne Zelltyp hinten', order()[0]==='Alpha <b>');
+click(function(e){ return e.textContent==='Dringlichkeit'; });
+chk('Zurück zu Dringlichkeit (↓)', order().join()==='Alpha <b>,Beta,Gamma' && texts(global.ROOT).indexOf('Dringlichkeit ↓')>=0);
+chk('Sortierzeile fehlt in Einkauf, Statistik und Tagebuch', (function(){ click(function(e){ return e.textContent==='🛒 Einkauf'; }); var a=texts(global.ROOT).indexOf('Sortieren:')<0; click(function(e){ return e.textContent==='📓 Tagebuch'; }); return a && texts(global.ROOT).indexOf('Sortieren:')<0; })());
 click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='⏳ bald leer'; });
 chk('Filter „bald leer“ zeigt nur Geräte mit Prognose-Warnung', texts(global.ROOT).indexOf('Beta')>=0 && texts(global.ROOT).indexOf('Gamma')<0 && texts(global.ROOT).indexOf('Alpha <b>')<0);
 click(function(e){ return e.textContent==='📓 Tagebuch'; });
@@ -1441,6 +1465,9 @@ check('Die Liste speichert nichts', ($mdl->props['DeviceSettings'] ?? '[]') === 
 $mdl->props['DeviceSettings'] = json_encode([['Instance' => 502, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false], ['Instance' => 506, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aaa_nimh', 'Cells' => 2, 'Poll' => false]]);
 [$e2] = $fl($mdl); $by2 = array_column($e2['values'], null, 'Instance');
 check('Gespeicherte Zeile ohne Zelltyp wird vorbelegt, eine eigene Wahl (AAA Akku, 2 Zellen) bleibt unberührt', ($by2[502]['Cell'] ?? '') === 'aaa_alkali' && ($by2[506]['Cell'] ?? '') === 'aaa_nimh' && ($by2[506]['Cells'] ?? 0) === 2, json_encode($by2));
+
+$mdl->Check(); $plS = json_decode(end($mdl->visUpdates), true); $dS = $plS['devices'][0] ?? [];
+check('Kachel-Daten tragen Wertalter und Lebenszeichen in Sekunden sowie den Zelltyp als Kurzbezeichnung', is_int($dS['valueAgeSec'] ?? null) && is_int($dS['lifeAgeSec'] ?? null) && array_key_exists('cellKey', $dS) && count(array_filter(array_column($plS['devices'], 'cellKey'), function ($k) { return $k === 'AAA' || $k === 'CR2032'; })) >= 1, json_encode($dS, JSON_UNESCAPED_UNICODE));
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
