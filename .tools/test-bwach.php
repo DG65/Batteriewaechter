@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.8.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.8.2', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.8.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.8.2' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.8.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.8.2', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 11);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
@@ -1553,6 +1553,12 @@ $mdl->props['CriticalLowPercent'] = 40; $mdl->props['LowPercent'] = 25; $mdl->pr
 $helpForm2 = implode(' ', (function ($f) { $o = []; array_walk_recursive($f, function ($v, $k) use (&$o) { if ($k === 'caption' && is_string($v)) { $o[] = $v; } }); return $o; })(json_decode($mdl->GetConfigurationForm(), true)));
 check('Hilfetext folgt den eingestellten Werten (40 % statt 25 %, 120 Tage) und lässt die Ruhezeit-Aussage weg, wenn sie nicht gilt', strpos($helpForm2, 'ab 40 % statt 25 %') !== false && strpos($helpForm2, 'älter als 120 Tage') !== false && strpos($helpForm2, 'die Ruhezeit gilt dafür nicht') === false && strpos($helpForm, 'die Ruhezeit gilt dafür nicht') !== false);
 $mdl->props['CriticalLowPercent'] = 30; $mdl->props['LowPercent'] = 20; $mdl->props['ValueOldDays'] = 90; $mdl->props['CriticalIgnoresQuiet'] = true;
+
+// Schaltflächen-Beschriftungen dürfen nicht zu lang sein (Schaltflächen schneiden ab statt umzubrechen)
+$longBtn = [];
+$walkBtn = function ($n) use (&$walkBtn, &$longBtn) { if (is_array($n)) { if (in_array($n['type'] ?? '', ['Button', 'PopupButton'], true) && isset($n['caption']) && mb_strlen($n['caption']) > 40) { $longBtn[] = $n['caption']; } foreach ($n as $v) { $walkBtn($v); } } };
+$walkBtn(json_decode($mdl->GetConfigurationForm(), true));
+check('Keine Schaltfläche mit einer Beschriftung über 40 Zeichen (sie würde abgeschnitten)', $longBtn === [], implode(' | ', $longBtn));
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

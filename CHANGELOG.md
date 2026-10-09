@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.8.2] - 2026-10-09
+
+### Fixed
+- Zu lange Beschriftungen von Schaltflächen im Formular wurden abgeschnitten („Wie sicher ist die Prognose, und was heißt „aus Spannung berechnet“?“). Gekürzt: „Wie sicher ist die Prognose?“, „Wie arbeiten Meldungen zusammen?“, „Aus BY_BatterieMonitor übernehmen“, „Außer-Betrieb-Geräte aufnehmen“. Die ausführliche Frage steht als Überschrift im geöffneten Fenster. Der Prüfstand lässt keine Schaltflächen-Beschriftung über 40 Zeichen mehr zu.
+
 ## [0.8.1] - 2026-10-09
 
 ### Added

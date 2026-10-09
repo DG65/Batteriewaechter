@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.8.2' => [
+            '• Zu lange Beschriftungen von Schaltflächen im Formular sind gekürzt (sie wurden abgeschnitten). Die ausführlichen Fragen stehen jetzt als Überschrift im geöffneten Fenster.',
+        ],
         '0.8.1' => [
             '• „Geräte-Einstellungen“ erklärt die Spalten: Gruppe, Kritisch, Ohne Altersprüfung, Ausnehmen, Zelltyp und Abfragen, mit den Werten, die gerade eingestellt sind (aufklappbar unter „Was bedeuten die Spalten?“).',
         ],
@@ -1924,7 +1927,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'ValidationTextBox', 'name' => 'MailTo', 'caption' => 'Empfänger (mehrere mit Komma; leer = der in der SMTP-Instanz eingestellte)'],
                 ['type' => 'Button', 'caption' => '📨 Testmeldung senden', 'onClick' => 'echo BWACH_SendTest($id);'],
                 ['type' => 'Label', 'name' => 'ImportStatus', 'caption' => $this->importLine()],
-                ['type' => 'Button', 'caption' => '📥 Einstellungen aus BY_BatterieMonitor übernehmen', 'onClick' => 'echo BWACH_ImportOld($id);'],
+                ['type' => 'Button', 'caption' => '📥 Aus BY_BatterieMonitor übernehmen', 'onClick' => 'echo BWACH_ImportOld($id);'],
                 ['type' => 'NumberSpinner', 'name' => 'ReminderDays', 'caption' => 'Erinnerung, solange der Befund bleibt, alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
                 ['type' => 'NumberSpinner', 'name' => 'CriticalReminderDays', 'caption' => 'Erinnerung bei kritischen Geräten alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 30],
                 ['type' => 'NumberSpinner', 'name' => 'SnoozeDays', 'caption' => '„Erinnere mich später“ verschiebt um', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
@@ -1942,7 +1945,7 @@ class Batteriewaechter extends IPSModule
                 ]],
                 ['type' => 'NumberSpinner', 'name' => 'DigestHour', 'caption' => 'Ab', 'suffix' => ' Uhr', 'minimum' => 0, 'maximum' => 23],
                 ['type' => 'CheckBox', 'name' => 'DigestWhenOk', 'caption' => 'Wochenbericht auch senden, wenn alles in Ordnung ist'],
-                ['type' => 'PopupButton', 'caption' => 'Wie arbeiten Meldung, Erinnerung und Eskalation zusammen?', 'width' => '480px', 'popup' => [
+                ['type' => 'PopupButton', 'caption' => 'Wie arbeiten Meldungen zusammen?', 'width' => '480px', 'popup' => [
                     'caption' => 'Meldungen',
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Erste Meldung: sobald ein Gerät „leer“, „schwach“ oder „still“ ist. Danach nur noch die Erinnerung im eingestellten Abstand, solange der Befund bleibt. Ein NEUER, schlimmerer Befund (z. B. von „schwach“ auf „leer“) ist wieder eine erste Meldung.'],
@@ -2065,7 +2068,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Button', 'caption' => '✔️ Ausführen', 'onClick' => 'echo BWACH_Acknowledge($id, $AckDevice, $AckAction);'],
                 ['type' => 'Label', 'name' => 'AckStatus', 'caption' => 'ℹ️ Noch nichts quittiert.'],
                 ['type' => 'Label', 'name' => 'RetiredLine', 'caption' => $this->retiredLine($found)],
-                ['type' => 'Button', 'caption' => '↩️ Alle außer Betrieb gesetzten Geräte wieder aufnehmen', 'onClick' => 'echo BWACH_UnretireAll($id);'],
+                ['type' => 'Button', 'caption' => '↩️ Außer-Betrieb-Geräte aufnehmen', 'onClick' => 'echo BWACH_UnretireAll($id);'],
                 ['type' => 'Label', 'name' => 'DiaryLine', 'caption' => $this->diaryLine()],
                 ['type' => 'NumberSpinner', 'name' => 'ReplaceJumpPercent', 'caption' => 'Wechsel erkennen, wenn der Prozentwert um mindestens so viel steigt', 'suffix' => ' Prozentpunkte', 'minimum' => 5, 'maximum' => 90],
             ],
@@ -2090,8 +2093,8 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'NumberSpinner', 'name' => 'PollEveryDays', 'caption' => 'Abfrage höchstens alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
                 ['type' => 'Label', 'caption' => 'ℹ️ Die Abfrage ist je Gerät unter „Geräte-Einstellungen“ (Spalte „Abfragen“) einzuschalten, standardmäßig AUS. Sie gibt es nur für Z-Wave-Geräte. Ein schlafendes Gerät beantwortet sie erst beim nächsten Aufwachen, bis dahin liegt sie in der Warteschlange der Z-Wave-Instanz; zu häufiges Abfragen füllt diese Warteschlange.'],
                 ['type' => 'NumberSpinner', 'name' => 'OrphanDays', 'caption' => 'Gerät als „vermutlich ausgebaut“ vorschlagen, wenn es so lange still ist (0 = aus)', 'suffix' => ' Tage', 'minimum' => 0, 'maximum' => 720],
-                ['type' => 'PopupButton', 'caption' => 'Wie sicher ist die Prognose, und was heißt „aus Spannung berechnet“?', 'width' => '500px', 'popup' => [
-                    'caption' => 'Prognose und Spannung',
+                ['type' => 'PopupButton', 'caption' => 'Wie sicher ist die Prognose?', 'width' => '500px', 'popup' => [
+                    'caption' => 'Wie sicher ist die Prognose, und was heißt „aus Spannung berechnet“?',
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Die Restlaufzeit ist eine Schätzung aus dem bisherigen Verlauf (robuste Gerade, unempfindlich gegen einzelne Ausreißer). Hohe Sicherheit: gleichmäßiger Verlauf über mindestens 60 Tage und 8 Messpunkte; mittlere: mindestens 30 Tage; sonst gering. Batterien entladen sich nicht immer gleichmäßig (Kälte, Last, Funkprobleme) — die Zahl ist eine Orientierung, kein Versprechen.'],
                         ['type' => 'Label', 'caption' => 'Meldet ein Gerät nur eine Spannung, rechnet der Wächter sie mit einer typischen Entladekurve des gewählten Zelltyps in einen Ladezustand um. Das ist eine Näherung (keine Datenblattwerte eines Herstellers) und steht in der Anzeige immer als „aus Spannung berechnet“. Passt die Spannung nicht zum gewählten Zelltyp, meldet der Wächter das, statt zu raten.'],

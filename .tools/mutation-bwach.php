@@ -190,6 +190,7 @@ $mutations = [
     ['module.php', "\$crit = \$this->ReadPropertyInteger('CriticalLowPercent');", "\$crit = 30;", 'Hilfetext: feste statt eingestellter Schwelle für „kritisch“'],
     ['module.php', "(\$quiet ? '; die Ruhezeit gilt dafür nicht' : '')", "'; die Ruhezeit gilt dafür nicht'", 'Hilfetext: Ruhezeit-Aussage auch wenn sie nicht gilt'],
     ['module.php', "älter als \$pAfter Tage, schickt der Wächter dem Gerät höchstens alle \$pEvery Tage", "älter als \$pEvery Tage, schickt der Wächter dem Gerät höchstens alle \$pAfter Tage", 'Hilfetext: Abfrage-Werte vertauscht'],
+    ['module.php', "'caption' => 'Wie sicher ist die Prognose?', 'width' => '500px'", "'caption' => 'Wie sicher ist die Prognose, und was heißt „aus Spannung berechnet“?', 'width' => '500px'", 'Schaltfläche mit zu langer Beschriftung'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],
