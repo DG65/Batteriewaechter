@@ -10,3 +10,4 @@ Konventionen: `/Users/dietmar/Nextcloud/Claude/TOOLKIT.md` und `SUITE.md` (Formu
 - Standardwerte nie aus Dietmars Anlage ableiten; Hersteller nur als „z. B.“.
 - Nicht live gesehen (nur Dokumentation): Zigbee2MQTT-/HomeMatic-Batterien und Matter-Batteriespannung. Matter-Batteriestand, „Ersatz erforderlich“ und Ersatz-Beschreibung sind an einem IKEA-Kontakt (Knoten 14, 08.10.2026) gesehen. Nie als geprüft ausgeben, was nicht gesehen wurde.
 - Keine Verträge zu anderen Modulen (Dietmar, 07.10.2026: keine Verbindung zu WarnHub/Dashboard/EMS). `BWACH_GetState` nur bei konkretem Bedarf.
+- Das Panel „Neu bis Version“ gibt es erst nach der ersten veröffentlichten Version (Dietmar, 09.10.2026): `NEWS_VERSIONS` in `module.php` bleibt bis dahin leer, die Geschichte steht im `CHANGELOG.md`. Danach werden dort nur die Änderungen seitdem gepflegt.

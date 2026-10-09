@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.11.2] - 2026-10-09
+
+### Changed
+- Durchsicht als Neunutzer (Neuinstallations-Simulation der Store-Checkliste, Punkt 12): Anrede einheitlich „du“ (vorher gemischt „Sie“ und „du“, die anderen Module des Verbunds sagen „du“). Veraltete Sätze in „Dokumentation & Hilfe“ korrigiert („die Auswertung nach Zelltyp folgt in einer späteren Version“, „antwortet es nach 14 Tagen nicht“, unvollständige Skript-Liste, Auswertung des Tagebuchs).
+- **Das Panel „Neu bis Version“ entfällt bis zur ersten veröffentlichten Version** (Dietmar, 09.10.2026): Vorher bekam eine neue Instanz die ganze Entwicklungsgeschichte ab Version 0.1.0 zu sehen (über 60 Zeilen). Die Geschichte steht im `CHANGELOG.md`. Ab der ersten Veröffentlichung wird die Liste (`NEWS_VERSIONS`) mit den Änderungen seitdem gepflegt; das Panel zeigt dann höchstens die letzten drei Versionen mit Verweis auf das Änderungsprotokoll.
+
 ## [0.11.1] - 2026-10-09
 
 ### Fixed

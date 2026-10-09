@@ -127,6 +127,12 @@ class BWTest extends Batteriewaechter
 {
     protected function now(): int { return $GLOBALS['CLOCK']; }
 }
+/** Wie BWTest, aber mit Änderungen für das Panel „Neu“ (in der Auslieferung ist es leer, bis die erste Version veröffentlicht ist). */
+class BWTestNews extends BWTest
+{
+    public array $news = [];
+    protected function newsVersions(): array { return $this->news; }
+}
 
 $fails = 0;
 function check(string $what, bool $ok, string $detail = ''): void
@@ -476,9 +482,10 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.11.1', '📖  Dokumentation & Hilfe', '🚀  Erste Schritte', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
-check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
-check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
+$order = ['👋  Wozu dieses Modul?', '📖  Dokumentation & Hilfe', '🚀  Erste Schritte', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → [Neu erst nach der ersten Veröffentlichung] → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
+check('Zweck- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === false);
+check('Solange noch keine Version veröffentlicht ist, gibt es kein Panel „Neu“ (und keine Entwicklungsgeschichte im Formular)', strpos(json_encode($form, JSON_UNESCAPED_UNICODE), 'Neu bis Version') === false && strpos(json_encode($form, JSON_UNESCAPED_UNICODE), 'NewsPanel') === false && strpos(json_encode($form, JSON_UNESCAPED_UNICODE), 'Version 0.1.0:') === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
 $json = json_encode($form, JSON_UNESCAPED_UNICODE);
 check('Jeder Button hat eine sichtbare Rückmeldung (echo oder Ack/Update)', (function () use ($form) {
@@ -499,10 +506,15 @@ $m6->Search();
 $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
-$m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.11.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
-$form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.11.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+$mN = new BWTestNews(); $mN->Create(); $libV = json_decode(file_get_contents($ROOT . '/library.json'), true)['version']; $mN->news = ['0.1.0' => ['• erste Änderung'], '0.2.0' => ['• zweite'], '0.3.0' => ['• dritte'], '0.4.0' => ['• vierte'], $libV => ['• aktuelle']]; $mN->ApplyChanges();
+$formN = json_decode($mN->GetConfigurationForm(), true);
+$capsN = array_map(function ($e) { return $e['caption']; }, $formN['elements']);
+check('Mit Änderungen in der Liste erscheint „Neu“ an Platz 2 und aufgeklappt', $capsN[1] === '🆕  Neu bis Version ' . $libV && $formN['elements'][1]['expanded'] === true, implode(' | ', $capsN));
+$newsCaps = []; foreach ($formN['elements'][1]['items'] as $it) { $newsCaps[] = $it['caption']; }
+check('„Neu“ zeigt höchstens die letzten drei Versionen und verweist auf das Änderungsprotokoll', count(array_filter($newsCaps, function ($c) { return strpos($c, 'Version ') === 0 && substr($c, -1) === ':'; })) === 3 && in_array('Version ' . $libV . ':', $newsCaps, true) && in_array('Version 0.3.0:', $newsCaps, true) && !in_array('Version 0.2.0:', $newsCaps, true) && strpos(implode(' ', $newsCaps), 'CHANGELOG.md') !== false);
+$mN->fieldUpdates = []; $mN->AckNews();
+check('„Verstanden“ speichert die letzte Version und blendet das Panel aus', $mN->ReadAttributeString('SeenNews') === $libV && in_array(['NewsPanel', 'visible', false], $mN->fieldUpdates, true));
+check('News-Panel erscheint danach nicht mehr, aber bei einer neueren Version wieder', !in_array('🆕  Neu bis Version ' . $libV, array_map(function ($e) { return $e['caption']; }, json_decode($mN->GetConfigurationForm(), true)['elements']), true) && (function ($m) { $m->news['99.0.0'] = ['• zukünftige']; return in_array('🆕  Neu bis Version 99.0.0', array_map(function ($e) { return $e['caption']; }, json_decode($m->GetConfigurationForm(), true)['elements']), true); })($mN));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 12);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
@@ -1629,7 +1641,7 @@ $mdl->props['NotifyMail'] = false; $mdl->props['MailInstance'] = 0; $mdl->props[
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle'; $mdl->props['ShopLink'] = '';
 
-// ===== 0.11.1: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
+// ===== 0.11.2: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
 $NOW = $GLOBALS['CLOCK'];
 check('Datum: TT.MM.JJJJ und JJJJ-MM-TT werden gelesen (12:00 Uhr)', BWACHMeldung::parseDate('05.03.2026', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate('2026-03-05', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate(' 5.3.2026 ', $NOW) === mktime(12, 0, 0, 3, 5, 2026));
 check('Datum: 31.02., Text, Zukunft und Jahre vor 2015 ergeben null', BWACHMeldung::parseDate('31.02.2026', $NOW) === null && BWACHMeldung::parseDate('gestern', $NOW) === null && BWACHMeldung::parseDate(date('d.m.Y', $NOW + 3 * 86400), $NOW) === null && BWACHMeldung::parseDate('01.01.2014', $NOW) === null && BWACHMeldung::parseDate('', $NOW) === null);
@@ -1699,7 +1711,7 @@ check('Formular: Datum nachtragen, Vorrat, Vorsorge-Intervall und CSV-Schaltflä
 check('Vorrat-Liste bietet keinen Zelltyp „unbekannt“ an', strpos(json_encode((function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'Stock') { return $it; } } } return []; })(json_decode($mdl->GetConfigurationForm(), true)), JSON_UNESCAPED_UNICODE), 'unbekannt') === false);
 $mdl->props['PreventiveMonths'] = 0; $mdl->SetValue('Diary', '[]'); $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 
-// ===== 0.11.1 =====
+// ===== 0.11.2 =====
 $stp = BWACHLogik::firstSteps(['found' => false, 'devices' => 0, 'open' => 0, 'notify' => false, 'channel' => false, 'matterNoEp0' => 0]);
 check('Erste Schritte ohne Suche: Suche, Zelltypen und Meldungen offen, Kachel nur Hinweis', array_column($stp, 'done') === [false, false, false, null] && strpos($stp[0]['text'], 'Jetzt neu suchen') !== false && strpos($stp[1]['text'], 'erst Geräte suchen') !== false);
 $stp2 = BWACHLogik::firstSteps(['found' => true, 'devices' => 14, 'open' => 3, 'notify' => true, 'channel' => false, 'matterNoEp0' => 2]);
@@ -1715,8 +1727,8 @@ $dgV = [['vid' => 1, 'ident' => 'battery', 'name' => 'Batterie', 'type' => 1, 'p
     ['vid' => 3, 'ident' => 'BATT_STATE', 'name' => 'Akkuzustand', 'type' => 1, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum'],
     ['vid' => 4, 'ident' => 'temp', 'name' => 'Temperatur', 'type' => 2, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum']];
 $dgF = BWACHLogik::classify($dgV, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
-$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.1', '9.0');
-check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.1, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
+$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.2', '9.0');
+check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.2, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
 check('Diagnose enthält keine Gerätenamen und keine Objekt-IDs', strpos($dgT, 'Wohnzimmer') === false && strpos($dgT, 'Geheimer Raum') === false && strpos($dgT, 'Mein Sensor') === false && strpos($dgT, 'Akkuzustand') === false && strpos($dgT, '#10') === false && strpos($dgT, 'vid') === false);
 $dgV2 = array_merge($dgV, [
     ['vid' => 5, 'ident' => 'battery_script', 'name' => 'x', 'type' => 1, 'profile' => '', 'parentId' => 0, 'parentIsInstance' => false, 'moduleName' => '', 'instanceName' => ''],
@@ -1804,6 +1816,14 @@ $GLOBALS['OBJ'][3011]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 10 * 86400
 $swr->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'alle', 'Kind' => 'name', 'Pattern' => 'Schläfer', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => false, 'Poll' => true]]); $swr->ApplyChanges(); $swr->Check();
 check('Gruppen-Regel kann „Abfragen“ einschalten', $GLOBALS['MT'] === [301], json_encode($GLOBALS['MT']));
 check('Regel-Liste hat die Spalte „Abfragen“', strpos(json_encode(json_decode($swr->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '"name":"Poll","width":"80px"') !== false);
+
+// Durchsicht als Neunutzer
+$fAll = json_decode($mdl->GetConfigurationForm(), true);
+$capsAll = []; array_walk_recursive($fAll, function ($v, $k) use (&$capsAll) { if ($k === 'caption' && is_string($v)) { $capsAll[] = $v; } });
+$allTxt = implode("\n", $capsAll);
+check('Keine förmliche Anrede („Ihre“, „Ihnen“, „Wählen Sie“, „bis Sie“ …) in sichtbaren Formulartexten, einheitlich „du“', !preg_match('/\b(Ihre[mnrs]?|Ihnen|Ihr)\b|\b(Wählen|Tragen|Klicken|Drücken|Schalten|Geben|Sagen|Prüfen|Stellen|Lassen) Sie\b|\b(bis|wenn|dass|ob|damit|sobald|falls) Sie\b|\bsagen Sie\b|\btragen Sie\b/u', $allTxt), (function ($t) { preg_match_all('/.{20}(\b(Ihre[mnrs]?|Ihnen)\b| Sie ).{20}/u', $t, $m); return implode(' | ', $m[0] ?? []); })($allTxt));
+check('Keine veralteten Zusagen („folgt in einer späteren Version“, „nach 14 Tagen nicht“) im Formular', strpos($allTxt, 'späteren Version') === false && strpos($allTxt, 'antwortet es nach 14 Tagen nicht') === false && strpos($allTxt, 'folgt, sobald genug Wechsel') === false);
+check('Skript-Liste in der Dokumentation nennt die neuen Funktionen', (function ($t) { foreach (['BWACH_ShoppingText', 'BWACH_SendShopping', 'BWACH_DeviceListCsv', 'BWACH_AddReplacement', 'BWACH_AcknowledgePlace', 'BWACH_Diagnosis'] as $f) { if (strpos($t, $f) === false) { return false; } } return true; })($allTxt));
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

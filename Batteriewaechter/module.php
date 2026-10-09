@@ -41,107 +41,12 @@ class Batteriewaechter extends IPSModule
     private const LIBRARY_GUID = '{68C5991B-8E85-23AC-C254-B446AF035AF8}';
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
-    private const NEWS_VERSIONS = [
-        '0.11.1' => [
-            '• „Diagnose fürs Forum“ listet unter „nach Batterie aussehend, aber nicht erkannt“ nur noch Variablen von Geräteinstanzen mit Ident, ohne Module der Ausschlussliste (Heimspeicher) und ohne Skriptvariablen. Vorher stand an einer Anlage mit Heimspeicher eine lange Liste, die für Rückmeldungen nur Rauschen war.',
-        ],
-        '0.11.0' => [
-            '• Abfrage bei Funkstille: Ist bei einem Gerät mit eingeschalteter „Abfragen“-Spalte (Z-Wave, Matter) das Lebenszeichen überfällig, fragt der Wächter einmal nach und zeigt, ob das Gerät antwortet: schläft nur oder vermutlich ausgefallen. Auch Gruppen-Regeln können „Abfragen“ einschalten.',
-            '• Tauschrunde in einem Rutsch quittieren: In der Kachel unter „Einkauf“ trägt „Alles in <Ort> getauscht“ alle Geräte eines Ortes ein (zweiter Klick bestätigt), im Formular unter „Quittieren“ „Alle dort getauscht“.',
-            '• Genauigkeit der Prognose: Bei erkannten Wechseln vergleicht der Wächter, was die Prognose 14 bis 150 Tage vorher sagte, mit dem tatsächlichen Stand. Die Statistik zeigt die mittlere Abweichung, sobald es Vergleiche gibt.',
-            '• Neues Panel „Erste Schritte“ mit einer Checkliste, die sich selbst abhakt.',
-            '• „Diagnose fürs Forum“ (unter „Gefundene Geräte“): zeigt je Modul und Ident, was erkannt wurde und was nach Batterie aussieht, aber nicht erkannt wurde, ohne Gerätenamen und IDs.',
-        ],
-        '0.10.1' => [
-            '• „Abfragen“ gibt es jetzt auch für Matter-Geräte (Spalte „Abfragen (Z-Wave, Matter)“). Der Wächter ruft dafür MATTER_RequestStatus an der Instanz der Stromversorgung (Endpunkt 0) auf, wenn der Batteriewert älter ist als eingestellt. Bisher war die Spalte nur für Z-Wave und das stand nirgends im Formular.',
-        ],
-        '0.10.0' => [
-            '• Vorrat: Unter „Prognose und Einkauf“ trägst du ein, wie viele Batterien je Zelltyp zu Hause liegen. Die Einkaufsliste zeigt dann nur, was fehlt („1× AAA, Bedarf 3, 2 vorrätig“), und nennt, wo der Vorrat reicht.',
-            '• Vorsorglich tauschen: Für kritische Geräte (z. B. Rauchmelder) lässt sich ein festes Intervall in Monaten einstellen. Ist es seit dem letzten Wechsel um, steht das Gerät in der Tauschrunde und wird gemeldet, auch bei gutem Batteriestand.',
-            '• Wechsel nachtragen: Unter „Quittieren und Batterietagebuch“ lässt sich ein früherer Wechsel mit Datum eintragen. Das verbessert Lebensdauer und Vorsorge und löst keine Meldung aus.',
-            '• Kachel: „📍 Nach Ort“ gruppiert die Liste mit Zwischenüberschriften je Raum.',
-            '• Geräteliste als CSV (Semikolon): Name, Ort, System, Zelltyp, Stand, letzter Wechsel, Lebenszeichen. Im Formular unter „Prognose und Einkauf“ oder per BWACH_DeviceListCsv($id).',
-        ],
-        '0.9.0' => [
-            '• Die Einkaufsliste lässt sich mitnehmen: In der Kachel unter „Einkauf“ kopiert „Kopieren“ die Liste samt Tauschrunde als Text, „Senden“ schickt sie per Push oder E-Mail (die unter „Meldungen“ eingestellten Wege). Im Formular gibt es dasselbe unter „Prognose und Einkauf“ („Einkaufsliste als Text“, „jetzt senden“), und für Skripte BWACH_ShoppingText($id).',
-            '• Optional: Unter „Prognose und Einkauf“ lässt sich eine Linkvorlage mit {Zelltyp} eintragen. Die Kachel zeigt dann hinter jeder Zeile der Einkaufsliste einen Suchlink beim Händler deiner Wahl. Leer = kein Link, kein Händler ist eingebaut.',
-        ],
-        '0.8.2' => [
-            '• Zu lange Beschriftungen von Schaltflächen im Formular sind gekürzt (sie wurden abgeschnitten). Die ausführlichen Fragen stehen jetzt als Überschrift im geöffneten Fenster.',
-        ],
-        '0.8.1' => [
-            '• „Geräte-Einstellungen“ erklärt die Spalten: Gruppe, Kritisch, Ohne Altersprüfung, Ausnehmen, Zelltyp und Abfragen, mit den Werten, die gerade eingestellt sind (aufklappbar unter „Was bedeuten die Spalten?“).',
-        ],
-        '0.8.0' => [
-            '• Neues Panel „Gruppen“: Regeln tragen Zelltyp, Anzahl Zellen, Ereignismelder, kritisch oder „ausnehmen“ für ganze Gruppen auf einmal ein, z. B. für alle Geräte im Ort „Öffnungskontakte“ (Muster nach Ort, System oder Name, mehrere Muster mit Komma). Es gilt die erste passende Regel von oben; eine eigene Einstellung je Gerät geht vor, sobald sie vom Standard abweicht.',
-            '• In „Geräte-Einstellungen“ zeigt die neue Spalte „Gilt“, was am Ende für jedes Gerät zählt, und aus welcher Regel es kommt. Das Panel „Gruppen“ nennt die Geräte, die noch keinen Zelltyp haben.',
-        ],
-        '0.7.1' => [
-            '• „Geräte-Einstellungen“ lässt sich sortieren: oben „Sortieren nach“ (Name, Ort, System, Batteriestand, Zelltyp, Gruppe, Kritisch) und „Reihenfolge“. Die Liste zeigt dafür jetzt Ort, System und den aktuellen Batteriestand je Gerät (nur zur Ansicht). Das Umsortieren ändert nichts an Eingaben, die noch nicht mit „Übernehmen“ gespeichert sind. Die Wahl wird mit „Übernehmen“ gespeichert.',
-        ],
-        '0.7.0' => [
-            '• Die Kachel lässt sich sortieren: nach Dringlichkeit (Standard), Name, Ort, Batteriestand, Alter des Werts, Lebenszeichen, Zelltyp und System. Ein zweiter Klick auf dieselbe Eigenschaft kehrt die Reihenfolge um (↑ ↓). Geräte ohne Wert stehen immer hinten. Die Wahl merkt sich der Browser.',
-        ],
-        '0.6.4' => [
-            '• „Geräte-Einstellungen“ trägt den Zelltyp ein, den ein Matter-Gerät selbst meldet (z. B. „AAA“, „CR2032“). Er steht in der Liste und wird mit „Übernehmen“ gespeichert; eine eigene Wahl bleibt unberührt. Bei AA/AAA ist nur die Bauform bekannt, Alkali ist angenommen: bei Akkus bitte ändern.',
-        ],
-        '0.6.3' => [
-            '• Der Matter-Hinweis sagt jetzt, wie die Stromversorgung angelegt wird: Instanz „Matter Gerät“ von Hand hinzufügen (Knoten-ID des Geräts, Endpunkt 0). Der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot, ohne dass etwas nicht stimmt.',
-        ],
-        '0.6.2' => [
-            '• Matter: Das Formular „Gefundene Geräte“ nennt Matter-Geräte, für die es noch keine Instanz für die Stromversorgung (Endpunkt 0) gibt. Symcon legt sie nicht von allein an, ohne sie fehlt der Batteriewert. Netzbetriebene Geräte brauchen keine.',
-        ],
-        '0.6.1' => [
-            '• Matter: Hat ein Knoten mehrere Funktionsinstanzen (z. B. Licht- und Anwesenheitssensor), heißt das Gerät wie die Stromversorgungs-Instanz ohne den Zusatz „Stromversorgung“ („Anwesenheitssensor“), statt zufällig wie die erste Funktionsinstanz („Lichtsensor“).',
-        ],
-        '0.6.0' => [
-            '• Matter: Die Batterie eines Matter-Geräts steht in einer eigenen Instanz für die „Stromversorgung“ (Endpunkt 0), die man im Matter Konfigurator anlegt. Der Wächter erkennt sie, fasst sie mit dem Kontakt desselben Knotens zu einem Gerät zusammen und nimmt dessen Namen.',
-            '• Als Lebenszeichen zählt bei Matter auch der Kontakt: Er meldet bei jedem Öffnen, die Stromversorgung nur selten. Ein Fensterkontakt gilt so nicht mehr fälschlich als still.',
-            '• „Ersatz erforderlich“ des Geräts wird als Warnsignal ausgewertet. Meldet das Gerät eine Ersatz-Beschreibung („AAA“, „CR2032“ …) und ist kein Zelltyp gewählt, übernimmt der Wächter sie; bei AA/AAA steht dabei, dass nur die Bauform bekannt ist.',
-            '• Der Matter-Batteriestand (Halbprozent-Skala) ist an einem Gerät bestätigt und nicht mehr als „ungetestet“ gekennzeichnet.',
-        ],
-        '0.5.3' => [
-            '• Batteriespannungen über 100 V (Matter meldet Millivolt, z. B. 3000) werden als Millivolt gelesen und nicht als „3000 V“ angezeigt.',
-        ],
-        '0.5.2' => [
-            '• Neuer Zelltyp „RCR123A / 16340 Akku (Li-Ion, 3,7 V)“ neben der nicht wiederaufladbaren CR123A-Batterie (3 V): die beiden haben völlig verschiedene Spannungen, die Einkaufsliste führt sie getrennt.',
-        ],
-        '0.5.1' => [
-            '• „Geräte-Einstellungen“ listet jetzt jedes erkannte Gerät schon auf (neutrale Standardwerte). Je Gerät nur noch Zelltyp und Anzahl Zellen wählen und „Übernehmen“ klicken — kein Hinzufügen von Hand mehr.',
-            '• Der Hinweis „Zelltyp fehlt“ in der Kachel und in der Tabelle sagt jetzt genau, wo man den Zelltyp einträgt.',
-        ],
-        '0.5.0' => [
-            '• Vergleich mit Gleichartigen: Ein Gerät, das mehr als doppelt so schnell entlädt wie seine Gruppe (gleiches System, gleicher Zelltyp, mindestens 4 Geräte), wird als auffällig markiert — mit möglichen Ursachen.',
-            '• Funkqualität (Zigbee linkquality, RSSI) wird angezeigt, ein schwaches Signal als möglicher Grund genannt.',
-            '• Kälteeinfluss: Mit einer Außentemperatur-Variable wertet der Wächter aus, ob sich die Batterien bei Kälte schneller entladen — ehrlich erst, wenn genug Daten da sind.',
-            '• Abfrage schlafender Z-Wave-Geräte (je Gerät einzuschalten, standardmäßig aus): Ist der Batteriewert alt, schickt der Wächter höchstens alle paar Tage eine Statusanfrage und zeigt, ob das Gerät geantwortet hat.',
-            '• Einstellungen aus einer alten BY_BatterieMonitor-Instanz lassen sich in die Maske übernehmen (Push, E-Mail, SMTP-Instanz).',
-        ],
-        '0.4.0' => [
-            '• Prognose: Der Wächter schreibt den Verlauf jedes Geräts mit und schätzt die Restlaufzeit („reicht noch etwa 23 Tage, mittlere Sicherheit“) — oder sagt ehrlich, warum er es nicht kann. Neue Meldung „Batterie bald leer“ bei ausreichender Sicherheit.',
-            '• Zelltyp je Gerät (CR2032, AA, AAA …): Spannungen werden in einen Ladezustand umgerechnet (Näherung, als solche gekennzeichnet), der Wächter erkennt, wenn die Spannung nicht zum Zelltyp passt.',
-            '• Einkaufsliste („4× CR2032, 7× AAA“) und Tauschrunde (nach Ort gebündelt, mit Vorschlag bis wann), Lebensdauerstatistik je Gerät, Zelltyp und System; im Wochenbericht und als Variablen.',
-            '• Gelernter Meldetakt: Sendet ein Gerät sehr regelmäßig, erkennt der Wächter Funkstille früher. Geräte, die seit über 60 Tagen still sind, schlägt er als „vermutlich ausgebaut“ vor.',
-        ],
-        '0.3.1' => [
-            '• Testmeldung nennt bei einem fehlgeschlagenen E-Mail-Versand die Ursache, z. B. „Anmeldung abgelehnt: Benutzername oder Passwort der SMTP-Instanz stimmen nicht“, statt auf das Meldungslog zu verweisen. Die Ursache steht auch im Meldungslog.',
-        ],
-        '0.3.0' => [
-            '• Kachel für die Kachel-Visualisierung: Geräte nach Dringlichkeit, Filter (Handlungsbedarf, leer, schwach, Funkstille, Daten prüfen), Batterietagebuch und Quittieren per Antippen. Instanz einfach als Kachel hinzufügen.',
-            '• Gerätewahl beim Quittieren nennt den Befund kurz („leer, Funkstille“), Tagebuch- und „Außer Betrieb“-Zeile frischen sich nach dem Quittieren sofort auf.',
-        ],
-        '0.2.0' => [
-            '• Meldungen ohne Nerven: erste Meldung, Erinnerung nach N Tagen (kritische Geräte früher), Ruhezeiten, Wochenbericht — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Mehrere Befunde eines Laufs kommen als EINE Nachricht. Standardmäßig AUS, bis Sie „Meldungen aktiv“ einschalten.',
-            '• Quittieren: „Habe ich getauscht“, „Erinnere mich später“, „Außer Betrieb“. Eskalation für kritische Geräte, die niemand beachtet.',
-            '• Batterietagebuch: ein Batteriewechsel wird erkannt (Prozentwert springt hoch, „schwach“-Flag wird zurückgesetzt) oder von Hand eingetragen und samt Datum festgehalten.',
-        ],
-        '0.1.0' => [
-            '• Erstes Release: findet Batteriesignale automatisch (Profile ~Battery/~Battery.100/~Battery.Reversed, typische Idents) und führt sie je Gerät zusammen.',
-            '• Status ok/schwach/leer/unbekannt mit Datenqualität: Widerspruch zwischen Flag und Prozent, unplausible Werte, veraltete Batteriewerte.',
-            '• Funkstille als eigener Befund, getrennt von der Batterie (Lebenszeichen des Geräts statt Alter des Batteriewerts).',
-            '• Trockenlauf „Was würde gefunden?“ mit Begründung für jeden Ausschluss; Ergebnis als Tabelle und Kennzahlen-Variablen.',
-        ],
-    ];
+    /**
+     * Änderungen je Version für das Panel „Neu“ (Version => Zeilen). Bewusst leer: Das Panel erscheint erst nach der ersten
+     * veröffentlichten Version, ab dann werden hier die Änderungen seitdem gepflegt (Verbund-Konvention). Bis dahin steht
+     * die Entwicklungsgeschichte nur im CHANGELOG.md.
+     */
+    private const NEWS_VERSIONS = [];
     // Push-Ziele (SUITE.md Stolperstein 22): klassisches WebFront UND Kachel-Visualisierung, je eigene Funktion
     private const WEBFRONT_GUID = '{3565B1F2-8F7B-4311-A4B6-1BF1D868F39E}';
     private const KACHEL_GUID   = '{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}';
@@ -1329,7 +1234,7 @@ class Batteriewaechter extends IPSModule
     {
         $diary = array_reverse($this->loadJson('Diary'));
         if (!$diary) {
-            return '<div style="padding:8px">ℹ️ Noch keine Batteriewechsel erfasst. Der Wächter erkennt sie selbst oder Sie tragen sie unter „Quittieren“ ein.</div>';
+            return '<div style="padding:8px">ℹ️ Noch keine Batteriewechsel erfasst. Der Wächter erkennt sie selbst oder du trägst sie unter „Quittieren“ ein.</div>';
         }
         $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
         $body = '';
@@ -2030,12 +1935,18 @@ class Batteriewaechter extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
             'caption' => '👋  Wozu dieses Modul?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Der Batteriewächter findet die Batterien Ihrer Funkgeräte (Sensoren, Thermostate, Fenster- und Rauchmelder …) von selbst und sagt Ihnen, welche getauscht werden müssen — bevor ein Gerät ausfällt.'],
+                ['type' => 'Label', 'caption' => 'Der Batteriewächter findet die Batterien deiner Funkgeräte (Sensoren, Thermostate, Fenster- und Rauchmelder …) von selbst und sagt dir, welche getauscht werden müssen — bevor ein Gerät ausfällt.'],
                 ['type' => 'Label', 'caption' => 'Der Nutzen gegenüber einer einfachen „leer“-Liste: Er unterscheidet eine schwache Batterie von einem Gerät, das gar nichts mehr sendet, und er sagt ehrlich dazu, wenn ein Batteriewert zweifelhaft ist (uralt, widersprüchlich oder außerhalb des Möglichen). Ein „OK“ aus dem Jahr 2023 ist kein OK.'],
                 ['type' => 'Label', 'caption' => 'Zuerst „🔎 Jetzt neu suchen“ drücken und mit „Was würde gefunden?“ prüfen, ob die Treffer stimmen. Danach läuft alles von selbst.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'BWACH_AckPurposeIntro($id);'],
             ],
         ];
+    }
+
+    /** Die Änderungen je Version für das Panel „Neu“ (in Tests überschreibbar). */
+    protected function newsVersions(): array
+    {
+        return self::NEWS_VERSIONS;
     }
 
     private function NewsBanner(): ?array
@@ -2045,7 +1956,7 @@ class Batteriewaechter extends IPSModule
             $seen = '0';
         }
         $pending = [];
-        foreach (self::NEWS_VERSIONS as $version => $lines) {
+        foreach ($this->newsVersions() as $version => $lines) {
             if (version_compare((string)$version, $seen, '>')) {
                 $pending[(string)$version] = $lines;
             }
@@ -2054,12 +1965,20 @@ class Batteriewaechter extends IPSModule
             return null;
         }
         uksort($pending, 'version_compare');
+        // Eine neue Instanz (oder eine, die lange nichts bestätigt hat) bekommt nicht die ganze Entwicklungsgeschichte, nur die letzten drei Versionen
+        $cut = count($pending) > 3;
+        if ($cut) {
+            $pending = array_slice($pending, -3, 3, true);
+        }
         $items = [];
         foreach ($pending as $version => $lines) {
             $items[] = ['type' => 'Label', 'caption' => 'Version ' . $version . ':'];
             foreach ($lines as $line) {
                 $items[] = ['type' => 'Label', 'caption' => $line];
             }
+        }
+        if ($cut) {
+            $items[] = ['type' => 'Label', 'caption' => 'ℹ️ Ältere Änderungen stehen in der Datei CHANGELOG.md im Repository.'];
         }
         $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'BWACH_AckNews($id);'];
         return [
@@ -2083,16 +2002,16 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => 'Was gefunden wird: Variablen mit den Symcon-Profilen ~Battery („schwach“-Flag), ~Battery.Reversed („in Ordnung“-Flag) und ~Battery.100 (Prozent) sowie Variablen mit typischen Bezeichnern (z. B. battery, battery_low, LOWBAT, battery_percent, battery_voltage). Mehrere Signale eines Geräts (z. B. Prozent und Flag) werden zu EINEM Gerät zusammengeführt.'],
                 ['type' => 'Label', 'caption' => 'Was bewusst nicht gefunden wird: Heimspeicher und Fahrzeugakkus (Modulliste „Ausgeschlossene Module“), Sammelwerte wie „Schwächste Batterie“ eines Raums und Variablen, die zu keiner Geräteinstanz gehören. Der Trockenlauf nennt zu jedem Ausschluss den Grund.'],
                 ['type' => 'Label', 'caption' => 'Die drei Zeiten: (1) Alter des Batteriewerts — wann das Gerät seinen Batteriestand zuletzt gemeldet hat; manche Geräte tun das nur alle paar Monate. (2) Lebenszeichen — die jüngste Aktualisierung einer Messwert-Variable des Geräts (Variablen mit Aktion wie Sollwerte zählen nicht, die schreibt oft Symcon selbst); bleibt sie aus, ist es Funkstille, keine schwache Batterie. (3) Das Gerät selbst mit seinem Status.'],
-                ['type' => 'Label', 'caption' => 'Status: „leer“ und „schwach“ aus dem Prozentwert (Schwellen unten) oder dem Flag des Geräts; „unbekannt“, wenn nichts Auswertbares da ist (z. B. nur eine Spannung — die Auswertung nach Zelltyp folgt in einer späteren Version). Meldet ein Gerät Flag und Prozent und beide widersprechen sich, zeigt der Wächter den Widerspruch und bewertet nach dem neueren Signal; bei kritischen Geräten gilt die schlechtere Aussage.'],
+                ['type' => 'Label', 'caption' => 'Status: „leer“ und „schwach“ aus dem Prozentwert (Schwellen unten) oder dem Flag des Geräts; „unbekannt“, wenn nichts Auswertbares da ist (z. B. nur eine Spannung — mit gewähltem Zelltyp rechnet der Wächter sie in einen Ladezustand um). Meldet ein Gerät Flag und Prozent und beide widersprechen sich, zeigt der Wächter den Widerspruch und bewertet nach dem neueren Signal; bei kritischen Geräten gilt die schlechtere Aussage.'],
                 ['type' => 'Label', 'caption' => 'Funkstille: Standard 7 Tage ohne Lebenszeichen. Geräte, die nur bei Ereignissen senden (Fenster-, Rauchmelder), gehören unter „Geräte-Einstellungen“ in die Gruppe „Ereignismelder“ (Standard 30 Tage).'],
                 ['type' => 'Label', 'caption' => 'Ergebnis: Kennzahlen-Variablen (leer, schwach, Funkstille …) und zwei Tabellen-Variablen („Handlungsbedarf“, „Alle Geräte“), die sich per Verknüpfung ins WebFront legen lassen.'],
-                ['type' => 'Label', 'caption' => 'Meldungen (unter „🔔 Meldungen“, standardmäßig aus): erste Meldung, Erinnerung nach N Tagen, Ruhezeit, Wochenbericht, Eskalation für kritische Geräte — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Unter „✅ Quittieren“ sagen Sie dem Wächter, was mit einem Gerät ist.'],
+                ['type' => 'Label', 'caption' => 'Meldungen (unter „🔔 Meldungen“, standardmäßig aus): erste Meldung, Erinnerung nach N Tagen, Ruhezeit, Wochenbericht, Eskalation für kritische Geräte — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Unter „✅ Quittieren“ sagst du dem Wächter, was mit einem Gerät ist.'],
                 ['type' => 'Label', 'caption' => 'Prognose, Einkauf, Tauschrunde: Unter „🧮 Prognose und Einkauf“ einstellbar. Je Gerät den Zelltyp unter „Geräte-Einstellungen“ eintragen, dann kann der Wächter Spannungen umrechnen und die Einkaufsliste zählen. Die Ergebnisse stehen als Variablen „Einkauf und Tauschrunde“ und „Lebensdauer und Entladung“ unter der Instanz.'],
                 ['type' => 'Label', 'caption' => 'Auffällige Geräte, Funkqualität, Kälte: Entlädt ein Gerät mehr als doppelt so schnell wie vergleichbare (gleiches System, gleicher Zelltyp, mindestens 4 Geräte mit bekannter Entladerate), markiert der Wächter es und nennt mögliche Ursachen (defekt, schlechte Funkverbindung, Dauersenden). Die Funkqualität zeigt er an, wo das Gerät sie liefert (z. B. Zigbee linkquality). Der Kälteeinfluss braucht eine Außentemperatur-Variable und mehrere Wochen Verlauf bei Kälte UND Wärme.'],
-                ['type' => 'Label', 'caption' => 'Abfrage schlafender Geräte: Z-Wave und Matter, nur wo je Gerät eingeschaltet, nur wenn der Batteriewert älter als eingestellt ist. Der Wächter sagt, ob das Gerät geantwortet hat; antwortet es nach 14 Tagen nicht, steht das als Befund da.'],
+                ['type' => 'Label', 'caption' => 'Abfrage schlafender Geräte: Z-Wave und Matter, nur wo je Gerät eingeschaltet, nur wenn der Batteriewert älter als eingestellt ist. Auch bei Funkstille fragt er nach, wenn die Abfrage für das Gerät eingeschaltet ist. Der Wächter sagt, ob das Gerät geantwortet hat; bleibt die Antwort aus (bei Z-Wave nach 14 Tagen, bei Matter nach 6 Stunden), steht das als Befund da.'],
                 ['type' => 'Label', 'caption' => 'Kachel: Instanz in der Kachel-Visualisierung als Kachel hinzufügen. Antippen einer Zeile klappt sie auf (Gründe, Alter, Schaltflächen zum Quittieren), die Filterzeile oben zeigt nur, was gerade wichtig ist.'],
-                ['type' => 'Label', 'caption' => 'Batterietagebuch: Der Wächter erkennt einen Batteriewechsel am Sprung des Prozentwerts oder am zurückgesetzten „schwach“-Flag und hält ihn mit Datum fest. Die Auswertung (Lebensdauer je Gerät und Zelltyp) folgt, sobald genug Wechsel gesammelt sind.'],
-                ['type' => 'Label', 'caption' => 'Skripte: BWACH_Search(<InstanzID>) sucht neu, BWACH_Check(<InstanzID>) bewertet, BWACH_Preview(<InstanzID>) liefert den Trockenlauf als Text, BWACH_Acknowledge(<InstanzID>, \'<Schlüssel>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') quittiert, BWACH_SendTest(<InstanzID>) schickt eine Testmeldung.'],
+                ['type' => 'Label', 'caption' => 'Batterietagebuch: Der Wächter erkennt einen Batteriewechsel am Sprung des Prozentwerts oder am zurückgesetzten „schwach“-Flag und hält ihn mit Datum fest. Die Lebensdauer je Gerät und Zelltyp steht in der Statistik, sobald genug Wechsel gesammelt sind; frühere Wechsel lassen sich mit Datum nachtragen.'],
+                ['type' => 'Label', 'caption' => 'Skripte: BWACH_Search(<InstanzID>) sucht neu, BWACH_Check(<InstanzID>) bewertet, BWACH_Preview(<InstanzID>) liefert den Trockenlauf als Text, BWACH_Acknowledge(<InstanzID>, \'<Schlüssel>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') quittiert, BWACH_SendTest(<InstanzID>) schickt eine Testmeldung, BWACH_ShoppingText und BWACH_SendShopping liefern oder senden die Einkaufsliste, BWACH_DeviceListCsv die Geräteliste, BWACH_AddReplacement(<InstanzID>, \'<Schlüssel>\', \'TT.MM.JJJJ\') trägt einen früheren Wechsel nach, BWACH_AcknowledgePlace(<InstanzID>, \'<Ort>\') quittiert die Tauschrunde eines Ortes, BWACH_Diagnosis(<InstanzID>) liefert die Diagnose fürs Forum.'],
             ],
         ];
     }
@@ -2159,7 +2078,7 @@ class Batteriewaechter extends IPSModule
         $chosen = trim($this->ReadPropertyString('PushTargets')) !== '' && trim($this->ReadPropertyString('PushTargets')) !== '[]';
         $pushLine = count($targets) === 0
             ? 'ℹ️ Keine Push-Ziele gefunden (weder Kachel-Visualisierung noch klassisches WebFront) — Push bleibt wirkungslos, E-Mail geht trotzdem.'
-            : '✅ Push-Ziele: ' . $nK . ' Kachel-Visualisierung' . ($nK === 1 ? '' : 'en') . ', ' . $nW . ' WebFront' . ($chosen ? ' (nach Ihrer Auswahl unten)' : ' (alle gefundenen, solange unten nichts ausgewählt ist)') . '.';
+            : '✅ Push-Ziele: ' . $nK . ' Kachel-Visualisierung' . ($nK === 1 ? '' : 'en') . ', ' . $nW . ' WebFront' . ($chosen ? ' (nach deiner Auswahl unten)' : ' (alle gefundenen, solange unten nichts ausgewählt ist)') . '.';
         $mi = $this->ReadPropertyInteger('MailInstance');
         if (!$this->ReadPropertyBoolean('NotifyMail')) {
             $mailLine = 'ℹ️ E-Mail ist aus.';
@@ -2171,7 +2090,7 @@ class Batteriewaechter extends IPSModule
         }
         $head = $this->ReadPropertyBoolean('NotificationsActive')
             ? '🔔 Meldungen sind AN.'
-            : 'ℹ️ Meldungen sind AUS — es wird nichts verschickt, bis Sie „Meldungen aktiv“ einschalten.';
+            : 'ℹ️ Meldungen sind AUS — es wird nichts verschickt, bis du „Meldungen aktiv“ einschaltest.';
 
         return [
             'type' => 'ExpansionPanel', 'expanded' => true,
@@ -2426,7 +2345,7 @@ class Batteriewaechter extends IPSModule
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Prozentwert bis zur „leer“-Grenze = leer, darunter bis zur „schwach“-Grenze = schwach. Kritische Geräte (unter Geräte-Einstellungen markiert) melden schon früher „schwach“.'],
                         ['type' => 'Label', 'caption' => 'Ein Batteriewert gilt als veraltet, wenn das Gerät ihn seit so vielen Tagen nicht mehr gemeldet hat. Das ist kein Alarm, sondern ein Hinweis: der angezeigte Stand ist dann nicht mehr verlässlich. Manche Geräte melden den Batteriestand nur alle paar Monate; für sie lässt sich die Altersprüfung einzeln abschalten.'],
-                        ['type' => 'Label', 'caption' => 'Funkstille hängt am Lebenszeichen des Geräts (irgendeine Aktualisierung), nicht am Batteriewert. Wählen Sie die Tage großzügig, wenn ein Gerät nur selten etwas sendet.'],
+                        ['type' => 'Label', 'caption' => 'Funkstille hängt am Lebenszeichen des Geräts (irgendeine Aktualisierung), nicht am Batteriewert. Wähle die Tage großzügig, wenn ein Gerät nur selten etwas sendet.'],
                     ],
                 ]],
             ],
