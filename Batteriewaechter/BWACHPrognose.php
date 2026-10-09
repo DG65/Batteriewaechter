@@ -209,7 +209,53 @@ final class BWACHPrognose
         foreach ($count as $label => $n) {
             $lines[] = $n . '× ' . $label;
         }
-        return ['need' => $need, 'lines' => $lines, 'missing' => $missing];
+        return ['need' => $need, 'lines' => $lines, 'missing' => $missing, 'counts' => $count];
+    }
+
+    /**
+     * Suchlink für eine Einkaufsbezeichnung aus der Vorlage des Nutzers. Die Vorlage muss mit http:// oder https://
+     * beginnen und {Zelltyp} enthalten; sonst gibt es keinen Link (null). Die Bezeichnung wird URL-kodiert eingesetzt.
+     */
+    public static function shopUrl(string $template, string $label): ?string
+    {
+        $template = trim($template);
+        if ($template === '' || mb_strlen($template) > 300 || !preg_match('#^https?://#i', $template) || strpos($template, '{Zelltyp}') === false || preg_match('/[\s<>"\']/', $template)) {
+            return null;
+        }
+        return str_replace('{Zelltyp}', rawurlencode($label), $template);
+    }
+
+    /**
+     * Einkaufsliste und Tauschrunde als Text zum Kopieren oder Senden.
+     *
+     * @param array $shopping Ergebnis von shopping()
+     * @param array $round    Ergebnis von tauschrunde()
+     */
+    public static function shoppingText(array $shopping, array $round, int $horizonDays, string $until): string
+    {
+        $out = ['🛒 Batterien einkaufen (nächste ' . $horizonDays . ' Tage)'];
+        if (!$shopping['lines']) {
+            $out[] = $shopping['need'] ? 'Keine Zelltypen bekannt.' : 'Nichts zu besorgen.';
+        }
+        foreach ($shopping['lines'] as $l) {
+            $out[] = '• ' . $l;
+        }
+        if ($shopping['missing']) {
+            $out[] = 'Zelltyp fehlt bei: ' . implode(', ', $shopping['missing']);
+        }
+        if ($round['count'] > 0) {
+            $out[] = '';
+            $out[] = '🔧 Tauschrunde (' . $round['count'] . ($round['count'] === 1 ? ' Gerät' : ' Geräte') . ')' . ($until !== '' ? ', am besten bis ' . $until : '');
+            foreach ($round['places'] as $place => $devs) {
+                $items = [];
+                foreach ($devs as $d) {
+                    $cell = BWACHZelle::shopLabel((string)$d['cell']);
+                    $items[] = $d['name'] . ($cell !== null ? ' (' . max(1, (int)$d['cells']) . '× ' . $cell . ')' : '');
+                }
+                $out[] = $place . ': ' . implode(', ', $items);
+            }
+        }
+        return implode("\n", $out);
     }
 
     /**

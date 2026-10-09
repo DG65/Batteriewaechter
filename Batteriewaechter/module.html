@@ -80,6 +80,8 @@
     .bw-acts button:hover { background: var(--ui-elevation-3, rgba(255, 255, 255, .2)); }
     .bw-acts button.sure { background: #c62828; color: #fff; }
 
+    .bw-link { text-decoration: none; }
+
     /* Rückmeldung, leer, Fuß */
     .bw-msg { margin-top: 10px; font-size: .85em; padding: 7px 10px; border-radius: 8px; background: var(--ui-elevation-1, rgba(255, 255, 255, .07)); }
     .bw-empty { padding: 18px 8px; text-align: center; opacity: .75; font-size: .92em; }
@@ -105,6 +107,7 @@
     var bwFilter = 'problems';
     var bwOpen = null;
     var bwSure = null;
+    var bwLocalMsg = '';
     var bwSort = { key: 'urgency', dir: 'desc' };
     try {
         var bwSaved = JSON.parse(window.localStorage.getItem('bw-sort') || 'null');
@@ -258,14 +261,71 @@
         return row;
     }
 
+    function bwFlash(msg) {
+        bwLocalMsg = msg;
+        bwRender();
+        setTimeout(function () { bwLocalMsg = ''; bwRender(); }, 4000);
+    }
+
+    function bwCopyFallback(text, done) {
+        try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            done(!!ok);
+        } catch (e) { done(false); }
+    }
+
+    function bwCopy(text) {
+        var done = function (ok) {
+            bwFlash(ok ? '✅ Einkaufsliste kopiert' : '⚠️ Kopieren ist hier nicht möglich. Im Formular gibt es „Einkaufsliste als Text“.');
+        };
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () { done(true); }, function () { bwCopyFallback(text, done); });
+                return;
+            }
+        } catch (e) { /* weiter mit dem Ersatzweg */ }
+        bwCopyFallback(text, done);
+    }
+
     function bwShop(root) {
         var s = BW.shopping;
         var box = bwEl('div', 'bw-sec');
         box.appendChild(bwEl('div', 'bw-h', '🛒 Einkauf für die nächsten ' + s.horizon + ' Tage'));
         if (!s.lines || s.lines.length === 0) {
             box.appendChild(bwEl('div', 'bw-empty', s.count === 0 ? '✅ Nichts zu besorgen.' : 'Keine Zelltypen bekannt. Zelltyp je Gerät eintragen: ' + s.where + '.'));
+        } else if (s.items && s.items.length) {
+            var big = bwEl('div', 'bw-big');
+            s.items.forEach(function (it, i) {
+                if (i > 0) { big.appendChild(document.createTextNode(', ')); }
+                big.appendChild(document.createTextNode(it.text));
+                if (it.url && /^https?:\/\//i.test(it.url)) {
+                    var a = bwEl('a', 'bw-link', ' 🔎');
+                    a.href = it.url;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.title = 'Beim Händler suchen';
+                    big.appendChild(a);
+                }
+            });
+            box.appendChild(big);
         } else {
             box.appendChild(bwEl('div', 'bw-big', s.lines.join(', ')));
+        }
+        if (s.text) {
+            var acts = bwEl('div', 'bw-acts');
+            var bc = bwEl('button', '', '📋 Kopieren'); bc.type = 'button';
+            bc.onclick = function () { bwCopy(s.text); };
+            var bs = bwEl('button', '', '✉️ Senden'); bs.type = 'button';
+            bs.onclick = function () { requestAction('shop_send', ''); };
+            acts.appendChild(bc); acts.appendChild(bs);
+            box.appendChild(acts);
         }
         if (s.missing && s.missing.length) {
             box.appendChild(bwEl('div', 'bw-note', 'ℹ️ Zelltyp fehlt bei: ' + s.missing.join(', ') + '. Eintragen: ' + s.where + '.'));
@@ -386,7 +446,8 @@
             }
         }
 
-        if (BW.message) { root.appendChild(bwEl('div', 'bw-msg', BW.message)); }
+        var shownMsg = bwLocalMsg || BW.message;
+        if (shownMsg) { root.appendChild(bwEl('div', 'bw-msg', shownMsg)); }
         root.appendChild(bwEl('div', 'bw-foot', BW.summary.total + ' Geräte überwacht · Stand ' + BW.asOf));
     }
 

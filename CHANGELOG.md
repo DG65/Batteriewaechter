@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.9.0] - 2026-10-09
+
+### Added
+- **Einkaufsliste mitnehmen:** Die Kachel zeigt unter „Einkauf“ die Schaltflächen „📋 Kopieren“ (Liste und Tauschrunde als Text in die Zwischenablage) und „✉️ Senden“ (Push und/oder E-Mail über die unter „Meldungen“ eingestellten Wege, unabhängig vom Schalter „Meldungen aktiv“, weil du es von Hand auslöst). Im Formular: „Einkaufsliste als Text“ und „Einkaufsliste jetzt senden“ unter „Prognose und Einkauf“; für Skripte `BWACH_ShoppingText($id)` und `BWACH_SendShopping($id)`.
+- **Optionale Linkvorlage** („Link für die Einkaufsliste“, Standard leer): Eine URL mit `{Zelltyp}` (https:// oder http://), z. B. die Suche eines Händlers. Die Kachel zeigt hinter jeder Zeile der Einkaufsliste einen Suchlink (neues Fenster, ohne Referrer). Es ist kein Händler eingebaut und es wird nichts dorthin gesendet; Vorlagen ohne http(s) oder ohne `{Zelltyp}`, mit Leer- oder Sonderzeichen oder über 300 Zeichen werden ignoriert.
+
 ## [0.8.2] - 2026-10-09
 
 ### Fixed

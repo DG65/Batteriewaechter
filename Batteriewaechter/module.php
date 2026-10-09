@@ -42,6 +42,10 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.9.0' => [
+            '• Die Einkaufsliste lässt sich mitnehmen: In der Kachel unter „Einkauf“ kopiert „Kopieren“ die Liste samt Tauschrunde als Text, „Senden“ schickt sie per Push oder E-Mail (die unter „Meldungen“ eingestellten Wege). Im Formular gibt es dasselbe unter „Prognose und Einkauf“ („Einkaufsliste als Text“, „jetzt senden“), und für Skripte BWACH_ShoppingText($id).',
+            '• Optional: Unter „Prognose und Einkauf“ lässt sich eine Linkvorlage mit {Zelltyp} eintragen. Die Kachel zeigt dann hinter jeder Zeile der Einkaufsliste einen Suchlink beim Händler deiner Wahl. Leer = kein Link, kein Händler ist eingebaut.',
+        ],
         '0.8.2' => [
             '• Zu lange Beschriftungen von Schaltflächen im Formular sind gekürzt (sie wurden abgeschnitten). Die ausführlichen Fragen stehen jetzt als Überschrift im geöffneten Fenster.',
         ],
@@ -159,6 +163,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyString('ManualVariables', '[]');
         $this->RegisterPropertyString('DeviceSettings', '[]');
         $this->RegisterPropertyString('GroupRules', '[]');
+        $this->RegisterPropertyString('ShopLink', '');
         $this->RegisterPropertyString('DeviceSortBy', 'name');
         $this->RegisterPropertyString('DeviceSortDir', 'ascending');
 
@@ -619,6 +624,9 @@ class Batteriewaechter extends IPSModule
             }
             $meta['ack'] = ['m' => $msg, 't' => $now];
             $this->saveJson('Meta', $meta);
+        } elseif ($Ident === 'shop_send') {
+            $meta['ack'] = ['m' => $this->SendShopping(), 't' => $now];
+            $this->saveJson('Meta', $meta);
         } elseif ($Ident === 'refresh') {
             $this->Check();
         }
@@ -818,6 +826,28 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Schickt eine Testmeldung über die eingestellten Wege und sagt, was ankam. */
+    /** Einkaufsliste und Tauschrunde als Text (zum Kopieren; auch für eigene Skripte). */
+    public function ShoppingText(): string
+    {
+        $found = $this->found();
+        if ($found === null) {
+            return 'Noch nicht gesucht: zuerst „Jetzt neu suchen“.';
+        }
+        $v = $this->views($this->evaluateAll($found), $this->now());
+        return BWACHPrognose::shoppingText($v['shopping'], $v['round'], (int)$v['horizon'], $v['round']['until'] === null ? '' : date('d.m.Y', $v['round']['until']));
+    }
+
+    /** Schickt die Einkaufsliste jetzt über die eingestellten Wege (Push, E-Mail), unabhängig vom Schalter „Meldungen aktiv“. */
+    public function SendShopping(): string
+    {
+        $channels = ['push' => $this->ReadPropertyBoolean('NotifyPush'), 'mail' => $this->ReadPropertyBoolean('NotifyMail')];
+        if (!$channels['push'] && !$channels['mail']) {
+            return 'ℹ️ Kein Zustellweg ausgewählt (Push oder E-Mail unter „Meldungen“ ankreuzen).';
+        }
+        $ok = $this->deliver('🛒 Batterien einkaufen', $this->ShoppingText(), 'bell', $channels);
+        return $ok > 0 ? '✅ Einkaufsliste gesendet' : '⚠️ Die Einkaufsliste konnte nicht zugestellt werden' . ($this->lastMailError !== '' ? ' — ' . $this->lastMailError : '') . '.';
+    }
+
     public function SendTest(): string
     {
         $m = ['title' => '🧪 Batteriewächter Test', 'text' => 'Wenn diese Meldung ankommt, funktioniert der Zustellweg. Keine echte Batteriemeldung.', 'sound' => 'bell'];
@@ -1984,10 +2014,17 @@ class Batteriewaechter extends IPSModule
         foreach ($v['life'] as $l) {
             $stats[] = ['group' => $l['name'], 'text' => implode(', ', array_map(function ($d) { return BWACHLogik::num($d) . ' Tage'; }, $l['days']))];
         }
+        $tpl   = (string)$this->ReadPropertyString('ShopLink');
+        $items = [];
+        foreach ($v['shopping']['counts'] as $label => $n) {
+            $items[] = ['text' => $n . '× ' . $label, 'url' => (string)BWACHPrognose::shopUrl($tpl, (string)$label)];
+        }
         return [
             'horizon' => $v['horizon'],
             'where'   => 'Instanz „' . IPS_GetName($this->InstanceID) . '“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“',
             'lines'   => $v['shopping']['lines'],
+            'items'   => $items,
+            'text'    => BWACHPrognose::shoppingText($v['shopping'], $v['round'], (int)$v['horizon'], $v['round']['until'] === null ? '' : date('d.m.Y', $v['round']['until'])),
             'missing' => $v['shopping']['missing'],
             'count'   => $v['round']['count'],
             'until'   => $v['round']['until'] === null ? '' : date('d.m.Y', $v['round']['until']),
@@ -2083,6 +2120,12 @@ class Batteriewaechter extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => 'Der Wächter schreibt von jedem Gerät den Verlauf mit (im Modul selbst, ein Symcon-Archiv ist nicht nötig) und schätzt daraus, wie lange die Batterie noch reicht. Das klappt nur, wo das Gerät den Ladezustand fein genug und oft genug meldet; sonst steht dort ehrlich „Restlaufzeit unbekannt“ mit Grund. Eine Prognose braucht mindestens 4 Messpunkte über 14 Tage seit dem letzten Batteriewechsel.'],
                 ['type' => 'NumberSpinner', 'name' => 'ForecastHorizonDays', 'caption' => 'Einkaufsliste und Tauschrunde für die nächsten', 'suffix' => ' Tage', 'minimum' => 7, 'maximum' => 365],
+                ['type' => 'ValidationTextBox', 'name' => 'ShopLink', 'caption' => 'Link für die Einkaufsliste (optional, mit {Zelltyp})'],
+                ['type' => 'Label', 'caption' => 'ℹ️ Wer will, trägt hier die Suche seines Händlers ein, z. B. https://www.example.org/suche?q={Zelltyp}. {Zelltyp} wird durch die Bezeichnung ersetzt (AAA, CR2032 …); die Kachel zeigt dann hinter jeder Zeile der Einkaufsliste einen Suchlink. Leer = kein Link, der Wächter nennt keinen Händler und sendet nichts dorthin.'],
+                ['type' => 'RowLayout', 'items' => [
+                    ['type' => 'Button', 'caption' => '🛒 Einkaufsliste als Text', 'onClick' => 'echo BWACH_ShoppingText($id);'],
+                    ['type' => 'Button', 'caption' => '✉️ Einkaufsliste jetzt senden', 'onClick' => 'echo BWACH_SendShopping($id);'],
+                ]],
                 ['type' => 'NumberSpinner', 'name' => 'SoonDays', 'caption' => '„Bald leer“ melden, wenn die Batterie laut Prognose noch höchstens', 'suffix' => ' Tage reicht', 'minimum' => 3, 'maximum' => 90],
                 ['type' => 'Label', 'caption' => 'ℹ️ „Bald leer“ wird nur bei hoher oder mittlerer Sicherheit der Prognose gemeldet, nie bei geringer.'],
                 ['type' => 'CheckBox', 'name' => 'LearnIntervals', 'caption' => 'Meldeverhalten lernen (Funkstille früher erkennen, wenn ein Gerät sonst sehr regelmäßig sendet)'],
