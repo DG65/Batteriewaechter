@@ -42,6 +42,13 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.11.0' => [
+            '• Abfrage bei Funkstille: Ist bei einem Gerät mit eingeschalteter „Abfragen“-Spalte (Z-Wave, Matter) das Lebenszeichen überfällig, fragt der Wächter einmal nach und zeigt, ob das Gerät antwortet: schläft nur oder vermutlich ausgefallen. Auch Gruppen-Regeln können „Abfragen“ einschalten.',
+            '• Tauschrunde in einem Rutsch quittieren: In der Kachel unter „Einkauf“ trägt „Alles in <Ort> getauscht“ alle Geräte eines Ortes ein (zweiter Klick bestätigt), im Formular unter „Quittieren“ „Alle dort getauscht“.',
+            '• Genauigkeit der Prognose: Bei erkannten Wechseln vergleicht der Wächter, was die Prognose 14 bis 150 Tage vorher sagte, mit dem tatsächlichen Stand. Die Statistik zeigt die mittlere Abweichung, sobald es Vergleiche gibt.',
+            '• Neues Panel „Erste Schritte“ mit einer Checkliste, die sich selbst abhakt.',
+            '• „Diagnose fürs Forum“ (unter „Gefundene Geräte“): zeigt je Modul und Ident, was erkannt wurde und was nach Batterie aussieht, aber nicht erkannt wurde, ohne Gerätenamen und IDs.',
+        ],
         '0.10.1' => [
             '• „Abfragen“ gibt es jetzt auch für Matter-Geräte (Spalte „Abfragen (Z-Wave, Matter)“). Der Wächter ruft dafür MATTER_RequestStatus an der Instanz der Stromversorgung (Endpunkt 0) auf, wenn der Batteriewert älter ist als eingestellt. Bisher war die Spalte nur für Z-Wave und das stand nirgends im Formular.',
         ],
@@ -236,7 +243,7 @@ class Batteriewaechter extends IPSModule
         $this->MaintainVariable('TableStats', 'Lebensdauer und Entladung', VARIABLETYPE_STRING, '~HTMLBox', 120, true);
         // Zustandsspeicher als versteckte Variablen (wie Schein): Attribute gehen beim Neu-Registrieren des
         // Moduls verloren (SUITE.md Stolperstein 5), Variablen bleiben.
-        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges', 'History' => 'Verlauf', 'LifeObs' => 'Meldeverhalten', 'Poll' => 'Abfragen'] as $ident => $name) {
+        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges', 'History' => 'Verlauf', 'LifeObs' => 'Meldeverhalten', 'Poll' => 'Abfragen', 'FcLog' => 'Prognose-Protokoll'] as $ident => $name) {
             $existed = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             $this->MaintainVariable($ident, $name, VARIABLETYPE_STRING, '', 200, true);
             if ($existed === false) {
@@ -438,10 +445,16 @@ class Batteriewaechter extends IPSModule
     {
         $hist = $this->loadJson('History');
         $obs  = $this->loadJson('LifeObs');
+        $fc   = $this->loadJson('FcLog');
         $h0   = $hist;
         $o0   = $obs;
+        $f0   = $fc;
         foreach ($rows as $row) {
             $key = $row['id'];
+            $fc[$key] = BWACHPrognose::accLog($fc[$key] ?? [], $now, $row['r']['percent'], $row['forecast']['slope'], (string)$row['forecast']['confidence']);
+            if (!$fc[$key]) {
+                unset($fc[$key]);
+            }
             $series = BWACHPrognose::historyAdd($hist[$key] ?? [], $now, $row['r']['percent'], $this->outdoorTemp());
             if ($series) {
                 $hist[$key] = $series;
@@ -453,6 +466,9 @@ class Batteriewaechter extends IPSModule
         }
         if ($obs !== $o0) {
             $this->saveJson('LifeObs', $obs);
+        }
+        if ($fc !== $f0) {
+            $this->saveJson('FcLog', $fc);
         }
     }
 
@@ -504,6 +520,16 @@ class Batteriewaechter extends IPSModule
         return $out;
     }
 
+    /** Genauigkeit der Prognose als Satz. */
+    private function accuracyText(array $a): string
+    {
+        if ($a['n'] === 0) {
+            return 'Noch kein Wechsel mit Vergleich: Der Wächter vergleicht bei einem erkannten Wechsel, was die Prognose 14 bis 150 Tage vorher sagte, mit dem tatsächlichen Stand. Das braucht Wochen bis Monate Verlauf.';
+        }
+        $dir = abs($a['bias']) < 1 ? 'ohne erkennbare Richtung' : ($a['bias'] > 0 ? 'die Batterien hielten im Schnitt länger als vorhergesagt' : 'die Batterien entluden sich im Schnitt schneller als vorhergesagt');
+        return $a['n'] . ($a['n'] === 1 ? ' Wechsel' : ' Wechsel') . ' verglichen: im Mittel ' . BWACHLogik::num($a['meanAbs']) . ' Prozentpunkte daneben, ' . $dir . '.';
+    }
+
     /** Einkaufsliste, Tauschrunde und Lebensdauerstatistik aus den aktuellen Zeilen. */
     private function views(array $rows, int $now): array
     {
@@ -514,6 +540,7 @@ class Batteriewaechter extends IPSModule
         foreach ($rows as $row) {
             $f = $row['forecast'];
             $items[] = [
+                'id'     => $row['id'],
                 'name'   => $row['name'],
                 'place'  => $row['place'],
                 'cell'   => $row['cell'],
@@ -546,6 +573,7 @@ class Batteriewaechter extends IPSModule
             'items'    => $items,
             'peers'    => $peers,
             'cold'     => $cold,
+            'accuracy' => BWACHPrognose::accSummary($this->loadJson('Diary')),
         ];
     }
 
@@ -598,6 +626,7 @@ class Batteriewaechter extends IPSModule
         } else {
             $out .= '<div style="padding:4px 2px;opacity:.85">✅ Kein Gerät entlädt auffällig schneller als seine Gruppe (nötig: mindestens 4 Geräte gleichen Systems und Zelltyps mit bekannter Entladerate).</div>';
         }
+        $out .= '<div style="padding:10px 2px 4px"><b>🎯 Genauigkeit der Prognose</b></div><div style="padding:4px 2px;opacity:.9">' . $e($this->accuracyText($v['accuracy'])) . '</div>';
         $out .= '<div style="padding:10px 2px 4px"><b>🌡 Kälteeinfluss</b></div><div style="padding:4px 2px;opacity:.9">' . $e($v['cold']) . '</div>';
         $out .= '<div style="padding:10px 2px 4px"><b>⏱ Lebensdauer (Zeit zwischen zwei Batteriewechseln)</b></div>';
         if (!$v['life']) {
@@ -648,6 +677,17 @@ class Batteriewaechter extends IPSModule
                 $msg = '⛔ Das Quittieren aus der Kachel ist in den Einstellungen ausgeschaltet.';
             } elseif (is_array($d) && isset($d['key'], $d['action'])) {
                 $msg = $this->Acknowledge((string)$d['key'], (string)$d['action']);
+            } else {
+                $msg = '⛔ Ungültige Anfrage aus der Kachel.';
+            }
+            $meta['ack'] = ['m' => $msg, 't' => $now];
+            $this->saveJson('Meta', $meta);
+        } elseif ($Ident === 'ack_place') {
+            $d = json_decode((string)$Value, true);
+            if (!$this->ReadPropertyBoolean('TileAllowAck')) {
+                $msg = '⛔ Das Quittieren aus der Kachel ist in den Einstellungen ausgeschaltet.';
+            } elseif (is_array($d) && isset($d['place'])) {
+                $msg = $this->AcknowledgePlace((string)$d['place']);
             } else {
                 $msg = '⛔ Ungültige Anfrage aus der Kachel.';
             }
@@ -766,9 +806,19 @@ class Batteriewaechter extends IPSModule
         if ($name === null) {
             return '⛔ Gerät „' . $key . '“ nicht gefunden (vielleicht schon außer Betrieb oder ausgenommen).';
         }
+        $msg = $this->ackApply((string)$key, $action, $name);
+        $this->Check();
+        $this->UpdateFormField('AckStatus', 'caption', $msg);
+        $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
+        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($found));
+        return $msg;
+    }
+
+    /** Führt eine Quittierung aus (Tagebuch, Außer-Betrieb-Liste, Meldezustand), ohne neu zu bewerten. */
+    private function ackApply(string $key, string $action, string $name): string
+    {
         $now   = $this->now();
         $state = $this->loadJson('NotifyState');
-
         if ($action === BWACHMeldung::ACK_REPLACED) {
             $diary = BWACHMeldung::diaryAdd($this->loadJson('Diary'), ['t' => $now, 'key' => $key, 'name' => $name, 'type' => 'manuell', 'note' => 'von Hand eingetragen']);
             $this->saveJson('Diary', $diary);
@@ -783,10 +833,35 @@ class Batteriewaechter extends IPSModule
             $msg = '✅ „' . $name . '“ ist außer Betrieb und wird nicht mehr überwacht. Wieder aufnehmen: „Außer Betrieb“-Liste unter „Quittieren“.';
         }
         $this->saveJson('NotifyState', BWACHMeldung::acknowledge($state, $key, $action, $now, $this->ReadPropertyInteger('SnoozeDays')));
+        return $msg;
+    }
+
+    /**
+     * Trägt alle Geräte eines Ortes, die in der Tauschrunde stehen, als getauscht ein (nach einer Runde durch den Flur).
+     * Der Wächter bewertet erst am Ende neu.
+     */
+    public function AcknowledgePlace(string $place): string
+    {
+        $found = $this->found();
+        if ($found === null) {
+            return 'ℹ️ Noch nicht gesucht: zuerst „Jetzt neu suchen“.';
+        }
+        $place = $place === '' ? 'ohne Ort' : $place;
+        $now   = $this->now();
+        $v     = $this->views($this->evaluateAll($found), $now);
+        $devs  = $v['round']['places'][$place] ?? [];
+        if (!$devs) {
+            return 'ℹ️ In der Tauschrunde steht für „' . $place . '“ nichts.';
+        }
+        $n = 0;
+        foreach ($devs as $d) {
+            $this->ackApply((string)$d['id'], BWACHMeldung::ACK_REPLACED, (string)$d['name']);
+            $n++;
+        }
         $this->Check();
+        $msg = '✅ ' . $n . ($n === 1 ? ' Gerät' : ' Geräte') . ' in „' . $place . '“ als getauscht eingetragen. Der Wächter wartet ' . BWACHMeldung::REPLACE_GRACE_DAYS . ' Tage, bis die Geräte den neuen Stand melden.';
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
-        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($found));
         return $msg;
     }
 
@@ -827,6 +902,19 @@ class Batteriewaechter extends IPSModule
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
         return $msg;
+    }
+
+    /** Diagnose für das Forum: was wurde bei welchem Modul gefunden und was nicht, ohne Gerätenamen und IDs. */
+    public function Diagnosis(): string
+    {
+        $vars   = $this->collectVariables();
+        $result = BWACHLogik::classify($vars, [
+            'excludedModules' => $this->excludedModules(),
+            'nameSearch'      => $this->ReadPropertyBoolean('NameSearch'),
+            'manual'          => $this->manualVariables(),
+        ]);
+        $kernel = function_exists('IPS_GetKernelVersion') ? (string)IPS_GetKernelVersion() : '?';
+        return BWACHLogik::diagnosis($vars, $result, $this->installedVersion(), $kernel);
     }
 
     /** Geräteliste als CSV (Semikolon, UTF-8): zum Kopieren oder Ausdrucken. */
@@ -992,6 +1080,8 @@ class Batteriewaechter extends IPSModule
         $diary = $this->loadJson('Diary');
         $state = $this->loadJson('NotifyState');
         $jump  = $this->ReadPropertyInteger('ReplaceJumpPercent');
+        $fc    = $this->loadJson('FcLog');
+        $fcChanged = false;
         $newLast = $last;
         $changed = false;
 
@@ -1001,7 +1091,17 @@ class Batteriewaechter extends IPSModule
             $prev = isset($last[$key]) ? ['p' => $last[$key]['p'] ?? null, 'f' => $last[$key]['f'] ?? null] : null;
             $desc = BWACHMeldung::detectReplacement($prev, $cur, $jump);
             if ($desc !== null) {
-                $diary = BWACHMeldung::diaryAdd($diary, ['t' => $now, 'key' => $key, 'name' => $row['name'], 'type' => 'erkannt', 'note' => $desc]);
+                $entry = ['t' => $now, 'key' => $key, 'name' => $row['name'], 'type' => 'erkannt', 'note' => $desc];
+                // Prognose gegen die Wirklichkeit: Stand vor dem Wechsel gegen das, was die Prognose Wochen vorher sagte
+                if ($prev['p'] !== null && isset($fc[$key])) {
+                    $acc = BWACHPrognose::accCompare($fc[$key], $now, (float)$prev['p']);
+                    if ($acc !== null) {
+                        $entry['acc'] = $acc;
+                    }
+                }
+                unset($fc[$key]);
+                $fcChanged = true;
+                $diary = BWACHMeldung::diaryAdd($diary, $entry);
                 // Der alte Befund ist erledigt; ein neuer Befund wäre eine neue Meldung
                 unset($state[$key]);
                 $changed = true;
@@ -1016,6 +1116,9 @@ class Batteriewaechter extends IPSModule
         if ($changed) {
             $this->saveJson('Diary', $diary);
             $this->saveJson('NotifyState', $state);
+        }
+        if ($fcChanged) {
+            $this->saveJson('FcLog', $fc);
         }
     }
 
@@ -1411,6 +1514,7 @@ class Batteriewaechter extends IPSModule
                     'Group'    => (string)($r['Group'] ?? ''),
                     'Critical' => (bool)($r['Critical'] ?? false),
                     'Excluded' => (bool)($r['Excluded'] ?? false),
+                    'Poll'     => (bool)($r['Poll'] ?? false),
                 ];
             }
         }
@@ -1614,6 +1718,9 @@ class Batteriewaechter extends IPSModule
     /** Systeme, für die es eine Statusanfrage gibt: Modulname der Instanz => Symcon-Funktion. */
     private const POLL_FUNCTIONS = ['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus'];
 
+    /** Wie lange auf eine Antwort gewartet wird, bevor „keine Antwort“ gilt: schlafende Z-Wave-Geräte antworten erst beim Aufwachen. */
+    private const POLL_WAIT = ['Z-Wave Module' => 14 * 86400, 'Matter Device' => 6 * 3600];
+
     private function pollDevices(array $rows, int $now): bool
     {
         $state = $this->loadJson('Poll');
@@ -1625,15 +1732,21 @@ class Batteriewaechter extends IPSModule
             $age = $row['r']['valueAge'];
             // Antwort auswerten: der Batteriewert wurde seit der Anfrage aktualisiert
             if (isset($state[$key]) && $state[$key]['ans'] === null) {
-                if ($age !== null && $now - $age > (int)$state[$key]['t']) {
+                $t = (int)$state[$key]['t'];
+                // Antwort = der Batteriewert ist nach der Anfrage neu; bei einer Anfrage wegen Funkstille zählt jedes Lebenszeichen
+                $byLife = ($state[$key]['why'] ?? 'alt') === 'still' && (int)$row['life'] > $t;
+                if (($age !== null && $now - $age > $t) || $byLife) {
                     $state[$key]['ans']  = true;
                     $state[$key]['miss'] = 0;
-                } elseif ($now - (int)$state[$key]['t'] > 14 * 86400) {
+                } elseif ($now - $t > (self::POLL_WAIT[$row['module']] ?? 14 * 86400)) {
                     $state[$key]['ans'] = false;
                 }
             }
             $fn = self::POLL_FUNCTIONS[$row['module']] ?? null;
-            if (!$row['pollOn'] || $fn === null || $age === null || $age <= $after) {
+            // Anfrage, wenn der Batteriewert alt ist ODER das Gerät still ist (dann trennt die Antwort „schläft nur“ von „ausgefallen“)
+            $old   = $age !== null && $age > $after;
+            $still = ($row['r']['funk'] ?? '') === 'still';
+            if (!$row['pollOn'] || $fn === null || (!$old && !$still)) {
                 continue;
             }
             if (isset($state[$key]) && $now - (int)$state[$key]['t'] < $every) {
@@ -1655,7 +1768,7 @@ class Batteriewaechter extends IPSModule
                 if ($prev !== null && $prev['ans'] !== true) {
                     $miss = (int)($prev['miss'] ?? 0) ?: ($prev['ans'] === false ? (int)$prev['t'] : 0);
                 }
-                $state[$key] = ['t' => $now, 'ans' => null, 'miss' => $miss];
+                $state[$key] = ['t' => $now, 'ans' => null, 'miss' => $miss, 'why' => $still && !$old ? 'still' : 'alt'];
             } else {
                 IPS_LogMessage('Batteriewächter', 'Abfrage von „' . $row['name'] . '“ wurde nicht angenommen.');
             }
@@ -1791,7 +1904,8 @@ class Batteriewaechter extends IPSModule
      * allein an; ohne sie gibt es keinen Batteriewert. Ob das Gerät überhaupt eine Batterie hat, ist von hier aus
      * nicht zu sehen (netzbetriebene haben keine), deshalb steht der Hinweis als Frage.
      */
-    private function matterHint(): string
+    /** Namen der Matter-Geräte, für die es keine Instanz der Stromversorgung (Endpunkt 0) gibt. */
+    private function matterWithoutPower(): array
     {
         $insts = [];
         foreach (IPS_GetInstanceList() as $i) {
@@ -1800,7 +1914,12 @@ class Batteriewaechter extends IPSModule
                 $insts[] = ['node' => $m['node'], 'endpoint' => $m['endpoint'], 'name' => IPS_GetName((int)$i)];
             }
         }
-        $names = BWACHLogik::matterNodesWithoutPowerSource($insts);
+        return BWACHLogik::matterNodesWithoutPowerSource($insts);
+    }
+
+    private function matterHint(): string
+    {
+        $names = $this->matterWithoutPower();
         if (!$names) {
             return '';
         }
@@ -1986,6 +2105,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'RowLayout', 'items' => [
                     ['type' => 'Button', 'caption' => '🔎 Jetzt neu suchen', 'onClick' => 'echo BWACH_Search($id);'],
                     ['type' => 'Button', 'caption' => '📋 Was würde gefunden?', 'onClick' => 'echo BWACH_Preview($id);'],
+                    ['type' => 'Button', 'caption' => '🩺 Diagnose fürs Forum', 'onClick' => 'echo BWACH_Diagnosis($id);'],
                 ]],
                 ['type' => 'Label', 'name' => 'DiscoveryStatus', 'caption' => $line],
                 ['type' => 'CheckBox', 'name' => 'NameSearch', 'caption' => 'Auch nach Namen suchen (ungenauer — kann Fehltreffer liefern)'],
@@ -2109,7 +2229,7 @@ class Batteriewaechter extends IPSModule
             $list = [];
             foreach ($devs as $d) {
                 $cell = BWACHZelle::shopLabel((string)$d['cell']);
-                $list[] = ['name' => $d['name'], 'need' => $cell !== null ? max(1, (int)$d['cells']) . '× ' . $cell : '', 'text' => $d['text']];
+                $list[] = ['id' => (string)$d['id'], 'name' => $d['name'], 'need' => $cell !== null ? max(1, (int)$d['cells']) . '× ' . $cell : '', 'text' => $d['text']];
             }
             $places[] = ['place' => $place, 'devices' => $list];
         }
@@ -2123,6 +2243,7 @@ class Batteriewaechter extends IPSModule
             $stats[] = ['group' => '👥 ' . $pe['name'], 'text' => $pe['text']];
         }
         $stats[] = ['group' => '🌡', 'text' => $v['cold']];
+        $stats[] = ['group' => '🎯 Prognose', 'text' => $this->accuracyText($v['accuracy'])];
         foreach ($v['life'] as $l) {
             $stats[] = ['group' => $l['name'], 'text' => implode(', ', array_map(function ($d) { return BWACHLogik::num($d) . ' Tage'; }, $l['days']))];
         }
@@ -2199,8 +2320,12 @@ class Batteriewaechter extends IPSModule
     {
         $found = $this->found();
         $options = [['caption' => '— Gerät wählen —', 'value' => '']];
+        $placeOptions = [['caption' => '— Ort wählen —', 'value' => '']];
         if ($found !== null) {
             $rows = $this->evaluateAll($found);
+            foreach ($this->views($rows, $this->now())['round']['places'] as $pl => $devs) {
+                $placeOptions[] = ['caption' => $pl . ' (' . count($devs) . ')', 'value' => (string)$pl];
+            }
             usort($rows, function ($a, $b) { return [$b['r']['urgency'], $a['name']] <=> [$a['r']['urgency'], $b['name']]; });
             foreach ($rows as $r) {
                 $options[] = ['caption' => $r['name'] . $this->shortFinding($r['r']), 'value' => $r['id']];
@@ -2223,6 +2348,10 @@ class Batteriewaechter extends IPSModule
                     ['type' => 'Button', 'caption' => '📅 Wechsel nachtragen', 'onClick' => 'echo BWACH_AddReplacement($id, $AckDevice, $AckDate);'],
                 ]],
                 ['type' => 'Label', 'caption' => 'ℹ️ „Wechsel nachtragen“ trägt einen Wechsel mit Datum ins Tagebuch ein, der vor dem Wächter stattfand. Das verbessert Lebensdauer und Vorsorge, löst aber keine Meldung aus.'],
+                ['type' => 'RowLayout', 'items' => [
+                    ['type' => 'Select', 'name' => 'AckPlace', 'caption' => 'Ort aus der Tauschrunde', 'width' => '320px', 'options' => $placeOptions],
+                    ['type' => 'Button', 'caption' => '✔️ Alle dort getauscht', 'onClick' => 'echo BWACH_AcknowledgePlace($id, $AckPlace);'],
+                ]],
                 ['type' => 'Label', 'name' => 'AckStatus', 'caption' => 'ℹ️ Noch nichts quittiert.'],
                 ['type' => 'Label', 'name' => 'RetiredLine', 'caption' => $this->retiredLine($found)],
                 ['type' => 'Button', 'caption' => '↩️ Außer-Betrieb-Geräte aufnehmen', 'onClick' => 'echo BWACH_UnretireAll($id);'],
@@ -2480,6 +2609,27 @@ class Batteriewaechter extends IPSModule
         return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new), 'filled' => $filled, 'open' => $open, 'hits' => $hits, 'labels' => $labels];
     }
 
+    private function FirstStepsPanel(array $dr): array
+    {
+        $found = $this->found();
+        $steps = BWACHLogik::firstSteps([
+            'found' => $found !== null, 'devices' => count($found['devices'] ?? []), 'open' => count($dr['open']),
+            'notify' => $this->ReadPropertyBoolean('NotificationsActive'),
+            'channel' => $this->ReadPropertyBoolean('NotifyPush') || $this->ReadPropertyBoolean('NotifyMail'),
+            'matterNoEp0' => count($this->matterWithoutPower()),
+        ]);
+        $allDone = count(array_filter($steps, function ($s) { return $s['done'] === false; })) === 0;
+        $items = [];
+        foreach ($steps as $s) {
+            $items[] = ['type' => 'Label', 'caption' => ($s['done'] === true ? '✅ ' : ($s['done'] === false ? '⬜ ' : '▫️ ')) . $s['text']];
+        }
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => !$allDone,
+            'caption' => '🚀  Erste Schritte',
+            'items' => $items,
+        ];
+    }
+
     private function RulesPanel(array $dr): array
     {
         $rules = $this->groupRules();
@@ -2520,6 +2670,7 @@ class Batteriewaechter extends IPSModule
                         ]]],
                         ['caption' => 'Kritisch', 'name' => 'Critical', 'width' => '70px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Abfragen', 'name' => 'Poll', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Treffer', 'name' => 'Hits', 'width' => '70px', 'add' => 0],
                     ],
                 ],
@@ -2673,7 +2824,7 @@ class Batteriewaechter extends IPSModule
 
         $dr = $this->deviceRows();
         $elements = array_values(array_filter([
-            $this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(),
+            $this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(), $this->FirstStepsPanel($dr),
             $this->DiscoveryPanel(), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ForecastPanel(), $this->ThresholdPanel(),
             $this->RulesPanel($dr), $this->DevicesPanel($dr), $this->ManualPanel(),
             $this->ForumHint(), $this->LicenseHint(),

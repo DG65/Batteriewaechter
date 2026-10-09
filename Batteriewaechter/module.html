@@ -346,7 +346,19 @@
             rd.appendChild(bwEl('div', 'bw-empty', 'Keine Tauschrunde nötig.'));
         }
         (s.places || []).forEach(function (p) {
-            rd.appendChild(bwEl('div', 'bw-place', p.place));
+            var head = bwEl('div', 'bw-place', p.place);
+            rd.appendChild(head);
+            if (BW.allowAck && p.devices.length) {
+                var sure = bwSure === 'place:' + p.place;
+                var pb = bwEl('button', 'bw-chip' + (sure ? ' on' : ''), sure ? 'Wirklich alle ' + p.devices.length + ' in ' + p.place + '?' : '✔ Alles getauscht (' + p.devices.length + ')');
+                pb.type = 'button';
+                pb.onclick = function () {
+                    if (!sure) { bwSure = 'place:' + p.place; bwRender(); return; }
+                    bwSure = null;
+                    requestAction('ack_place', JSON.stringify({ place: p.place }));
+                };
+                rd.appendChild(pb);
+            }
             p.devices.forEach(function (d) {
                 rd.appendChild(bwEl('div', 'bw-dev', d.name + (d.need ? ' — ' + d.need : '') + (d.text ? ' · ' + d.text : '')));
             });

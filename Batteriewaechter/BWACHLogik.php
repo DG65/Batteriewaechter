@@ -268,7 +268,118 @@ final class BWACHLogik
         if (!$own['excluded'] && !empty($r['Excluded'])) {
             $own['excluded'] = true;
         }
+        if (!$own['poll'] && !empty($r['Poll'])) {
+            $own['poll'] = true;
+        }
         return $own;
+    }
+
+    /**
+     * Die Schritte der Checkliste „Erste Schritte“. done: true = erledigt, false = offen, null = nicht prüfbar (Hinweis).
+     *
+     * @param array $s ['found'=>bool,'devices'=>int,'open'=>int (Geräte ohne Zelltyp),'notify'=>bool,'channel'=>bool,'matterNoEp0'=>int]
+     * @return array Liste von ['done'=>bool|null,'text'=>string]
+     */
+    public static function firstSteps(array $s): array
+    {
+        $dev = (int)$s['devices'];
+        $out = [];
+        $out[] = ['done' => !empty($s['found']) && $dev > 0,
+            'text' => !empty($s['found']) && $dev > 0 ? $dev . ($dev === 1 ? ' Gerät gefunden' : ' Geräte gefunden') : 'Geräte suchen: unter „Gefundene Geräte“ „Jetzt neu suchen“ klicken'];
+        $open = (int)$s['open'];
+        $out[] = ['done' => $dev > 0 && $open === 0,
+            'text' => $dev === 0 ? 'Zelltypen eintragen (erst Geräte suchen)'
+                : ($open === 0 ? 'Für jedes Gerät ist der Zelltyp bekannt' : 'Bei ' . $open . ($open === 1 ? ' Gerät' : ' Geräten') . ' fehlt der Zelltyp: unter „Gruppen“ oder „Geräte-Einstellungen“ eintragen (Einkaufsliste und Prognose brauchen ihn)')];
+        $notified = !empty($s['notify']) && !empty($s['channel']);
+        $out[] = ['done' => $notified,
+            'text' => $notified ? 'Meldungen sind eingeschaltet' : (!empty($s['notify']) ? 'Meldungen sind an, aber weder Push noch E-Mail gewählt: unter „Meldungen“ einen Weg ankreuzen' : 'Meldungen einschalten: unter „Meldungen“ „Meldungen aktiv“ ankreuzen und Push oder E-Mail wählen')];
+        $out[] = ['done' => null, 'text' => 'Kachel (optional): die Instanz in der Kachel-Visualisierung als Kachel hinzufügen'];
+        if ((int)($s['matterNoEp0'] ?? 0) > 0) {
+            $out[] = ['done' => null, 'text' => 'Matter: bei ' . (int)$s['matterNoEp0'] . ' Geräten gibt es keine Instanz für die Stromversorgung (Endpunkt 0). Nur für Batteriegeräte nötig, Näheres unter „Gefundene Geräte“'];
+        }
+        return $out;
+    }
+
+    /**
+     * Diagnose für Forum und Fehlersuche, ohne Gerätenamen und IDs: welche Signale wurden bei welchem Modul unter welchem Ident
+     * gefunden, was wurde ausgeschlossen, und welche Variablen sehen nach Batterie aus, wurden aber nicht erkannt.
+     *
+     * @param array $vars  Ergebnis von collectVariables()
+     * @param array $found Ergebnis von classify()
+     */
+    public static function diagnosis(array $vars, array $found, string $version, string $kernel): string
+    {
+        $byVid = [];
+        foreach ($vars as $v) {
+            $byVid[(int)$v['vid']] = $v;
+        }
+        $mods = [];     // Modul => ['devices'=>n,'sig'=>[Zeile=>n]]
+        $known = [];
+        foreach ($found['devices'] ?? [] as $d) {
+            $m = (string)($d['module'] ?? '') !== '' ? (string)$d['module'] : '(ohne Instanz)';
+            $mods[$m]['devices'] = ($mods[$m]['devices'] ?? 0) + 1;
+            foreach ($d['signals'] as $kind => $list) {
+                foreach ($list as $sg) {
+                    $v = $byVid[(int)$sg['vid']] ?? null;
+                    $known[(int)$sg['vid']] = true;
+                    $line = $kind . ' ← ' . ($v['ident'] ?? '?') . ' (Typ ' . ($v['type'] ?? '?') . ', Profil ' . (($v['profile'] ?? '') !== '' ? $v['profile'] : 'keins') . ', erkannt per ' . $sg['basis'] . ')';
+                    $mods[$m]['sig'][$line] = ($mods[$m]['sig'][$line] ?? 0) + 1;
+                }
+            }
+        }
+        $out = ['Batteriewächter ' . $version . ', Symcon ' . $kernel, 'Geräte gefunden: ' . count($found['devices'] ?? []), ''];
+        ksort($mods);
+        foreach ($mods as $m => $d) {
+            $out[] = 'Modul „' . $m . '“: ' . $d['devices'] . ($d['devices'] === 1 ? ' Gerät' : ' Geräte');
+            ksort($d['sig']);
+            foreach ($d['sig'] ?? [] as $line => $n) {
+                $out[] = '  • ' . $line . ' ×' . $n;
+            }
+        }
+        $ex = [];
+        foreach ($found['excluded'] ?? [] as $e) {
+            $v = $byVid[(int)$e['vid']] ?? null;
+            $known[(int)$e['vid']] = true;
+            $k = $e['reason'] . ' — Modul „' . (($v['moduleName'] ?? '') !== '' ? $v['moduleName'] : '(ohne Instanz)') . '“, Ident ' . ($v['ident'] ?? '?');
+            $ex[$k] = ($ex[$k] ?? 0) + 1;
+        }
+        if ($ex) {
+            ksort($ex);
+            $out[] = '';
+            $out[] = 'Ausgeschlossen:';
+            foreach ($ex as $k => $n) {
+                $out[] = '  • ' . $k . ' ×' . $n;
+            }
+        }
+        foreach ($found['suggestions'] ?? [] as $sg) {
+            $known[(int)$sg['vid']] = true;
+        }
+        $miss = [];
+        foreach ($vars as $v) {
+            if (isset($known[(int)$v['vid']])) {
+                continue;
+            }
+            if (preg_match('/(batt|\bbat\b|lowbat|low_bat|akku|battery)/i', (string)$v['ident'] . ' ' . (string)$v['name'])) {
+                $k = 'Modul „' . ($v['moduleName'] !== '' ? $v['moduleName'] : '(ohne Instanz)') . '“, Ident ' . $v['ident'] . ', Typ ' . $v['type'] . ', Profil ' . ($v['profile'] !== '' ? $v['profile'] : 'keins');
+                $miss[$k] = ($miss[$k] ?? 0) + 1;
+            }
+        }
+        $out[] = '';
+        if ($miss) {
+            ksort($miss);
+            $out[] = 'Nach Batterie aussehend, aber NICHT erkannt (Modul, Ident, Typ, Profil):';
+            foreach (array_slice($miss, 0, 40, true) as $k => $n) {
+                $out[] = '  • ' . $k . ' ×' . $n;
+            }
+            if (count($miss) > 40) {
+                $out[] = '  … und ' . (count($miss) - 40) . ' weitere Zeilen';
+            }
+        } else {
+            $out[] = 'Keine Variable gefunden, die nach Batterie aussieht und nicht erkannt wurde.';
+        }
+        $out[] = '';
+        $out[] = 'Die Ausgabe enthält nur Modulnamen, Idents, Typen und Profile, keine Gerätenamen und keine Objekt-IDs.';
+        return implode("\n", $out);
     }
 
     /** Namen, die einen Sammelwert über mehrere Geräte beschreiben („Schwächste Batterie“ eines Raums). */

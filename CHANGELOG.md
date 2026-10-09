@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.11.0] - 2026-10-09
+
+### Added
+- **Abfrage bei Funkstille:** Bei Geräten mit eingeschalteter Spalte „Abfragen“ (Z-Wave, Matter) schickt der Wächter nicht nur bei altem Batteriewert, sondern auch bei überfälligem Lebenszeichen eine Statusanfrage (höchstens alle N Tage, wie bisher). Bei einer Anfrage wegen Funkstille zählt **jedes** Lebenszeichen nach der Anfrage als Antwort („schläft nur“); bei einer Anfrage wegen alten Werts zählt weiter nur der neue Batteriewert. „Keine Antwort“ gilt bei Z-Wave nach 14 Tagen (schlafende Geräte antworten erst beim Aufwachen), bei Matter nach 6 Stunden. Auch **Gruppen-Regeln** können „Abfragen“ einschalten (neue Spalte).
+- **Tauschrunde in einem Rutsch quittieren:** In der Kachel unter „Einkauf“ trägt „✔ Alles getauscht (N)“ je Ort alle Geräte der Tauschrunde dieses Ortes als getauscht ein (zweiter Klick bestätigt, nur mit erlaubtem Quittieren). Im Formular unter „Quittieren“: „Ort aus der Tauschrunde“ und „✔️ Alle dort getauscht“, für Skripte `BWACH_AcknowledgePlace($id, '<Ort>')`. Bewertet wird erst am Ende einmal neu.
+- **Genauigkeit der Prognose:** Der Wächter merkt sich höchstens einmal pro Woche, was die Prognose bei hoher oder mittlerer Sicherheit sagt (Prozent und Entladung je Tag; Variable „Prognose-Protokoll“, höchstens 8 Einträge je Gerät). Bei einem **erkannten** Wechsel vergleicht er die älteste Prognose, die 14 bis 150 Tage alt ist, mit dem Stand vor dem Wechsel und speichert Vorhersage, Stand und Abweichung im Tagebuch. Statistik (Kachel und Tabelle) zeigt Anzahl der Vergleiche, mittlere Abweichung in Prozentpunkten und die Richtung. Von Hand eingetragene Wechsel werden nicht verglichen (der Stand davor ist nicht sicher bekannt). Braucht Wochen bis Monate Verlauf.
+- **Erste Schritte:** neues Panel mit Checkliste (Geräte gesucht, Zelltypen bekannt, Meldungen mit Zustellweg, Hinweis auf die Kachel, Matter-Hinweis), die sich selbst abhakt und aufgeklappt ist, solange etwas offen ist.
+- **Diagnose fürs Forum** (`BWACH_Diagnosis($id)`, Schaltfläche unter „Gefundene Geräte“): Version, je Modul die erkannten Signale mit Ident, Typ, Profil und Erkennungsweg, die Ausschlüsse und eine Liste von Variablen, die nach Batterie aussehen, aber nicht erkannt wurden. Ohne Gerätenamen und Objekt-IDs.
+
 ## [0.10.1] - 2026-10-09
 
 ### Added

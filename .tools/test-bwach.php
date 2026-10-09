@@ -476,7 +476,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.10.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.11.0', '📖  Dokumentation & Hilfe', '🚀  Erste Schritte', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -500,11 +500,11 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.10.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.11.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.10.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.11.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
-check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 11);
+check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 12);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
     foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits'], true)) { return false; } } } } }
     return true;
@@ -963,6 +963,16 @@ chk('Nach Ort: Zwischenüberschriften alphabetisch mit Anzahl, „ohne Ort“ zu
 chk('Nach Ort: Geräte stehen unter ihrem Ort', order().join()==='Gamma,Alpha <b>,Beta');
 click(function(e){ return e.textContent==='📍 Nach Ort'; });
 chk('Nach Ort aus: wieder eine Liste ohne Überschriften', all(global.ROOT).filter(function(e){ return e.className==='bw-place'; }).length===0);
+P.shopping.places=[{place:'Flur',devices:[{id:'1',name:'Alpha <b>',need:'1× CR2032',text:'leer'},{id:'3',name:'Gamma',need:'',text:'bald'}]},{place:'Bad',devices:[{id:'2',name:'Beta',need:'',text:'x'}]}]; P.shopping.count=3; P.allowAck=true; handleMessage(P);
+click(function(e){ return e.textContent==='🛒 Einkauf'; });
+chk('Tauschrunde: je Ort eine Schaltfläche „Alles getauscht“ mit Anzahl', texts(global.ROOT).indexOf('✔ Alles getauscht (2)')>=0 && texts(global.ROOT).indexOf('✔ Alles getauscht (1)')>=0);
+global.sent.length=0; click(function(e){ return e.textContent==='✔ Alles getauscht (2)'; });
+chk('Erster Klick fragt nur nach (nichts gesendet, „Wirklich alle 2 in Flur?“)', global.sent.length===0 && texts(global.ROOT).indexOf('Wirklich alle 2 in Flur?')>=0);
+click(function(e){ return e.textContent==='Wirklich alle 2 in Flur?'; });
+chk('Zweiter Klick sendet ack_place mit dem Ort', global.sent.length===1 && global.sent[0][0]==='ack_place' && JSON.parse(global.sent[0][1]).place==='Flur');
+P.allowAck=false; handleMessage(P); click(function(e){ return e.textContent==='🛒 Einkauf'; });
+chk('Ohne Quittier-Erlaubnis keine Orts-Schaltfläche', texts(global.ROOT).indexOf('Alles getauscht')<0);
+P.allowAck=true; handleMessage(P);
 click(function(e){ return e.textContent==='📈 Statistik'; });
 t = texts(global.ROOT);
 chk('Statistik: Lebensdauer und Restlaufzeit je Gerät', t.indexOf('Zelle CR2032')>=0 && t.indexOf('395 Tage (3 Intervalle)')>=0 && t.indexOf('Restlaufzeit je Gerät')>=0 && t.indexOf('reicht noch etwa 4 Tage')>=0 && t.indexOf('Für 1 Gerät gibt es noch keine Prognose')>=0 && t.indexOf('Restlaufzeit unbekannt: zu wenig')<0);
@@ -1619,7 +1629,7 @@ $mdl->props['NotifyMail'] = false; $mdl->props['MailInstance'] = 0; $mdl->props[
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle'; $mdl->props['ShopLink'] = '';
 
-// ===== 0.10.1: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
+// ===== 0.11.0: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
 $NOW = $GLOBALS['CLOCK'];
 check('Datum: TT.MM.JJJJ und JJJJ-MM-TT werden gelesen (12:00 Uhr)', BWACHMeldung::parseDate('05.03.2026', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate('2026-03-05', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate(' 5.3.2026 ', $NOW) === mktime(12, 0, 0, 3, 5, 2026));
 check('Datum: 31.02., Text, Zukunft und Jahre vor 2015 ergeben null', BWACHMeldung::parseDate('31.02.2026', $NOW) === null && BWACHMeldung::parseDate('gestern', $NOW) === null && BWACHMeldung::parseDate(date('d.m.Y', $NOW + 3 * 86400), $NOW) === null && BWACHMeldung::parseDate('01.01.2014', $NOW) === null && BWACHMeldung::parseDate('', $NOW) === null);
@@ -1688,6 +1698,101 @@ $fText = json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESC
 check('Formular: Datum nachtragen, Vorrat, Vorsorge-Intervall und CSV-Schaltfläche', strpos($fText, 'AckDate') !== false && strpos($fText, 'BWACH_AddReplacement') !== false && strpos($fText, '"name":"Stock"') !== false && strpos($fText, 'PreventiveMonths') !== false && strpos($fText, 'BWACH_DeviceListCsv') !== false);
 check('Vorrat-Liste bietet keinen Zelltyp „unbekannt“ an', strpos(json_encode((function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'Stock') { return $it; } } } return []; })(json_decode($mdl->GetConfigurationForm(), true)), JSON_UNESCAPED_UNICODE), 'unbekannt') === false);
 $mdl->props['PreventiveMonths'] = 0; $mdl->SetValue('Diary', '[]'); $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
+
+// ===== 0.11.0 =====
+$stp = BWACHLogik::firstSteps(['found' => false, 'devices' => 0, 'open' => 0, 'notify' => false, 'channel' => false, 'matterNoEp0' => 0]);
+check('Erste Schritte ohne Suche: Suche, Zelltypen und Meldungen offen, Kachel nur Hinweis', array_column($stp, 'done') === [false, false, false, null] && strpos($stp[0]['text'], 'Jetzt neu suchen') !== false && strpos($stp[1]['text'], 'erst Geräte suchen') !== false);
+$stp2 = BWACHLogik::firstSteps(['found' => true, 'devices' => 14, 'open' => 3, 'notify' => true, 'channel' => false, 'matterNoEp0' => 2]);
+check('Erste Schritte: 14 Geräte gefunden, bei 3 fehlt der Zelltyp, Meldungen an ohne Weg, Matter-Hinweis', array_column($stp2, 'done') === [true, false, false, null, null] && strpos($stp2[0]['text'], '14 Geräte gefunden') !== false && strpos($stp2[1]['text'], 'Bei 3 Geräten fehlt der Zelltyp') !== false && strpos($stp2[2]['text'], 'weder Push noch E-Mail') !== false && strpos($stp2[4]['text'], 'bei 2 Geräten') !== false);
+$stp3 = BWACHLogik::firstSteps(['found' => true, 'devices' => 1, 'open' => 0, 'notify' => true, 'channel' => true, 'matterNoEp0' => 0]);
+check('Erste Schritte: alles erledigt, Einzahl, kein Matter-Hinweis', array_column($stp3, 'done') === [true, true, true, null] && strpos($stp3[0]['text'], '1 Gerät gefunden') === 0 && strpos($stp3[1]['text'], 'bekannt') !== false);
+$fsPanel = function (BWTest $m) { foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $p) { if (($p['caption'] ?? '') === '🚀  Erste Schritte') { return $p; } } return null; };
+$pnl = $fsPanel($mdl);
+check('Panel „Erste Schritte“ im Formular: aufgeklappt, solange etwas offen ist, mit Häkchen-Zeichen', $pnl !== null && $pnl['expanded'] === true && strpos(json_encode($pnl, JSON_UNESCAPED_UNICODE), '✅') !== false && strpos(json_encode($pnl, JSON_UNESCAPED_UNICODE), '⬜') !== false);
+// Diagnose
+$dgV = [['vid' => 1, 'ident' => 'battery', 'name' => 'Batterie', 'type' => 1, 'profile' => '', 'parentId' => 10, 'parentIsInstance' => true, 'moduleName' => 'Zigbee2MQTT Device', 'instanceName' => 'Mein Sensor im Wohnzimmer'],
+    ['vid' => 2, 'ident' => 'battery_low', 'name' => 'Batterie schwach', 'type' => 0, 'profile' => '', 'parentId' => 10, 'parentIsInstance' => true, 'moduleName' => 'Zigbee2MQTT Device', 'instanceName' => 'Mein Sensor im Wohnzimmer'],
+    ['vid' => 3, 'ident' => 'BATT_STATE', 'name' => 'Akkuzustand', 'type' => 1, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum'],
+    ['vid' => 4, 'ident' => 'temp', 'name' => 'Temperatur', 'type' => 2, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum']];
+$dgF = BWACHLogik::classify($dgV, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.0', '9.0');
+check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.0, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
+check('Diagnose enthält keine Gerätenamen und keine Objekt-IDs', strpos($dgT, 'Wohnzimmer') === false && strpos($dgT, 'Geheimer Raum') === false && strpos($dgT, 'Mein Sensor') === false && strpos($dgT, 'Akkuzustand') === false && strpos($dgT, '#10') === false && strpos($dgT, 'vid') === false);
+check('Diagnose ohne Auffälligkeit sagt das', strpos(BWACHLogik::diagnosis([$dgV[0]], BWACHLogik::classify([$dgV[0]], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]), '1', '9'), 'Keine Variable gefunden, die nach Batterie aussieht') !== false);
+$mdl->props['GroupRules'] = '[]'; $mdl->props['DeviceSettings'] = '[]'; $mdl->ApplyChanges();
+check('Diagnose im Modul: nennt „Matter Device“ und PowerSource_BatPercentRemaining, aber keine Instanznamen', (function ($d) { return strpos($d, 'Modul „Matter Device“') !== false && strpos($d, 'PowerSource_BatPercentRemaining') !== false && strpos($d, 'Badfenster') === false; })($mdl->Diagnosis()), $mdl->Diagnosis());
+check('Schaltfläche „Diagnose fürs Forum“ im Formular', strpos($mdl->GetConfigurationForm(), 'BWACH_Diagnosis') !== false);
+// Genauigkeit der Prognose
+$aL = BWACHPrognose::accLog([], $NOW, 60.0, -0.5, 'hoch');
+check('Prognose-Protokoll: nimmt Eintrag bei hoher/mittlerer Sicherheit und Entladung, sonst nicht', count($aL) === 1 && $aL[0] === ['t' => $NOW, 'p' => 60.0, 's' => -0.5] && BWACHPrognose::accLog([], $NOW, 60.0, -0.5, 'niedrig') === [] && BWACHPrognose::accLog([], $NOW, 60.0, 0.1, 'hoch') === [] && BWACHPrognose::accLog([], $NOW, 60.0, 0.0, 'hoch') === [] && BWACHPrognose::accLog([], $NOW, null, -0.5, 'hoch') === [] && BWACHPrognose::accLog([], $NOW, 60.0, null, 'hoch') === [] && count(BWACHPrognose::accLog([], $NOW, 60.0, -0.5, 'mittel')) === 1);
+check('Prognose-Protokoll: höchstens einmal pro Woche, höchstens 8 Einträge', count(BWACHPrognose::accLog($aL, $NOW + 3 * 86400, 55.0, -0.5, 'hoch')) === 1 && count(BWACHPrognose::accLog($aL, $NOW + 8 * 86400, 55.0, -0.5, 'hoch')) === 2 && (function () use ($NOW) { $l = []; for ($i = 0; $i < 12; $i++) { $l = BWACHPrognose::accLog($l, $NOW + $i * 8 * 86400, 90.0 - $i, -0.5, 'hoch'); } return count($l) === 8 && $l[0]['p'] === 86.0; })());
+$aC = BWACHPrognose::accCompare([['t' => $NOW - 60 * 86400, 'p' => 60.0, 's' => -0.5]], $NOW, 20.0);
+check('Prognose-Vergleich: Prognose 60 % − 0,5 × 60 Tage = 30 %, tatsächlich 20 % → Abweichung −10', $aC === ['pred' => 30.0, 'act' => 20.0, 'err' => -10.0, 'age' => 60], json_encode($aC));
+check('Prognose-Vergleich: zu junge (<14 Tage) und zu alte (>150 Tage) Prognosen zählen nicht, die älteste passende gewinnt', BWACHPrognose::accCompare([['t' => $NOW - 5 * 86400, 'p' => 60.0, 's' => -0.5]], $NOW, 20.0) === null && BWACHPrognose::accCompare([['t' => $NOW - 200 * 86400, 'p' => 90.0, 's' => -0.3]], $NOW, 20.0) === null && BWACHPrognose::accCompare([['t' => $NOW - 200 * 86400, 'p' => 90.0, 's' => -0.3], ['t' => $NOW - 100 * 86400, 'p' => 70.0, 's' => -0.5], ['t' => $NOW - 30 * 86400, 'p' => 40.0, 's' => -0.5]], $NOW, 20.0)['age'] === 100 && BWACHPrognose::accCompare([['t' => $NOW - 300 * 86400, 'p' => 10.0, 's' => -0.5], ['t' => $NOW - 20 * 86400, 'p' => 40.0, 's' => -0.5]], $NOW, 20.0)['age'] === 20);
+check('Prognose-Vergleich: Prognose unter 0 % wird auf 0 begrenzt', BWACHPrognose::accCompare([['t' => $NOW - 100 * 86400, 'p' => 20.0, 's' => -0.5]], $NOW, 8.0)['pred'] === 0.0);
+$accS = BWACHPrognose::accSummary([['acc' => ['err' => -10.0]], ['acc' => ['err' => 4.0]], ['t' => 1], ['acc' => ['err' => 6.0]]]);
+check('Zusammenfassung: 3 Vergleiche, mittlere Abweichung 6,7, Richtung 0 (kein Hang)', $accS === ['n' => 3, 'meanAbs' => 6.7, 'bias' => 0.0] && BWACHPrognose::accSummary([]) === ['n' => 0, 'meanAbs' => null, 'bias' => null], json_encode($accS));
+// im Modul: Wechsel mit gespeicherter Prognose
+$mdl->SetValue('Diary', '[]'); $mdl->SetValue('FcLog', '{}'); $mdl->SetValue('LastSeen', '{}'); $GLOBALS['OBJ'][5021]['var']['value'] = 40; $mdl->Check();
+$mdl->SetValue('FcLog', json_encode(['502' => [['t' => $NOW - 60 * 86400, 'p' => 60.0, 's' => -0.5]]]));
+$GLOBALS['OBJ'][5021]['var']['value'] = 200; $mdl->Check();
+$diaAcc = json_decode($mdl->GetValue('Diary'), true);
+check('Erkannter Wechsel trägt den Prognose-Vergleich im Tagebuch (Prognose 30 %, tatsächlich 20 %)', count($diaAcc) === 1 && $diaAcc[0]['type'] === 'erkannt' && ($diaAcc[0]['acc']['pred'] ?? null) == 30 && ($diaAcc[0]['acc']['act'] ?? null) == 20 && $diaAcc[0]['acc']['err'] == -10, json_encode($diaAcc, JSON_UNESCAPED_UNICODE));
+check('Das Prognose-Protokoll des Geräts ist nach dem Wechsel geleert', !isset(json_decode($mdl->GetValue('FcLog'), true)['502']));
+check('Statistik nennt die Genauigkeit (1 Wechsel, im Mittel 10 Prozentpunkte daneben, schneller entladen)', (function ($m) { $st = json_decode(end($m->visUpdates), true)['shopping']['stats']; foreach ($st as $x) { if ($x['group'] === '🎯 Prognose') { return strpos($x['text'], '1 Wechsel verglichen: im Mittel 10 Prozentpunkte daneben') === 0 && strpos($x['text'], 'schneller als vorhergesagt') !== false; } } return false; })($mdl));
+check('Tabelle „Statistik“ nennt die Genauigkeit', strpos($mdl->GetValue('TableStats'), 'Genauigkeit der Prognose') !== false);
+$mdl->SetValue('Diary', '[]');
+// Sammelquittieren
+$mdl->props['GroupRules'] = '[]'; $mdl->props['Stock'] = '[]'; $mdl->props['NotificationsActive'] = false;
+$GLOBALS['OBJ'][5021]['var']['value'] = 8; $GLOBALS['OBJ'][5023]['var']['value'] = 'AAA'; $mdl->props['TileAllowAck'] = true; $mdl->SetValue('Diary', '[]'); $mdl->SetValue('Retired', '{}'); $mdl->ApplyChanges(); $mdl->Check();
+$trN = json_decode(end($mdl->visUpdates), true)['shopping']['places'];
+check('Tauschrunde in den Kachel-Daten trägt die Geräte-ID je Gerät', ($trN[0]['devices'][0]['id'] ?? '') === '502', json_encode($trN, JSON_UNESCAPED_UNICODE));
+$mdl->SetValue('Diary', '[]');
+$msgP = $mdl->AcknowledgePlace('Öffnungskontakte');
+$diaP = json_decode($mdl->GetValue('Diary'), true);
+check('Alle getauscht: ein Tagebucheintrag je Gerät der Tauschrunde im Ort, Meldung nennt Zahl und Ort', strpos($msgP, '✅ 1 Gerät in „Öffnungskontakte“ als getauscht') === 0 && count($diaP) === 1 && $diaP[0]['key'] === '502' && $diaP[0]['type'] === 'manuell', $msgP);
+check('Alle getauscht: Ort ohne Tauschrunde und unbekannter Ort melden nichts getan', strpos($mdl->AcknowledgePlace('Gibt es nicht'), 'nichts') !== false && count(json_decode($mdl->GetValue('Diary'), true)) === 1);
+$GLOBALS['OBJ'][5021]['var']['value'] = 200; $mdl->SetValue('Diary', '[]'); $mdl->SetValue('NotifyState', '{}');
+$GLOBALS['OBJ'][5021]['var']['value'] = 8; $mdl->Check(); $mdl->visUpdates = [];
+$mdl->RequestAction('ack_place', json_encode(['place' => 'Öffnungskontakte']));
+check('Aus der Kachel: „ack_place“ trägt ein und meldet zurück', count(json_decode($mdl->GetValue('Diary'), true)) === 1 && strpos(json_decode(end($mdl->visUpdates), true)['message'], '✅ 1 Gerät in „Öffnungskontakte“') === 0);
+$mdl->SetValue('Diary', '[]'); $mdl->props['TileAllowAck'] = false; $mdl->visUpdates = [];
+$mdl->RequestAction('ack_place', json_encode(['place' => 'Öffnungskontakte']));
+check('Aus der Kachel bei ausgeschaltetem Quittieren: abgewiesen, nichts eingetragen', json_decode($mdl->GetValue('Diary'), true) === [] && strpos(json_decode(end($mdl->visUpdates), true)['message'], '⛔') === 0);
+$mdl->props['TileAllowAck'] = true; $mdl->visUpdates = [];
+$mdl->RequestAction('ack_place', 'kaputt');
+check('Aus der Kachel mit kaputter Anfrage: ⛔ Ungültig', strpos(json_decode(end($mdl->visUpdates), true)['message'], 'Ungültige Anfrage') !== false);
+check('Formular: Ort wählen und „Alle dort getauscht“ (mit dem Ort aus der Tauschrunde samt Anzahl)', strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Öffnungskontakte (1)') !== false && strpos($mdl->GetConfigurationForm(), 'BWACH_AcknowledgePlace') !== false);
+$GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle'; $mdl->SetValue('Diary', '[]'); $mdl->SetValue('NotifyState', '{}'); $mdl->SetValue('FcLog', '{}'); $mdl->SetValue('Poll', '{}');
+
+// Funkstille-Abfrage
+$stillWorld = function (bool $pollOn, string $module = 'Matter Device', int $silentDays = 10) {
+    $GLOBALS['MT'] = []; $GLOBALS['ZW'] = [];
+    $w = pollWorld(1, $pollOn, $module);
+    $GLOBALS['OBJ'][3011]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - $silentDays * 86400;
+    $GLOBALS['OBJ'][3012]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - $silentDays * 86400;
+    $GLOBALS['MT'] = []; $GLOBALS['ZW'] = [];
+    $w->Check();
+    return $w;
+};
+$sw = $stillWorld(true);
+check('Funkstille-Abfrage: 10 Tage ohne Lebenszeichen (Wert nur 10 Tage alt, unter 14), Gerät eingeschaltet → MATTER_RequestStatus', $GLOBALS['MT'] === [301], json_encode($GLOBALS['MT']));
+check('Funkstille-Abfrage: Anlass „still“ wird festgehalten', (json_decode($sw->GetValue('Poll'), true)['301']['why'] ?? '') === 'still');
+$GLOBALS['OBJ'][3012]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] + 5; $GLOBALS['CLOCK'] += 10; $GLOBALS['MT'] = []; $sw->Check();
+check('Funkstille-Abfrage: ein neues Lebenszeichen nach der Anfrage zählt als Antwort („schläft nur“)', json_decode($sw->GetValue('Poll'), true)['301']['ans'] === true && strpos(json_decode(end($sw->visUpdates), true)['devices'][0]['pollText'], 'Gerät hat geantwortet') !== false);
+$sw2 = $stillWorld(true); $GLOBALS['CLOCK'] += 7 * 3600; $GLOBALS['MT'] = []; $sw2->Check();
+check('Funkstille-Abfrage bei Matter: nach 6 Stunden ohne Antwort „keine Antwort“ (Z-Wave wartet 14 Tage), Befund erscheint', json_decode($sw2->GetValue('Poll'), true)['301']['ans'] === false && in_array('keine_antwort', json_decode(end($sw2->visUpdates), true)['devices'][0]['quality'], true));
+$sw3 = $stillWorld(true, 'Z-Wave Module'); $GLOBALS['CLOCK'] += 7 * 3600; $GLOBALS['ZW'] = []; $sw3->Check();
+check('Funkstille-Abfrage bei Z-Wave: nach 7 Stunden noch Wartezeit (schlafende Geräte antworten beim Aufwachen)', $GLOBALS['ZW'] === [] && array_key_exists('ans', json_decode($sw3->GetValue('Poll'), true)['301']) && json_decode($sw3->GetValue('Poll'), true)['301']['ans'] === null);
+$stillWorld(false);
+check('Funkstille-Abfrage ist aus, solange „Abfragen“ aus ist', $GLOBALS['MT'] === []);
+$stillWorld(true, 'Matter Device', 2);
+check('Gerät lebt (2 Tage, keine Funkstille) und Wert jung: keine Anfrage', $GLOBALS['MT'] === []);
+$GLOBALS['MT'] = []; $swr = pollWorld(1, false, 'Matter Device');
+$GLOBALS['OBJ'][3011]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 10 * 86400; $GLOBALS['OBJ'][3012]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 10 * 86400;
+$swr->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'alle', 'Kind' => 'name', 'Pattern' => 'Schläfer', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => false, 'Poll' => true]]); $swr->ApplyChanges(); $swr->Check();
+check('Gruppen-Regel kann „Abfragen“ einschalten', $GLOBALS['MT'] === [301], json_encode($GLOBALS['MT']));
+check('Regel-Liste hat die Spalte „Abfragen“', strpos(json_encode(json_decode($swr->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '"name":"Poll","width":"80px"') !== false);
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

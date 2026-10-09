@@ -228,6 +228,65 @@ final class BWACHPrognose
         return ['need' => $need, 'lines' => $lines, 'missing' => $missing, 'counts' => $buy, 'covered' => $covered];
     }
 
+    // =====================================================================
+    //  Genauigkeit der Prognose
+    // =====================================================================
+
+    public const ACC_MIN_AGE_DAYS = 14;
+    public const ACC_MAX_AGE_DAYS = 150;
+    public const ACC_LOG_MAX      = 8;
+
+    /**
+     * Merkt sich höchstens einmal pro Woche, was die Prognose gerade sagt (Prozent jetzt, Entladung je Tag), nur bei
+     * hoher oder mittlerer Sicherheit und echter Entladung. Beim Wechsel wird damit verglichen.
+     *
+     * @return array die fortgeschriebene Liste von ['t','p','s']
+     */
+    public static function accLog(array $log, int $now, ?float $pct, ?float $slope, string $confidence): array
+    {
+        if ($pct === null || $slope === null || $slope >= 0 || !in_array($confidence, ['hoch', 'mittel'], true)) {
+            return $log;
+        }
+        $last = $log ? end($log) : null;
+        if ($last !== null && $now - (int)$last['t'] < 7 * 86400) {
+            return $log;
+        }
+        $log[] = ['t' => $now, 'p' => round($pct, 1), 's' => round($slope, 4)];
+        return array_slice($log, -self::ACC_LOG_MAX);
+    }
+
+    /**
+     * Vergleicht beim Wechsel die älteste passende Prognose (14 bis 150 Tage alt) mit dem tatsächlichen Stand vor dem Wechsel.
+     *
+     * @return array|null ['pred'=>Prozent laut Prognose,'act'=>tatsächlicher Stand,'err'=>act-pred,'age'=>Alter der Prognose in Tagen]
+     */
+    public static function accCompare(array $log, int $now, float $actualPct): ?array
+    {
+        foreach ($log as $e) {
+            $age = ($now - (int)$e['t']) / 86400;
+            if ($age >= self::ACC_MIN_AGE_DAYS && $age <= self::ACC_MAX_AGE_DAYS) {
+                $pred = max(0.0, min(100.0, (float)$e['p'] + (float)$e['s'] * $age));
+                return ['pred' => round($pred, 1), 'act' => round($actualPct, 1), 'err' => round($actualPct - $pred, 1), 'age' => (int)round($age)];
+            }
+        }
+        return null;
+    }
+
+    /** Zusammenfassung aller Vergleiche im Tagebuch: Anzahl, mittlere Abweichung (Betrag) und Richtung. */
+    public static function accSummary(array $diary): array
+    {
+        $errs = [];
+        foreach ($diary as $e) {
+            if (isset($e['acc']['err'])) {
+                $errs[] = (float)$e['acc']['err'];
+            }
+        }
+        if (!$errs) {
+            return ['n' => 0, 'meanAbs' => null, 'bias' => null];
+        }
+        return ['n' => count($errs), 'meanAbs' => round(array_sum(array_map('abs', $errs)) / count($errs), 1), 'bias' => round(array_sum($errs) / count($errs), 1)];
+    }
+
     /**
      * Suchlink für eine Einkaufsbezeichnung aus der Vorlage des Nutzers. Die Vorlage muss mit http:// oder https://
      * beginnen und {Zelltyp} enthalten; sonst gibt es keinen Link (null). Die Bezeichnung wird URL-kodiert eingesetzt.
