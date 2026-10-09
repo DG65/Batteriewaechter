@@ -21,6 +21,7 @@
 
 ## Zelltyp, Prognose, Einkauf
 
+- **Vorrat, Vorsorge, Nachtragen:** Unter „Prognose und Einkauf“ trägst du den Vorrat zu Hause ein (die Einkaufsliste zeigt nur, was fehlt) und für kritische Geräte ein festes Wechselintervall in Monaten (Rauchmelder: Wechsel auch bei gutem Stand). Unter „Quittieren und Batterietagebuch“ trägst du frühere Wechsel mit Datum nach. In der Kachel gruppiert „📍 Nach Ort“ die Liste, `BWACH_DeviceListCsv` liefert die Geräteliste als CSV.
 - **Einkaufsliste mitnehmen:** In der Kachel unter „Einkauf“ kopiert „Kopieren“ die Liste samt Tauschrunde als Text, „Senden“ schickt sie per Push oder E-Mail. Optional trägst du unter „Prognose und Einkauf“ eine Linkvorlage mit `{Zelltyp}` ein (z. B. die Suche deines Händlers); die Kachel zeigt dann hinter jeder Zeile einen Suchlink. Standardmäßig leer: kein Händler ist eingebaut, es wird nichts dorthin gesendet.
 - **Gruppen statt Einzeleingabe:** Im Panel „Gruppen“ trägt eine Regel Zelltyp, Anzahl Zellen, Ereignismelder, kritisch oder „ausnehmen“ für alle Geräte auf einmal ein, auf die ihr Muster passt (nach Ort/Kategorie, System/Modul oder Name, mehrere Muster mit Komma). Es gilt die erste passende Regel von oben; eine eigene Einstellung je Gerät geht vor, sobald sie vom Standard abweicht. Neue Geräte, die auf eine Regel passen, bekommen die Werte von selbst. Die Spalte „Gilt“ in „Geräte-Einstellungen“ zeigt das Ergebnis je Gerät.
 - **Zelltyp je Gerät** unter „Geräte-Einstellungen“ (z. B. CR2032, 3× AAA). Die Liste enthält schon jedes erkannte Gerät; es genügt, Zelltyp und Anzahl Zellen zu wählen und „Übernehmen“ zu klicken. Damit rechnet der Wächter Spannungen in einen Ladezustand um und zählt die Einkaufsliste. Die Umrechnung ist eine **Näherung** mit typischen Entladekurven je Zellchemie, keine Datenblattwerte eines Herstellers, und wird immer als „aus Spannung berechnet“ gekennzeichnet. Aus der Spannung allein lässt sich der Zelltyp nicht sicher erkennen (3 V: Knopfzelle oder zwei Alkali-Zellen); der Wächter nennt nur Kandidaten.
@@ -86,7 +87,7 @@ Spannungswerte werden angezeigt, aber noch nicht in Prozent umgerechnet (die Aus
 
 ## Skripte
 
-`BWACH_Search`, `BWACH_Check`, `BWACH_Preview`, `BWACH_SendTest`, `BWACH_UnretireAll`, `BWACH_ShoppingText` (Einkaufsliste und Tauschrunde als Text), `BWACH_SendShopping` (je `<InstanzID>`), `BWACH_Acknowledge(<InstanzID>, '<Schlüssel>', 'getauscht'|'zurueckgestellt'|'ausser_betrieb')`, `BWACH_Unretire(<InstanzID>, '<Schlüssel>')` — alle liefern einen Text. Die Schlüssel der Geräte nennt „📋 Was würde gefunden?“; einfacher ist die Auswahl im Formular.
+`BWACH_Search`, `BWACH_Check`, `BWACH_Preview`, `BWACH_SendTest`, `BWACH_UnretireAll`, `BWACH_ShoppingText` (Einkaufsliste und Tauschrunde als Text), `BWACH_SendShopping`, `BWACH_DeviceListCsv` (je `<InstanzID>`), `BWACH_AddReplacement(<InstanzID>, '<Schlüssel>', 'TT.MM.JJJJ')`, `BWACH_Acknowledge(<InstanzID>, '<Schlüssel>', 'getauscht'|'zurueckgestellt'|'ausser_betrieb')`, `BWACH_Unretire(<InstanzID>, '<Schlüssel>')` — alle liefern einen Text. Die Schlüssel der Geräte nennt „📋 Was würde gefunden?“; einfacher ist die Auswahl im Formular.
 
 ## Prüfstand
 

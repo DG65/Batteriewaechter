@@ -184,6 +184,15 @@ final class BWACHLogik
         return $names;
     }
 
+    /** Eine CSV-Zeile mit Semikolon (deutsches Excel); Felder mit Semikolon, Anführungszeichen oder Zeilenumbruch werden gequotet. */
+    public static function csvRow(array $cells): string
+    {
+        return implode(';', array_map(function ($c) {
+            $c = (string)$c;
+            return preg_match('/[;"\r\n]/', $c) ? '"' . str_replace('"', '""', $c) . '"' : $c;
+        }, $cells));
+    }
+
     // =====================================================================
     //  Gruppen-Regeln
     // =====================================================================

@@ -184,14 +184,21 @@ final class BWACHPrognose
         $need = [];
         foreach ($items as $i) {
             $soon = $i['days'] !== null && $i['days'] <= $horizonDays;
-            if (in_array($i['status'], ['leer', 'schwach'], true) || $soon) {
+            if (in_array($i['status'], ['leer', 'schwach'], true) || $soon || !empty($i['preventive'])) {
                 $need[] = $i;
             }
         }
         return $need;
     }
 
-    public static function shopping(array $items, int $horizonDays): array
+    /**
+     * Einkaufsliste. Mit Vorrat ($stock = Bezeichnung => Stück) steht nur noch, was fehlt; reicht der Vorrat,
+     * steht die Bezeichnung unter 'covered'.
+     *
+     * @param array $stock Bezeichnung (z. B. „AAA“) => Anzahl, die zu Hause liegt
+     * @return array ['need','lines','missing','counts'=>[Bezeichnung=>zu kaufen],'covered'=>string[]]
+     */
+    public static function shopping(array $items, int $horizonDays, array $stock = []): array
     {
         $need  = self::due($items, $horizonDays);
         $count = [];
@@ -205,11 +212,20 @@ final class BWACHPrognose
             $count[$label] = ($count[$label] ?? 0) + max(1, (int)$i['cells']);
         }
         arsort($count);
-        $lines = [];
+        $lines   = [];
+        $buy     = [];
+        $covered = [];
         foreach ($count as $label => $n) {
-            $lines[] = $n . '× ' . $label;
+            $have = max(0, (int)($stock[$label] ?? 0));
+            if ($have >= $n) {
+                $covered[] = $label . ': Vorrat reicht (' . $n . ' nötig, ' . $have . ' da)';
+                continue;
+            }
+            $toBuy = $n - $have;
+            $buy[$label] = $toBuy;
+            $lines[] = $toBuy . '× ' . $label . ($have > 0 ? ' (Bedarf ' . $n . ', ' . $have . ' vorrätig)' : '');
         }
-        return ['need' => $need, 'lines' => $lines, 'missing' => $missing, 'counts' => $count];
+        return ['need' => $need, 'lines' => $lines, 'missing' => $missing, 'counts' => $buy, 'covered' => $covered];
     }
 
     /**
@@ -234,11 +250,14 @@ final class BWACHPrognose
     public static function shoppingText(array $shopping, array $round, int $horizonDays, string $until): string
     {
         $out = ['🛒 Batterien einkaufen (nächste ' . $horizonDays . ' Tage)'];
-        if (!$shopping['lines']) {
+        if (!$shopping['lines'] && empty($shopping['covered'])) {
             $out[] = $shopping['need'] ? 'Keine Zelltypen bekannt.' : 'Nichts zu besorgen.';
         }
         foreach ($shopping['lines'] as $l) {
             $out[] = '• ' . $l;
+        }
+        foreach ($shopping['covered'] ?? [] as $c) {
+            $out[] = '✓ ' . $c;
         }
         if ($shopping['missing']) {
             $out[] = 'Zelltyp fehlt bei: ' . implode(', ', $shopping['missing']);

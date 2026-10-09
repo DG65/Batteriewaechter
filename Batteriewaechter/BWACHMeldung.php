@@ -24,6 +24,7 @@ final class BWACHMeldung
     public const PROB_LOW    = 'schwach';
     public const PROB_SILENT = 'still';
     public const PROB_SOON   = 'bald';     // laut Prognose bald leer (nur bei ausreichender Sicherheit)
+    public const PROB_PREVENT = 'vorsorge'; // vorsorglicher Wechsel nach festem Intervall fällig (nur kritische Geräte)
 
     public const ACK_REPLACED = 'getauscht';
     public const ACK_SNOOZE   = 'zurueckgestellt';
@@ -51,6 +52,9 @@ final class BWACHMeldung
         }
         if (!empty($r['soon'])) {
             $p[] = self::PROB_SOON;
+        }
+        if (!empty($r['preventive'])) {
+            $p[] = self::PROB_PREVENT;
         }
         return $p;
     }
@@ -199,6 +203,55 @@ final class BWACHMeldung
         return $diary;
     }
 
+    /**
+     * Liest ein Datum „TT.MM.JJJJ“ oder „JJJJ-MM-TT“ als Zeitstempel (12:00 Uhr). Ungültige Tage (31.02.),
+     * Daten in der Zukunft und Jahre vor 2015 ergeben null.
+     */
+    public static function parseDate(string $s, int $now): ?int
+    {
+        $s = trim($s);
+        if (preg_match('/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/', $s, $m)) {
+            [$d, $mo, $y] = [(int)$m[1], (int)$m[2], (int)$m[3]];
+        } elseif (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $s, $m)) {
+            [$y, $mo, $d] = [(int)$m[1], (int)$m[2], (int)$m[3]];
+        } else {
+            return null;
+        }
+        if ($y < 2015 || !checkdate($mo, $d, $y)) {
+            return null;
+        }
+        $t = mktime(12, 0, 0, $mo, $d, $y);
+        return $t > $now ? null : $t;
+    }
+
+    /** Zeitstempel des jüngsten Wechsels eines Geräts im Tagebuch, null wenn keiner erfasst ist. */
+    public static function lastReplacement(array $diary, string $key): ?int
+    {
+        $last = null;
+        foreach ($diary as $e) {
+            if ((string)$e['key'] === $key && ($last === null || (int)$e['t'] > $last)) {
+                $last = (int)$e['t'];
+            }
+        }
+        return $last;
+    }
+
+    /**
+     * Vorsorglicher Wechsel: nach festem Intervall, auch wenn die Batterie noch gut ist.
+     *
+     * @param int|null $last   jüngster erfasster Wechsel (Zeitstempel) oder null
+     * @param int      $months Intervall in Monaten, 0 = aus
+     * @return array ['due'=>bool,'months'=>float|null (Monate seit dem Wechsel)]
+     */
+    public static function preventiveDue(?int $last, int $months, int $now): array
+    {
+        if ($months <= 0 || $last === null) {
+            return ['due' => false, 'months' => $last === null ? null : round(($now - $last) / (365.25 / 12 * 86400), 1)];
+        }
+        $since = ($now - $last) / (365.25 / 12 * 86400);
+        return ['due' => $since >= $months, 'months' => round($since, 1)];
+    }
+
     // =====================================================================
     //  Wochenbericht
     // =====================================================================
@@ -252,6 +305,8 @@ final class BWACHMeldung
                 $title = '⚠️ Batterie schwach';
             } elseif (in_array(self::PROB_SILENT, $p, true)) {
                 $title = '🔇 Funkstille';
+            } elseif (in_array(self::PROB_PREVENT, $p, true) && !in_array(self::PROB_SOON, $p, true)) {
+                $title = '🗓 Vorsorglich tauschen';
             } else {
                 $title = '⏳ Batterie bald leer';
             }

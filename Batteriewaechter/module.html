@@ -108,6 +108,8 @@
     var bwOpen = null;
     var bwSure = null;
     var bwLocalMsg = '';
+    var bwGroup = false;
+    try { bwGroup = window.localStorage.getItem('bw-group') === '1'; } catch (e) { /* Speicher gesperrt */ }
     var bwSort = { key: 'urgency', dir: 'desc' };
     try {
         var bwSaved = JSON.parse(window.localStorage.getItem('bw-sort') || 'null');
@@ -130,6 +132,7 @@
         { id: 'low',      label: '⚠️ schwach',       test: function (d) { return d.status === 'schwach'; } },
         { id: 'soon',     label: '⏳ bald leer',      test: function (d) { return d.soon; } },
         { id: 'silent',   label: '🔇 Funkstille',    test: function (d) { return d.funk === 'still'; } },
+        { id: 'prevent',  label: '🗓 Vorsorge',      test: function (d) { return d.preventive; } },
         { id: 'check',    label: '❔ Daten prüfen',   test: bwHasCheck }
     ];
 
@@ -179,13 +182,14 @@
         if (d.status === 'schwach') { return '⚠️'; }
         if (d.soon && d.funk !== 'still') { return '⏳'; }
         if (d.funk === 'still') { return '🔇'; }
+        if (d.preventive) { return '🗓'; }
         if (bwHasCheck(d) || d.status === 'unbekannt') { return '❔'; }
         return '✅';
     }
 
     function bwClass(d) {
         if (d.status === 'leer') { return 's-leer'; }
-        if (d.status === 'schwach' || (d.soon && d.funk !== 'still')) { return 's-schwach'; }
+        if (d.status === 'schwach' || (d.soon && d.funk !== 'still') || d.preventive) { return 's-schwach'; }
         if (d.funk === 'still') { return 's-still'; }
         if (bwHasCheck(d) || d.status === 'unbekannt') { return 's-check'; }
         return 's-ok';
@@ -298,7 +302,9 @@
         var s = BW.shopping;
         var box = bwEl('div', 'bw-sec');
         box.appendChild(bwEl('div', 'bw-h', '🛒 Einkauf für die nächsten ' + s.horizon + ' Tage'));
-        if (!s.lines || s.lines.length === 0) {
+        if ((!s.lines || s.lines.length === 0) && s.covered && s.covered.length) {
+            box.appendChild(bwEl('div', 'bw-empty', '✅ Der Vorrat reicht.'));
+        } else if (!s.lines || s.lines.length === 0) {
             box.appendChild(bwEl('div', 'bw-empty', s.count === 0 ? '✅ Nichts zu besorgen.' : 'Keine Zelltypen bekannt. Zelltyp je Gerät eintragen: ' + s.where + '.'));
         } else if (s.items && s.items.length) {
             var big = bwEl('div', 'bw-big');
@@ -317,6 +323,9 @@
             box.appendChild(big);
         } else {
             box.appendChild(bwEl('div', 'bw-big', s.lines.join(', ')));
+        }
+        if (s.covered && s.covered.length) {
+            box.appendChild(bwEl('div', 'bw-note', '✓ ' + s.covered.join(' · ')));
         }
         if (s.text) {
             var acts = bwEl('div', 'bw-acts');
@@ -439,10 +448,38 @@
                     b.onclick = function () { bwSetSort(s.id); };
                     sorts.appendChild(b);
                 });
+                var grp = bwEl('button', 'bw-chip' + (bwGroup ? ' on' : ''), '📍 Nach Ort');
+                grp.type = 'button';
+                grp.onclick = function () {
+                    bwGroup = !bwGroup;
+                    try { window.localStorage.setItem('bw-group', bwGroup ? '1' : '0'); } catch (e) { /* nur Komfort */ }
+                    bwOpen = null; bwSure = null; bwRender();
+                };
+                sorts.appendChild(grp);
                 root.appendChild(sorts);
-                var list = bwEl('div', 'bw-list');
-                bwSortBy(shown).forEach(function (d) { list.appendChild(bwRow(d)); });
-                root.appendChild(list);
+                var sortedShown = bwSortBy(shown);
+                if (!bwGroup) {
+                    var list = bwEl('div', 'bw-list');
+                    sortedShown.forEach(function (d) { list.appendChild(bwRow(d)); });
+                    root.appendChild(list);
+                } else {
+                    var places = [];
+                    sortedShown.forEach(function (d) {
+                        var p = d.place || '';
+                        if (places.indexOf(p) < 0) { places.push(p); }
+                    });
+                    places.sort(function (a, b) {
+                        if ((a === '') !== (b === '')) { return a === '' ? 1 : -1; }
+                        return a.localeCompare(b, 'de', { numeric: true, sensitivity: 'base' });
+                    });
+                    places.forEach(function (p) {
+                        var inPlace = sortedShown.filter(function (d) { return (d.place || '') === p; });
+                        root.appendChild(bwEl('div', 'bw-place', (p || 'ohne Ort') + ' (' + inPlace.length + ')'));
+                        var gl = bwEl('div', 'bw-list');
+                        inPlace.forEach(function (d) { gl.appendChild(bwRow(d)); });
+                        root.appendChild(gl);
+                    });
+                }
             }
         }
 

@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.10.0] - 2026-10-09
+
+### Added
+- **Vorrat:** Liste „Vorrat zu Hause“ unter „Prognose und Einkauf“ (Zelltyp, Stück). Die Einkaufsliste zieht ihn ab: „1× AAA (Bedarf 3, 2 vorrätig)“; reicht der Vorrat, steht „AAA: Vorrat reicht (3 nötig, 5 da)“ (Kachel, Text, Mail). Mehrere Zeilen desselben Zelltyps werden summiert. AA/AAA als Alkali und als Akku sind getrennte Bezeichnungen, ihr Vorrat zählt nicht gegenseitig.
+- **Vorsorglich tauschen:** Einstellung „Kritische Geräte vorsorglich tauschen alle N Monate“ (0 = aus, Standard aus). Gilt nur für kritische Geräte (einzeln oder per Gruppen-Regel) mit erfasstem letzten Wechsel im Tagebuch (erkannt, eingetragen oder nachgetragen). Ist das Intervall um, steht das Gerät mit Grund in Kachel (🗓, Filter „Vorsorge“), Tauschrunde und Einkauf und wird gemeldet („🗓 Vorsorglich tauschen“), der Batteriestatus bleibt „ok“. Ohne erfassten Wechsel passiert nichts.
+- **Wechsel nachtragen:** Unter „Quittieren und Batterietagebuch“ lässt sich ein früherer Wechsel mit Datum (TT.MM.JJJJ oder JJJJ-MM-TT) eintragen (`BWACH_AddReplacement($id, $key, $date)`). Er geht einsortiert ins Tagebuch (Typ „nachgetragen“) und in Lebensdauer und Vorsorge; es gibt keine Meldung und keine Wartezeit. Ungültige Tage, Zukunft und Jahre vor 2015 werden abgelehnt, ein Eintrag innerhalb von 3 Tagen um dasselbe Datum ebenso (Doppelte).
+- **Kachel „📍 Nach Ort“:** gruppiert die Liste mit Zwischenüberschriften je Ort (alphabetisch, „ohne Ort“ zuletzt, mit Anzahl). Die Sortierung wirkt innerhalb der Gruppen; die Wahl merkt sich der Browser.
+- **Geräteliste als CSV** (`BWACH_DeviceListCsv($id)`, Schaltfläche „📄 Geräteliste als CSV“): Name, Ort, System, Zelltyp, Zellen, Batteriestand, Status, Funk, letzter Wechsel, Lebenszeichen vor Tagen; Semikolon, nach Ort und Name sortiert.
+
 ## [0.9.0] - 2026-10-09
 
 ### Added
