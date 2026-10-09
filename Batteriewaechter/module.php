@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.11.1' => [
+            '• „Diagnose fürs Forum“ listet unter „nach Batterie aussehend, aber nicht erkannt“ nur noch Variablen von Geräteinstanzen mit Ident, ohne Module der Ausschlussliste (Heimspeicher) und ohne Skriptvariablen. Vorher stand an einer Anlage mit Heimspeicher eine lange Liste, die für Rückmeldungen nur Rauschen war.',
+        ],
         '0.11.0' => [
             '• Abfrage bei Funkstille: Ist bei einem Gerät mit eingeschalteter „Abfragen“-Spalte (Z-Wave, Matter) das Lebenszeichen überfällig, fragt der Wächter einmal nach und zeigt, ob das Gerät antwortet: schläft nur oder vermutlich ausgefallen. Auch Gruppen-Regeln können „Abfragen“ einschalten.',
             '• Tauschrunde in einem Rutsch quittieren: In der Kachel unter „Einkauf“ trägt „Alles in <Ort> getauscht“ alle Geräte eines Ortes ein (zweiter Klick bestätigt), im Formular unter „Quittieren“ „Alle dort getauscht“.',
@@ -914,7 +917,7 @@ class Batteriewaechter extends IPSModule
             'manual'          => $this->manualVariables(),
         ]);
         $kernel = function_exists('IPS_GetKernelVersion') ? (string)IPS_GetKernelVersion() : '?';
-        return BWACHLogik::diagnosis($vars, $result, $this->installedVersion(), $kernel);
+        return BWACHLogik::diagnosis($vars, $result, $this->installedVersion(), $kernel, $this->excludedModules());
     }
 
     /** Geräteliste als CSV (Semikolon, UTF-8): zum Kopieren oder Ausdrucken. */

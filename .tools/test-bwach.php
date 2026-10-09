@@ -476,7 +476,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.11.0', '📖  Dokumentation & Hilfe', '🚀  Erste Schritte', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.11.1', '📖  Dokumentation & Hilfe', '🚀  Erste Schritte', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -500,9 +500,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.11.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.11.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.11.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.11.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 12);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
@@ -1629,7 +1629,7 @@ $mdl->props['NotifyMail'] = false; $mdl->props['MailInstance'] = 0; $mdl->props[
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle'; $mdl->props['ShopLink'] = '';
 
-// ===== 0.11.0: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
+// ===== 0.11.1: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
 $NOW = $GLOBALS['CLOCK'];
 check('Datum: TT.MM.JJJJ und JJJJ-MM-TT werden gelesen (12:00 Uhr)', BWACHMeldung::parseDate('05.03.2026', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate('2026-03-05', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate(' 5.3.2026 ', $NOW) === mktime(12, 0, 0, 3, 5, 2026));
 check('Datum: 31.02., Text, Zukunft und Jahre vor 2015 ergeben null', BWACHMeldung::parseDate('31.02.2026', $NOW) === null && BWACHMeldung::parseDate('gestern', $NOW) === null && BWACHMeldung::parseDate(date('d.m.Y', $NOW + 3 * 86400), $NOW) === null && BWACHMeldung::parseDate('01.01.2014', $NOW) === null && BWACHMeldung::parseDate('', $NOW) === null);
@@ -1699,7 +1699,7 @@ check('Formular: Datum nachtragen, Vorrat, Vorsorge-Intervall und CSV-Schaltflä
 check('Vorrat-Liste bietet keinen Zelltyp „unbekannt“ an', strpos(json_encode((function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'Stock') { return $it; } } } return []; })(json_decode($mdl->GetConfigurationForm(), true)), JSON_UNESCAPED_UNICODE), 'unbekannt') === false);
 $mdl->props['PreventiveMonths'] = 0; $mdl->SetValue('Diary', '[]'); $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 
-// ===== 0.11.0 =====
+// ===== 0.11.1 =====
 $stp = BWACHLogik::firstSteps(['found' => false, 'devices' => 0, 'open' => 0, 'notify' => false, 'channel' => false, 'matterNoEp0' => 0]);
 check('Erste Schritte ohne Suche: Suche, Zelltypen und Meldungen offen, Kachel nur Hinweis', array_column($stp, 'done') === [false, false, false, null] && strpos($stp[0]['text'], 'Jetzt neu suchen') !== false && strpos($stp[1]['text'], 'erst Geräte suchen') !== false);
 $stp2 = BWACHLogik::firstSteps(['found' => true, 'devices' => 14, 'open' => 3, 'notify' => true, 'channel' => false, 'matterNoEp0' => 2]);
@@ -1715,12 +1715,23 @@ $dgV = [['vid' => 1, 'ident' => 'battery', 'name' => 'Batterie', 'type' => 1, 'p
     ['vid' => 3, 'ident' => 'BATT_STATE', 'name' => 'Akkuzustand', 'type' => 1, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum'],
     ['vid' => 4, 'ident' => 'temp', 'name' => 'Temperatur', 'type' => 2, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum']];
 $dgF = BWACHLogik::classify($dgV, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
-$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.0', '9.0');
-check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.0, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
+$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.1', '9.0');
+check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.1, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
 check('Diagnose enthält keine Gerätenamen und keine Objekt-IDs', strpos($dgT, 'Wohnzimmer') === false && strpos($dgT, 'Geheimer Raum') === false && strpos($dgT, 'Mein Sensor') === false && strpos($dgT, 'Akkuzustand') === false && strpos($dgT, '#10') === false && strpos($dgT, 'vid') === false);
+$dgV2 = array_merge($dgV, [
+    ['vid' => 5, 'ident' => 'battery_script', 'name' => 'x', 'type' => 1, 'profile' => '', 'parentId' => 0, 'parentIsInstance' => false, 'moduleName' => '', 'instanceName' => ''],
+    ['vid' => 6, 'ident' => 'batt_speicher', 'name' => 'x', 'type' => 1, 'profile' => '', 'parentId' => 12, 'parentIsInstance' => true, 'moduleName' => 'InverterHub', 'instanceName' => 'WR'],
+    ['vid' => 7, 'ident' => '', 'name' => 'Akku', 'type' => 1, 'profile' => '', 'parentId' => 13, 'parentIsInstance' => true, 'moduleName' => 'Z', 'instanceName' => 'Z']]);
+$dgT2 = BWACHLogik::diagnosis($dgV2, BWACHLogik::classify($dgV2, ['excludedModules' => ['InverterHub'], 'nameSearch' => false, 'manual' => []]), '1', '9', ['InverterHub']);
+check('Diagnose: Skriptvariablen, Ausschlussliste und Variablen ohne Ident erscheinen nicht unter „nicht erkannt“, echte Fälle schon', strpos($dgT2, 'battery_script') === false && strpos($dgT2, 'batt_speicher') === false && strpos($dgT2, 'Ident , Typ') === false && strpos($dgT2, 'Ident BATT_STATE') !== false, $dgT2);
 check('Diagnose ohne Auffälligkeit sagt das', strpos(BWACHLogik::diagnosis([$dgV[0]], BWACHLogik::classify([$dgV[0]], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]), '1', '9'), 'Keine Variable gefunden, die nach Batterie aussieht') !== false);
 $mdl->props['GroupRules'] = '[]'; $mdl->props['DeviceSettings'] = '[]'; $mdl->ApplyChanges();
 check('Diagnose im Modul: nennt „Matter Device“ und PowerSource_BatPercentRemaining, aber keine Instanznamen', (function ($d) { return strpos($d, 'Modul „Matter Device“') !== false && strpos($d, 'PowerSource_BatPercentRemaining') !== false && strpos($d, 'Badfenster') === false; })($mdl->Diagnosis()), $mdl->Diagnosis());
+mkinst(600, 'WR Speicher', 'InverterHub', 900); mkvar(6001, 600, 'batt_speicher', 'x', 1, 50, $GLOBALS['CLOCK'] - 60);
+mkinst(601, 'Fremdes Gerät', 'FremdModul', 900); mkvar(6011, 601, 'battery_rest', 'x', 1, 50, $GLOBALS['CLOCK'] - 60);
+$dgM = $mdl->Diagnosis();
+check('Diagnose im Modul: Module der Ausschlussliste (InverterHub) erscheinen nicht unter „nicht erkannt“, fremde Module mit Batterie-Ident schon', strpos($dgM, 'batt_speicher') === false && strpos($dgM, 'Modul „FremdModul“, Ident battery_rest') !== false, $dgM);
+unset($GLOBALS['OBJ'][600], $GLOBALS['OBJ'][6001], $GLOBALS['OBJ'][601], $GLOBALS['OBJ'][6011]);
 check('Schaltfläche „Diagnose fürs Forum“ im Formular', strpos($mdl->GetConfigurationForm(), 'BWACH_Diagnosis') !== false);
 // Genauigkeit der Prognose
 $aL = BWACHPrognose::accLog([], $NOW, 60.0, -0.5, 'hoch');

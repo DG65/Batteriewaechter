@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.11.1] - 2026-10-09
+
+### Fixed
+- **Diagnose fürs Forum:** Die Liste „nach Batterie aussehend, aber nicht erkannt“ enthielt an einer Anlage mit Heimspeicher über 100 Zeilen (`bat1_*`, Variablen ohne Instanz oder ohne Ident). Sie nennt jetzt nur noch Variablen von Geräteinstanzen mit Ident, ohne Module der Ausschlussliste. Die erkannten und die ausgeschlossenen Signale stehen unverändert da.
+
 ## [0.11.0] - 2026-10-09
 
 ### Added

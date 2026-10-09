@@ -307,8 +307,9 @@ final class BWACHLogik
      * @param array $vars  Ergebnis von collectVariables()
      * @param array $found Ergebnis von classify()
      */
-    public static function diagnosis(array $vars, array $found, string $version, string $kernel): string
+    public static function diagnosis(array $vars, array $found, string $version, string $kernel, array $excludedModules = []): string
     {
+        $excludedModules = array_map('mb_strtolower', $excludedModules);
         $byVid = [];
         foreach ($vars as $v) {
             $byVid[(int)$v['vid']] = $v;
@@ -359,6 +360,11 @@ final class BWACHLogik
             if (isset($known[(int)$v['vid']])) {
                 continue;
             }
+            // Nur Variablen von Geräteinstanzen mit Ident zählen: Skriptvariablen, Heimspeicher (Ausschlussliste) und
+            // Variablen ohne Ident sind hier Rauschen und keine Geräte, die der Wächter übersehen hat.
+            if (empty($v['parentIsInstance']) || (string)$v['ident'] === '' || in_array(mb_strtolower((string)$v['moduleName']), $excludedModules, true)) {
+                continue;
+            }
             if (preg_match('/(batt|\bbat\b|lowbat|low_bat|akku|battery)/i', (string)$v['ident'] . ' ' . (string)$v['name'])) {
                 $k = 'Modul „' . ($v['moduleName'] !== '' ? $v['moduleName'] : '(ohne Instanz)') . '“, Ident ' . $v['ident'] . ', Typ ' . $v['type'] . ', Profil ' . ($v['profile'] !== '' ? $v['profile'] : 'keins');
                 $miss[$k] = ($miss[$k] ?? 0) + 1;
@@ -367,7 +373,7 @@ final class BWACHLogik
         $out[] = '';
         if ($miss) {
             ksort($miss);
-            $out[] = 'Nach Batterie aussehend, aber NICHT erkannt (Modul, Ident, Typ, Profil):';
+            $out[] = 'Nach Batterie aussehend, aber NICHT erkannt (nur Geräteinstanzen mit Ident, ohne Ausschlussliste; Modul, Ident, Typ, Profil):';
             foreach (array_slice($miss, 0, 40, true) as $k => $n) {
                 $out[] = '  • ' . $k . ' ×' . $n;
             }
