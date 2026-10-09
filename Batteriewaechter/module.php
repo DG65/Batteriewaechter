@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.8.1' => [
+            '• „Geräte-Einstellungen“ erklärt die Spalten: Gruppe, Kritisch, Ohne Altersprüfung, Ausnehmen, Zelltyp und Abfragen, mit den Werten, die gerade eingestellt sind (aufklappbar unter „Was bedeuten die Spalten?“).',
+        ],
         '0.8.0' => [
             '• Neues Panel „Gruppen“: Regeln tragen Zelltyp, Anzahl Zellen, Ereignismelder, kritisch oder „ausnehmen“ für ganze Gruppen auf einmal ein, z. B. für alle Geräte im Ort „Öffnungskontakte“ (Muster nach Ort, System oder Name, mehrere Muster mit Komma). Es gilt die erste passende Regel von oben; eine eigene Einstellung je Gerät geht vor, sobald sie vom Standard abweicht.',
             '• In „Geräte-Einstellungen“ zeigt die neue Spalte „Gilt“, was am Ende für jedes Gerät zählt, und aus welcher Regel es kommt. Das Panel „Gruppen“ nennt die Geräte, die noch keinen Zelltyp haben.',
@@ -2350,6 +2353,27 @@ class Batteriewaechter extends IPSModule
         ];
     }
 
+    /** Erklärung der Spalten in „Geräte-Einstellungen“ mit den Werten, die gerade eingestellt sind. */
+    private function deviceHelp(): string
+    {
+        $low  = $this->ReadPropertyInteger('LowPercent');
+        $crit = $this->ReadPropertyInteger('CriticalLowPercent');
+        $old  = $this->ReadPropertyInteger('ValueOldDays');
+        $still = $this->ReadPropertyInteger('StillDays');
+        $stillE = $this->ReadPropertyInteger('StillDaysEvent');
+        $rem  = $this->ReadPropertyInteger('ReminderDays');
+        $remC = $this->ReadPropertyInteger('CriticalReminderDays');
+        $quiet = $this->ReadPropertyBoolean('CriticalIgnoresQuiet');
+        $pAfter = $this->ReadPropertyInteger('PollAfterDays');
+        $pEvery = $this->ReadPropertyInteger('PollEveryDays');
+        return "Gruppe: „Standard“ oder „Ereignismelder“. Fenster- und Rauchmelder melden nur bei Ereignissen, deshalb wartet der Wächter bei ihnen länger mit „Funkstille“ (jetzt $stillE statt $still Tage).\n\n"
+            . "Kritisch: für Geräte, bei denen eine leere Batterie weh tut. Der Wächter warnt früher (schwach ab $crit % statt $low %), sortiert das Gerät weiter oben und erinnert öfter (alle $remC statt $rem Tage)" . ($quiet ? '; die Ruhezeit gilt dafür nicht' : '') . ". Bei einem Widerspruch zwischen Prozentwert und Hinweis „schwach“ zählt die schlechtere Aussage.\n\n"
+            . "Ohne Altersprüfung: normal gilt ein Batteriewert, der älter als $old Tage ist, als „veraltet“. Mit diesem Haken entfällt das, für Geräte, die ihren Batteriewert nur sehr selten melden. Die Funkstille-Prüfung bleibt davon unberührt.\n\n"
+            . "Ausnehmen: das Gerät wird gar nicht überwacht (keine Meldung, nicht in Kachel und Zahlen). Die Zeile bleibt stehen, damit die Einstellung erhalten bleibt. Etwas anderes als „Außer Betrieb“ in der Kachel.\n\n"
+            . "Zelltyp und Anzahl Zellen: damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen. Meldet ein Matter-Gerät seinen Zelltyp selbst, steht er schon drin.\n\n"
+            . "Abfragen: nur bei Z-Wave. Ist der Batteriewert älter als $pAfter Tage, schickt der Wächter dem Gerät höchstens alle $pEvery Tage eine Statusanfrage und zeigt, ob es antwortet. Ein schlafendes Gerät antwortet erst beim nächsten Aufwachen. Ob die Anfrage den Batteriewert früher liefert, ist nicht belegt. Bei anderen Systemen tut der Haken nichts.";
+    }
+
     private function DevicesPanel(array $dr): array
     {
         $fill = $dr['filled'] > 0
@@ -2364,7 +2388,10 @@ class Batteriewaechter extends IPSModule
             'caption' => '🏷️  Geräte-Einstellungen',
             'items' => [
                 ['type' => 'Label', 'name' => 'DeviceRowsLine', 'caption' => $line],
-                ['type' => 'Label', 'caption' => 'Hier steht jedes erkannte Gerät mit neutralen Standardwerten. Nur ändern, was abweicht: den Zelltyp (z. B. CR2032, AAA) und die Anzahl Zellen — damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen —, Ereignismelder (Fenster-, Rauchmelder), kritische Geräte (früher und dringlicher), Geräte ohne Altersprüfung oder Geräte, die ganz ausgenommen werden sollen. Die Spalte „Geräteinstanz“ zeigt den Namen der Instanz.'],
+                ['type' => 'Label', 'caption' => 'Hier steht jedes erkannte Gerät mit neutralen Standardwerten. Nur ändern, was abweicht. Für viele gleiche Geräte auf einmal gibt es das Panel „Gruppen“. Die Spalte „Gilt“ zeigt, was am Ende für ein Gerät zählt.'],
+                ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '❔  Was bedeuten die Spalten?', 'items' => [
+                    ['type' => 'Label', 'caption' => $this->deviceHelp()],
+                ]],
                 ['type' => 'RowLayout', 'items' => [
                     ['type' => 'Select', 'name' => 'DeviceSortBy', 'caption' => 'Sortieren nach', 'width' => '230px', 'options' => [
                         ['caption' => 'Name', 'value' => 'name'],

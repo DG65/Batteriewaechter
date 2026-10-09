@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.8.1] - 2026-10-09
+
+### Added
+- „Geräte-Einstellungen“ erklärt unter „Was bedeuten die Spalten?“ (aufklappbar) Gruppe/Ereignismelder, Kritisch, Ohne Altersprüfung, Ausnehmen, Zelltyp und Anzahl Zellen sowie Abfragen. Die Schwellen im Text (schwach ab 30 % statt 20 %, 7 statt 30 Tage Funkstille, 90 Tage Wertalter, Abfrage ab 14 Tagen alle 7 Tage …) sind die aktuell eingestellten Werte, nicht feste Zahlen. Abfragen sagt ehrlich, dass die Wirkung nicht belegt ist.
+
 ## [0.8.0] - 2026-10-09
 
 ### Added

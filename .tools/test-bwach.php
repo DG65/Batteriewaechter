@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.8.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.8.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.8.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.8.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.8.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.8.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 11);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
@@ -1544,6 +1544,15 @@ check('Eigene Einstellung im Geräte-Panel (AA Alkali, 3 Zellen) geht vor der Re
 $mdl->props['GroupRules'] = json_encode([['Active' => true, 'Label' => '', 'Kind' => 'place', 'Pattern' => 'Öffnungskontakte', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => true]]); $mdl->props['DeviceSettings'] = '[]'; $mdl->ApplyChanges();
 check('Regel „ausnehmen“ nimmt die Geräte der Gruppe aus der Überwachung', !isset(array_column(json_decode(end($mdl->visUpdates), true)['devices'], null, 'name')['Badfenster Senkrecht']));
 $mdl->props['GroupRules'] = '[]'; $mdl->props['DeviceSettings'] = '[]';
+
+// Hilfetexte in „Geräte-Einstellungen“
+$helpForm = implode(' ', (function ($f) { $o = []; array_walk_recursive($f, function ($v, $k) use (&$o) { if ($k === 'caption' && is_string($v)) { $o[] = $v; } }); return $o; })(json_decode($mdl->GetConfigurationForm(), true)));
+check('Hilfetext erklärt Kritisch, Ohne Altersprüfung, Ausnehmen, Abfragen, Gruppe und Zelltyp', (function () use ($helpForm) { foreach (['Kritisch:', 'Ohne Altersprüfung:', 'Ausnehmen:', 'Abfragen:', 'Gruppe:', 'Zelltyp und Anzahl Zellen:', 'Was bedeuten die Spalten?'] as $w) { if (strpos($helpForm, $w) === false) { return false; } } return true; })());
+check('Hilfetext nennt die Standardwerte (schwach ab 30 % statt 20 %, 90 Tage, Abfrage ab 14 Tagen alle 7 Tage, Funkstille 30 statt 7 Tage)', strpos($helpForm, 'ab 30 % statt 20 %') !== false && strpos($helpForm, 'älter als 90 Tage') !== false && strpos($helpForm, 'älter als 14 Tage') !== false && strpos($helpForm, 'alle 7 Tage eine Statusanfrage') !== false && strpos($helpForm, 'jetzt 30 statt 7 Tage') !== false);
+$mdl->props['CriticalLowPercent'] = 40; $mdl->props['LowPercent'] = 25; $mdl->props['ValueOldDays'] = 120; $mdl->props['CriticalIgnoresQuiet'] = false;
+$helpForm2 = implode(' ', (function ($f) { $o = []; array_walk_recursive($f, function ($v, $k) use (&$o) { if ($k === 'caption' && is_string($v)) { $o[] = $v; } }); return $o; })(json_decode($mdl->GetConfigurationForm(), true)));
+check('Hilfetext folgt den eingestellten Werten (40 % statt 25 %, 120 Tage) und lässt die Ruhezeit-Aussage weg, wenn sie nicht gilt', strpos($helpForm2, 'ab 40 % statt 25 %') !== false && strpos($helpForm2, 'älter als 120 Tage') !== false && strpos($helpForm2, 'die Ruhezeit gilt dafür nicht') === false && strpos($helpForm, 'die Ruhezeit gilt dafür nicht') !== false);
+$mdl->props['CriticalLowPercent'] = 30; $mdl->props['LowPercent'] = 20; $mdl->props['ValueOldDays'] = 90; $mdl->props['CriticalIgnoresQuiet'] = true;
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
