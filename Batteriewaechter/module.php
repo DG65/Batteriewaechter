@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.7.1' => [
+            '• „Geräte-Einstellungen“ lässt sich sortieren: oben „Sortieren nach“ (Name, Ort, System, Batteriestand, Zelltyp, Gruppe, Kritisch) und „Reihenfolge“. Die Liste zeigt dafür jetzt Ort, System und den aktuellen Batteriestand je Gerät (nur zur Ansicht). Das Umsortieren ändert nichts an Eingaben, die noch nicht mit „Übernehmen“ gespeichert sind. Die Wahl wird mit „Übernehmen“ gespeichert.',
+        ],
         '0.7.0' => [
             '• Die Kachel lässt sich sortieren: nach Dringlichkeit (Standard), Name, Ort, Batteriestand, Alter des Werts, Lebenszeichen, Zelltyp und System. Ein zweiter Klick auf dieselbe Eigenschaft kehrt die Reihenfolge um (↑ ↓). Geräte ohne Wert stehen immer hinten. Die Wahl merkt sich der Browser.',
         ],
@@ -145,6 +148,8 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyBoolean('NameSearch', false);
         $this->RegisterPropertyString('ManualVariables', '[]');
         $this->RegisterPropertyString('DeviceSettings', '[]');
+        $this->RegisterPropertyString('DeviceSortBy', 'name');
+        $this->RegisterPropertyString('DeviceSortDir', 'ascending');
 
         // Meldungen — bewusst AUS, bis der Nutzer sie einschaltet
         $this->RegisterPropertyBoolean('NotificationsActive', false);
@@ -2091,12 +2096,73 @@ class Batteriewaechter extends IPSModule
         return BWACHZelle::fromDescription($this->replacementText($id)) ?? BWACHZelle::UNKNOWN;
     }
 
+    /** Eigenschaften je Gerät, die nur zum Anzeigen und Sortieren in der Liste dienen (nichts davon ist eine Einstellung). */
+    private function deviceInfo(int $id, array $pcts): array
+    {
+        if ($id <= 0 || !IPS_InstanceExists($id)) {
+            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0];
+        }
+        $parent = (int)IPS_GetParent($id);
+        $p      = $pcts[$id] ?? null;
+        return [
+            'Name'        => IPS_GetName($id),
+            'Place'       => $parent > 0 ? IPS_GetName($parent) : '',
+            'Module'      => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? ''),
+            'Percent'     => $p === null ? '—' : BWACHLogik::num($p) . ' %',
+            'PercentSort' => $p === null ? 1000.0 : round($p, 1),   // Geräte ohne Wert landen bei „aufsteigend“ hinten
+        ];
+    }
+
+    /** Aktueller Batteriestand in Prozent je Geräteinstanz (der niedrigste, wenn es mehrere gibt). */
+    private function currentPercents(?array $found): array
+    {
+        $out = [];
+        foreach ($found['devices'] ?? [] as $key => $d) {
+            $sig = $this->readSignals($d['signals'] ?? []);
+            if (empty($sig['percent'])) {
+                continue;
+            }
+            $v  = (float)$sig['percent']['value'] * (float)($sig['percent']['scale'] ?? 1.0);
+            $id = (int)($d['parent'] ?? $key);
+            $out[$id] = isset($out[$id]) ? min($out[$id], $v) : $v;
+        }
+        return $out;
+    }
+
+    /** Sortierung der Liste: Eigenschaft → Spalte. */
+    private const SORT_COLUMNS = [
+        'name' => 'Name', 'place' => 'Place', 'module' => 'Module', 'percent' => 'PercentSort',
+        'cell' => 'Cell', 'group' => 'Group', 'critical' => 'Critical',
+    ];
+
+    private function deviceSort(): array
+    {
+        $by  = (string)$this->ReadPropertyString('DeviceSortBy');
+        $dir = (string)$this->ReadPropertyString('DeviceSortDir');
+        return $this->sortSpec($by, $dir);
+    }
+
+    private function sortSpec(string $by, string $dir): array
+    {
+        return [
+            'column'    => self::SORT_COLUMNS[$by] ?? 'Name',
+            'direction' => $dir === 'descending' ? 'descending' : 'ascending',
+        ];
+    }
+
+    /** Sortiert die Liste „Geräte-Einstellungen“ im offenen Formular um, ohne ungespeicherte Eingaben anzufassen. */
+    public function SetDeviceSort(string $By, string $Dir): void
+    {
+        $this->UpdateFormField('DeviceSettings', 'sort', json_encode($this->sortSpec($By, $Dir)));
+    }
+
     private function deviceRows(): array
     {
         $saved  = json_decode((string)$this->ReadPropertyString('DeviceSettings'), true);
         $rows   = [];
         $have   = [];
         $filled = 0;
+        $pcts   = $this->currentPercents($this->found());
         if (is_array($saved)) {
             foreach ($saved as $r) {
                 $id = (int)($r['Instance'] ?? 0);
@@ -2121,7 +2187,7 @@ class Batteriewaechter extends IPSModule
                     'Cell'      => $cell,
                     'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     'Poll'      => (bool)($r['Poll'] ?? false),
-                ];
+                ] + $this->deviceInfo($id, $pcts);
             }
         }
         $new = [];
@@ -2134,7 +2200,7 @@ class Batteriewaechter extends IPSModule
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $new[$id] = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false];
+                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false] + $this->deviceInfo($id, $pcts);
                 }
             }
             uasort($new, function ($a, $b) { return strcasecmp(IPS_GetName($a['Instance']), IPS_GetName($b['Instance'])); });
@@ -2158,12 +2224,33 @@ class Batteriewaechter extends IPSModule
             'items' => [
                 ['type' => 'Label', 'name' => 'DeviceRowsLine', 'caption' => $line],
                 ['type' => 'Label', 'caption' => 'Hier steht jedes erkannte Gerät mit neutralen Standardwerten. Nur ändern, was abweicht: den Zelltyp (z. B. CR2032, AAA) und die Anzahl Zellen — damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen —, Ereignismelder (Fenster-, Rauchmelder), kritische Geräte (früher und dringlicher), Geräte ohne Altersprüfung oder Geräte, die ganz ausgenommen werden sollen. Die Spalte „Geräteinstanz“ zeigt den Namen der Instanz.'],
+                ['type' => 'RowLayout', 'items' => [
+                    ['type' => 'Select', 'name' => 'DeviceSortBy', 'caption' => 'Sortieren nach', 'width' => '230px', 'options' => [
+                        ['caption' => 'Name', 'value' => 'name'],
+                        ['caption' => 'Ort', 'value' => 'place'],
+                        ['caption' => 'System', 'value' => 'module'],
+                        ['caption' => 'Batteriestand', 'value' => 'percent'],
+                        ['caption' => 'Zelltyp', 'value' => 'cell'],
+                        ['caption' => 'Gruppe', 'value' => 'group'],
+                        ['caption' => 'Kritisch', 'value' => 'critical'],
+                    ], 'onChange' => 'BWACH_SetDeviceSort($id, $DeviceSortBy, $DeviceSortDir);'],
+                    ['type' => 'Select', 'name' => 'DeviceSortDir', 'caption' => 'Reihenfolge', 'width' => '200px', 'options' => [
+                        ['caption' => 'aufsteigend (A–Z, niedrig zuerst)', 'value' => 'ascending'],
+                        ['caption' => 'absteigend (Z–A, hoch zuerst)', 'value' => 'descending'],
+                    ], 'onChange' => 'BWACH_SetDeviceSort($id, $DeviceSortBy, $DeviceSortDir);'],
+                ]],
                 [
                     'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Geräte', 'rowCount' => 12, 'add' => true, 'delete' => true,
                     'loadValuesFromConfiguration' => false,
+                    'sort' => $this->deviceSort(),
                     'values' => $dr['rows'],
                     'columns' => [
-                        ['caption' => 'Geräteinstanz', 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
+                        ['caption' => 'Geräteinstanz', 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'sortColumn' => 'Name', 'edit' => ['type' => 'SelectInstance']],
+                        ['caption' => 'Ort', 'name' => 'Place', 'width' => '140px', 'add' => ''],
+                        ['caption' => 'System', 'name' => 'Module', 'width' => '120px', 'add' => ''],
+                        ['caption' => 'Batteriestand', 'name' => 'Percent', 'width' => '110px', 'add' => '—', 'sortColumn' => 'PercentSort'],
+                        ['caption' => 'Name', 'name' => 'Name', 'width' => '0px', 'visible' => false, 'add' => ''],
+                        ['caption' => 'Sortierwert Batteriestand', 'name' => 'PercentSort', 'width' => '0px', 'visible' => false, 'add' => 1000],
                         ['caption' => 'Gruppe', 'name' => 'Group', 'width' => '170px', 'add' => BWACHLogik::GROUP_STANDARD, 'edit' => ['type' => 'Select', 'options' => [
                             ['caption' => 'Standard', 'value' => BWACHLogik::GROUP_STANDARD],
                             ['caption' => 'Ereignismelder', 'value' => BWACHLogik::GROUP_EVENT],

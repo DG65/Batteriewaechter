@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.7.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.7.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,13 +499,13 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.7.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.7.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.7.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.7.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
-check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
-    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save'])) { return false; } } } } }
+check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand und ihre Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
+    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort'], true)) { return false; } } } } }
     return true;
 })());
 $captions = [];
@@ -1469,6 +1469,38 @@ check('Gespeicherte Zeile ohne Zelltyp wird vorbelegt, eine eigene Wahl (AAA Akk
 $mdl->Check(); $plS = json_decode(end($mdl->visUpdates), true); $dS = $plS['devices'][0] ?? [];
 check('Kachel-Daten tragen Wertalter und Lebenszeichen in Sekunden sowie den Zelltyp als Kurzbezeichnung', is_int($dS['valueAgeSec'] ?? null) && is_int($dS['lifeAgeSec'] ?? null) && array_key_exists('cellKey', $dS) && count(array_filter(array_column($plS['devices'], 'cellKey'), function ($k) { return $k === 'AAA' || $k === 'CR2032'; })) >= 1, json_encode($dS, JSON_UNESCAPED_UNICODE));
 
+// Sortierung der Liste „Geräte-Einstellungen“
+$mdl->props['DeviceSettings'] = '[]'; $mdl->ApplyChanges();
+[$eS, $pS] = $fl($mdl);
+$pItems = json_encode($pS, JSON_UNESCAPED_UNICODE);
+check('Liste hat eine Startsortierung (Standard: Name aufsteigend)', ($eS['sort'] ?? null) === ['column' => 'Name', 'direction' => 'ascending'], json_encode($eS['sort'] ?? null));
+check('Auswahl „Sortieren nach“ und „Reihenfolge“ steht über der Liste und ruft BWACH_SetDeviceSort', strpos($pItems, 'DeviceSortBy') !== false && strpos($pItems, 'DeviceSortDir') !== false && substr_count($pItems, 'BWACH_SetDeviceSort') === 2);
+check('Liste zeigt Ort, System und Batteriestand; Instanz und Batteriestand haben Sortierspalten', (function () use ($eS) { $c = array_column($eS['columns'], null, 'name'); return isset($c['Place'], $c['Module'], $c['Percent']) && ($c['Instance']['sortColumn'] ?? '') === 'Name' && ($c['Percent']['sortColumn'] ?? '') === 'PercentSort' && ($c['Name']['visible'] ?? true) === false && ($c['PercentSort']['visible'] ?? true) === false && !isset($c['Place']['edit']) && !isset($c['Percent']['edit']); })());
+$rowsS = array_column($eS['values'], null, 'Instance');
+check('Zeile trägt Name, Ort, System und aktuellen Batteriestand (Knoten 14: 100 %)', (($rowsS[502]['Name'] ?? '') === 'Badfenster Senkrecht Stromversorgung') && ($rowsS[502]['Place'] ?? '') === 'Öffnungskontakte' && ($rowsS[502]['Module'] ?? '') === 'Matter Device' && ($rowsS[502]['Percent'] ?? '') === '100 %' && ($rowsS[502]['PercentSort'] ?? 0) == 100, json_encode($rowsS[502] ?? null, JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][5021]['var']['value'] = 40;
+[$eS2] = $fl($mdl); $rS2 = array_column($eS2['values'], null, 'Instance');
+check('Batteriestand folgt dem Wert (Rohwert 40 = 20 %)', ($rS2[502]['Percent'] ?? '') === '20 %' && ($rS2[502]['PercentSort'] ?? 0) == 20, json_encode($rS2[502] ?? null));
+$GLOBALS['OBJ'][508] = ['type' => 1, 'parent' => 900, 'ident' => '', 'name' => 'Nur Flag', 'module' => 'Matter Device', 'config' => ['NodeId' => 20, 'EndpointId' => 0]];
+mkvar(5081, 508, 'PowerSource_BatReplacementNeeded', 'Ersatz erforderlich', 0, false, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 504, 505, 506, 508]]; $mdl->Search();
+[$eS2b] = $fl($mdl); $rS2b = array_column($eS2b['values'], null, 'Instance');
+check('Gerät ohne Prozentwert (nur „Ersatz erforderlich“): „—“ und Sortierwert 1000, also hinten', ($rS2b[508]['Percent'] ?? '') === '—' && ($rS2b[508]['PercentSort'] ?? 0) == 1000, json_encode($rS2b[508] ?? null, JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][5021]['var']['value'] = 200;
+$mdl->props['DeviceSettings'] = json_encode([['Instance' => 99999, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false]]);
+[$eS3] = $fl($mdl);
+check('Verschwundene Instanz: „(Instanz fehlt)“, Sortierwert hinten (1000)', ($eS3['values'][0]['Name'] ?? '') === '(Instanz fehlt)' && ($eS3['values'][0]['PercentSort'] ?? 0) == 1000 && ($eS3['values'][0]['Percent'] ?? '') === '—');
+$mdl->props['DeviceSortBy'] = 'percent'; $mdl->props['DeviceSortDir'] = 'descending';
+[$eS4] = $fl($mdl);
+check('Gespeicherte Wahl wird zur Startsortierung (Batteriestand absteigend)', ($eS4['sort'] ?? null) === ['column' => 'PercentSort', 'direction' => 'descending'], json_encode($eS4['sort'] ?? null));
+$mdl->props['DeviceSortBy'] = 'unsinn'; $mdl->props['DeviceSortDir'] = 'quer';
+[$eS5] = $fl($mdl);
+check('Unbekannte Wahl fällt auf Name aufsteigend zurück', ($eS5['sort'] ?? null) === ['column' => 'Name', 'direction' => 'ascending']);
+$mdl->fieldUpdates = []; $mdl->SetDeviceSort('place', 'descending');
+$fu = array_filter($mdl->fieldUpdates, function ($u) { return $u[0] === 'DeviceSettings' && $u[1] === 'sort'; });
+check('SetDeviceSort sortiert im offenen Formular um (nur die Eigenschaft sort, keine Werte) und als JSON', count($fu) === 1 && json_decode(array_values($fu)[0][2], true) === ['column' => 'Place', 'direction' => 'descending'] && count(array_filter($mdl->fieldUpdates, function ($u) { return $u[0] === 'DeviceSettings' && $u[1] === 'values'; })) === 0, json_encode($mdl->fieldUpdates));
+$mdl->props['DeviceSortBy'] = 'name'; $mdl->props['DeviceSortDir'] = 'ascending';
+
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
 mkvar(1015, 101, 'linkquality', 'Verbindungsqualität', 1, 30, $GLOBALS['CLOCK'] - 60);
@@ -1561,7 +1593,7 @@ $ids = array_column($el['values'], 'Instance');
 check('Liste enthält jede erkannte Geräteinstanz genau einmal (Instanzen 101–107, 111, 112, 114; 105 trotz zweier Sensoren nur einmal)', count($ids) === count(array_unique($ids)) && count($ids) === 10 && in_array(105, $ids, true) && in_array(101, $ids, true), json_encode($ids));
 check('Die bereits gespeicherte Zeile bleibt unverändert vorn (kritisch, CR2032, 2 Zellen)', $el['values'][0]['Instance'] === 114 && $el['values'][0]['Critical'] === true && $el['values'][0]['Cell'] === 'cr2032' && $el['values'][0]['Cells'] === 2);
 check('Neue Zeilen tragen neutrale Standardwerte (Standard, nicht kritisch, Zelltyp unbekannt, 1 Zelle, keine Abfrage)', (function () use ($el) { foreach (array_slice($el['values'], 1) as $r) { if ($r['Group'] !== 'standard' || $r['Critical'] || $r['IgnoreAge'] || $r['Excluded'] || $r['Cell'] !== 'unbekannt' || $r['Cells'] !== 1 || $r['Poll']) { return false; } } return true; })());
-check('Jede Zeile hat alle Spalten (nichts geht beim Speichern verloren)', (function () use ($el) { foreach ($el['values'] as $r) { if (array_keys($r) !== ['Instance', 'Group', 'Critical', 'IgnoreAge', 'Excluded', 'Cell', 'Cells', 'Poll']) { return false; } } return true; })());
+check('Jede Zeile hat alle Spalten (nichts geht beim Speichern verloren)', (function () use ($el) { foreach ($el['values'] as $r) { if (array_slice(array_keys($r), 0, 8) !== ['Instance', 'Group', 'Critical', 'IgnoreAge', 'Excluded', 'Cell', 'Cells', 'Poll'] || array_diff(['Name', 'Place', 'Module', 'Percent', 'PercentSort'], array_keys($r))) { return false; } } return true; })());
 check('Neue Zeilen nach Instanzname sortiert', (function () use ($el) { $names = array_map(function ($r) { return IPS_GetName($r['Instance']); }, array_slice($el['values'], 1)); $s = $names; usort($s, 'strcasecmp'); return $names === $s; })());
 check('Liste liest nicht aus der Konfiguration, sondern aus den eingesetzten Werten (loadValuesFromConfiguration=false)', $el['loadValuesFromConfiguration'] === false);
 check('Panel ist aufgeklappt, solange es neue Zeilen gibt; Hinweis nennt Zahl und „noch nicht gespeichert“', $panel['expanded'] === true && strpos(json_encode($panel, JSON_UNESCAPED_UNICODE), '9 neu, noch nicht gespeichert') !== false, '');

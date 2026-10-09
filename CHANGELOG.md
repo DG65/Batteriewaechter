@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.7.1] - 2026-10-09
+
+### Added
+- **Sortierung der Liste „Geräte-Einstellungen“ in der Konsole:** „Sortieren nach“ (Name, Ort, System, Batteriestand, Zelltyp, Gruppe, Kritisch) und „Reihenfolge“ (aufsteigend/absteigend) über der Liste. Das Umsortieren geschieht im offenen Formular (`UpdateFormField` auf die Eigenschaft `sort` der Liste) und lässt ungespeicherte Eingaben unberührt. Die Wahl wird mit „Übernehmen“ in `DeviceSortBy`/`DeviceSortDir` gespeichert und gilt beim nächsten Öffnen als Startsortierung (Standard: nach Name aufsteigend).
+- Die Liste zeigt je Gerät **Ort**, **System** und den aktuellen **Batteriestand** (nur zur Ansicht, keine Einstellungen). Die Spalte „Geräteinstanz“ sortiert nach dem Namen, „Batteriestand“ nach der Zahl (Geräte ohne Wert stehen bei „aufsteigend“ hinten). Zwei versteckte Spalten tragen die Sortierwerte.
+
 ## [0.7.0] - 2026-10-09
 
 ### Added
