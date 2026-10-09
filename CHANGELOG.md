@@ -3,6 +3,13 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.11.3] - 2026-10-09
+
+### Fixed
+- **„Noch ohne Zelltyp“ und „Erste Schritte“ zählten ausgenommene Geräte mit.** An einer Anlage mit alten, ausgenommenen Instanzen standen deren Namen in der Warnung, obwohl sie gar nicht überwacht werden. Ausgenommene Geräte (einzeln oder per Regel) zählen jetzt nicht mehr.
+- **Einkaufsliste senden:** Die Überschrift stand doppelt in der Push-Meldung (Titel „🛒 Batterien einkaufen“ und gleich noch einmal als erste Zeile des Textes). Der Text beginnt jetzt direkt mit den Zeilen.
+- Die Auswahl „Reihenfolge“ in „Geräte-Einstellungen“ zeigte ihre Texte abgeschnitten („aufsteigend (A–Z, niedrig …“). Jetzt „aufsteigend (A–Z)“ und „absteigend (Z–A)“.
+
 ## [0.11.2] - 2026-10-09
 
 ### Changed

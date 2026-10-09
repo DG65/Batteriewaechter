@@ -1641,7 +1641,7 @@ $mdl->props['NotifyMail'] = false; $mdl->props['MailInstance'] = 0; $mdl->props[
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle'; $mdl->props['ShopLink'] = '';
 
-// ===== 0.11.2: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
+// ===== 0.11.3: Wechsel nachtragen, Vorsorge, Vorrat, Geräteliste =====
 $NOW = $GLOBALS['CLOCK'];
 check('Datum: TT.MM.JJJJ und JJJJ-MM-TT werden gelesen (12:00 Uhr)', BWACHMeldung::parseDate('05.03.2026', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate('2026-03-05', $NOW) === mktime(12, 0, 0, 3, 5, 2026) && BWACHMeldung::parseDate(' 5.3.2026 ', $NOW) === mktime(12, 0, 0, 3, 5, 2026));
 check('Datum: 31.02., Text, Zukunft und Jahre vor 2015 ergeben null', BWACHMeldung::parseDate('31.02.2026', $NOW) === null && BWACHMeldung::parseDate('gestern', $NOW) === null && BWACHMeldung::parseDate(date('d.m.Y', $NOW + 3 * 86400), $NOW) === null && BWACHMeldung::parseDate('01.01.2014', $NOW) === null && BWACHMeldung::parseDate('', $NOW) === null);
@@ -1711,7 +1711,7 @@ check('Formular: Datum nachtragen, Vorrat, Vorsorge-Intervall und CSV-Schaltflä
 check('Vorrat-Liste bietet keinen Zelltyp „unbekannt“ an', strpos(json_encode((function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'Stock') { return $it; } } } return []; })(json_decode($mdl->GetConfigurationForm(), true)), JSON_UNESCAPED_UNICODE), 'unbekannt') === false);
 $mdl->props['PreventiveMonths'] = 0; $mdl->SetValue('Diary', '[]'); $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
 
-// ===== 0.11.2 =====
+// ===== 0.11.3 =====
 $stp = BWACHLogik::firstSteps(['found' => false, 'devices' => 0, 'open' => 0, 'notify' => false, 'channel' => false, 'matterNoEp0' => 0]);
 check('Erste Schritte ohne Suche: Suche, Zelltypen und Meldungen offen, Kachel nur Hinweis', array_column($stp, 'done') === [false, false, false, null] && strpos($stp[0]['text'], 'Jetzt neu suchen') !== false && strpos($stp[1]['text'], 'erst Geräte suchen') !== false);
 $stp2 = BWACHLogik::firstSteps(['found' => true, 'devices' => 14, 'open' => 3, 'notify' => true, 'channel' => false, 'matterNoEp0' => 2]);
@@ -1727,8 +1727,8 @@ $dgV = [['vid' => 1, 'ident' => 'battery', 'name' => 'Batterie', 'type' => 1, 'p
     ['vid' => 3, 'ident' => 'BATT_STATE', 'name' => 'Akkuzustand', 'type' => 1, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum'],
     ['vid' => 4, 'ident' => 'temp', 'name' => 'Temperatur', 'type' => 2, 'profile' => '', 'parentId' => 11, 'parentIsInstance' => true, 'moduleName' => 'FremdModul', 'instanceName' => 'Geheimer Raum']];
 $dgF = BWACHLogik::classify($dgV, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
-$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.2', '9.0');
-check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.2, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
+$dgT = BWACHLogik::diagnosis($dgV, $dgF, '0.11.3', '9.0');
+check('Diagnose: Version, Modul mit erkanntem Signal und Ident, nicht erkannte batterieähnliche Variable', strpos($dgT, 'Batteriewächter 0.11.3, Symcon 9.0') === 0 && strpos($dgT, 'Modul „Zigbee2MQTT Device“: 1 Gerät') !== false && strpos($dgT, 'percent ← battery') !== false && strpos($dgT, 'flag ← battery_low') !== false && strpos($dgT, 'Modul „FremdModul“, Ident BATT_STATE, Typ 1, Profil keins') !== false && strpos($dgT, 'Ident temp') === false, $dgT);
 check('Diagnose enthält keine Gerätenamen und keine Objekt-IDs', strpos($dgT, 'Wohnzimmer') === false && strpos($dgT, 'Geheimer Raum') === false && strpos($dgT, 'Mein Sensor') === false && strpos($dgT, 'Akkuzustand') === false && strpos($dgT, '#10') === false && strpos($dgT, 'vid') === false);
 $dgV2 = array_merge($dgV, [
     ['vid' => 5, 'ident' => 'battery_script', 'name' => 'x', 'type' => 1, 'profile' => '', 'parentId' => 0, 'parentIsInstance' => false, 'moduleName' => '', 'instanceName' => ''],
@@ -1787,6 +1787,27 @@ $mdl->RequestAction('ack_place', 'kaputt');
 check('Aus der Kachel mit kaputter Anfrage: ⛔ Ungültig', strpos(json_decode(end($mdl->visUpdates), true)['message'], 'Ungültige Anfrage') !== false);
 check('Formular: Ort wählen und „Alle dort getauscht“ (mit dem Ort aus der Tauschrunde samt Anzahl)', strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Öffnungskontakte (1)') !== false && strpos($mdl->GetConfigurationForm(), 'BWACH_AcknowledgePlace') !== false);
 $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle'; $mdl->SetValue('Diary', '[]'); $mdl->SetValue('NotifyState', '{}'); $mdl->SetValue('FcLog', '{}'); $mdl->SetValue('Poll', '{}');
+
+// Ausgenommene Geräte zählen nicht als „ohne Zelltyp“
+$noMatch = json_encode([['Active' => true, 'Label' => 'n', 'Kind' => 'name', 'Pattern' => 'GibtEsNicht', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => false, 'Poll' => false]]);
+$mdl->props['GroupRules'] = $noMatch; $mdl->props['DeviceSettings'] = '[]'; $mdl->ApplyChanges();
+$ruleLine = function (BWTest $m) { foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $p) { if (($p['caption'] ?? '') === '👥  Gruppen') { return $p['items'][0]['caption']; } } return ''; };
+check('Ohne passende Regel und ohne Zelltyp: das Gerät steht unter „Noch ohne Zelltyp“', strpos($ruleLine($mdl), 'Noch ohne Zelltyp') !== false && strpos($ruleLine($mdl), 'Badfenster Senkrecht') !== false, $ruleLine($mdl));
+$mdl->props['DeviceSettings'] = json_encode([['Instance' => 502, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => true, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false]]);
+check('Ausgenommen (einzeln): steht nicht mehr unter „Noch ohne Zelltyp“', strpos($ruleLine($mdl), 'Badfenster Senkrecht') === false, $ruleLine($mdl));
+$mdl->props['DeviceSettings'] = '[]'; $mdl->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'x', 'Kind' => 'place', 'Pattern' => 'Öffnungskontakte', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => true, 'Poll' => false]]);
+check('Ausgenommen (per Regel): ebenso nicht', strpos($ruleLine($mdl), 'Badfenster Senkrecht') === false, $ruleLine($mdl));
+$mdl->props['GroupRules'] = $noMatch; $mdl->props['DeviceSettings'] = json_encode([['Instance' => 99998, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false]]);
+check('Eine Zeile einer verschwundenen Instanz zählt nicht als „ohne Zelltyp“', strpos($ruleLine($mdl), '(Instanz fehlt)') === false);
+$mdl->props['DeviceSettings'] = '[]';
+// Einkaufsliste senden: Überschrift nicht doppelt
+mkinst(14223, 'SMTP', 'SMTP', 0);
+$mdl->props['NotifyPush'] = false; $mdl->props['NotifyMail'] = true; $mdl->props['MailInstance'] = 14223; $mdl->props['MailTo'] = 'a@example.org';
+$GLOBALS['OBJ'][5021]['var']['value'] = 8; $GLOBALS['OBJ'][5023]['var']['value'] = 'AAA'; $mdl->ApplyChanges();
+$GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = true; $mdl->SendShopping();
+check('Einkaufsliste senden: Titel „🛒 Batterien einkaufen“, der Text beginnt ohne die Überschrift (nicht doppelt)', count($GLOBALS['SENT']) === 1 && $GLOBALS['SENT'][0][2] === '🛒 Batterien einkaufen' && strpos($GLOBALS['SENT'][0][3], 'Batterien einkaufen') === false && strpos($GLOBALS['SENT'][0][3], '<body>• 1× AAA') !== false, json_encode($GLOBALS['SENT'], JSON_UNESCAPED_UNICODE));
+$mdl->props['NotifyMail'] = false; $mdl->props['MailInstance'] = 0; $mdl->props['MailTo'] = ''; $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
+check('Reihenfolge-Auswahl: kurze Texte ohne Abschneiden', strpos($mdl->GetConfigurationForm(), 'aufsteigend (A–Z)') !== false || strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'aufsteigend (A–Z)') !== false && strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'niedrig zuerst') === false);
 
 // Funkstille-Abfrage
 $stillWorld = function (bool $pollOn, string $module = 'Matter Device', int $silentDays = 10) {

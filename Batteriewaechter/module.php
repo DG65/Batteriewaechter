@@ -936,7 +936,9 @@ class Batteriewaechter extends IPSModule
         if (!$channels['push'] && !$channels['mail']) {
             return 'ℹ️ Kein Zustellweg ausgewählt (Push oder E-Mail unter „Meldungen“ ankreuzen).';
         }
-        $ok = $this->deliver('🛒 Batterien einkaufen', $this->ShoppingText(), 'bell', $channels);
+        // Die erste Zeile des Textes ist die Überschrift, die schon im Titel steht: nicht doppelt senden
+        $parts = explode("\n", $this->ShoppingText(), 2);
+        $ok    = $this->deliver('🛒 Batterien einkaufen', $parts[1] ?? $parts[0], 'bell', $channels);
         return $ok > 0 ? '✅ Einkaufsliste gesendet' : '⚠️ Die Einkaufsliste konnte nicht zugestellt werden' . ($this->lastMailError !== '' ? ' — ' . $this->lastMailError : '') . '.';
     }
 
@@ -2372,7 +2374,7 @@ class Batteriewaechter extends IPSModule
     private function deviceInfo(int $id, array $pcts, array $own, array $labels, array $rules): array
     {
         if ($id <= 0 || !IPS_InstanceExists($id)) {
-            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'effectiveCell' => BWACHZelle::UNKNOWN];
+            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
         }
         $label = $labels[$id] ?? ['name' => IPS_GetName($id), 'place' => '', 'module' => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? '')];
         $p     = $pcts[$id] ?? null;
@@ -2396,6 +2398,7 @@ class Batteriewaechter extends IPSModule
             'PercentSort'   => $p === null ? 1000.0 : round($p, 1),   // Geräte ohne Wert landen bei „aufsteigend“ hinten
             'Effect'        => implode(' · ', $parts),
             'effectiveCell' => $eff['cell'],
+            'effectiveExcluded' => (bool)$eff['excluded'],
         ];
     }
 
@@ -2497,8 +2500,8 @@ class Batteriewaechter extends IPSModule
                     'Poll'      => (bool)($r['Poll'] ?? false),
                 ];
                 $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
-                if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && $id > 0 && IPS_InstanceExists($id)) { $open[] = $info['Name']; }
-                unset($info['effectiveCell']);
+                if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded'] && $id > 0 && IPS_InstanceExists($id)) { $open[] = $info['Name']; }
+                unset($info['effectiveCell'], $info['effectiveExcluded']);
                 $rows[] = $row + $info;
             }
         }
@@ -2514,8 +2517,8 @@ class Batteriewaechter extends IPSModule
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
                         'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false];
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
-                    if ($info['effectiveCell'] === BWACHZelle::UNKNOWN) { $open[] = $info['Name']; }
-                    unset($info['effectiveCell']);
+                    if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
+                    unset($info['effectiveCell'], $info['effectiveExcluded']);
                     $new[$id] = $row + $info;
                 }
             }
@@ -2650,8 +2653,8 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Kritisch', 'value' => 'critical'],
                     ], 'onChange' => 'BWACH_SetDeviceSort($id, $DeviceSortBy, $DeviceSortDir);'],
                     ['type' => 'Select', 'name' => 'DeviceSortDir', 'caption' => 'Reihenfolge', 'width' => '200px', 'options' => [
-                        ['caption' => 'aufsteigend (A–Z, niedrig zuerst)', 'value' => 'ascending'],
-                        ['caption' => 'absteigend (Z–A, hoch zuerst)', 'value' => 'descending'],
+                        ['caption' => 'aufsteigend (A–Z)', 'value' => 'ascending'],
+                        ['caption' => 'absteigend (Z–A)', 'value' => 'descending'],
                     ], 'onChange' => 'BWACH_SetDeviceSort($id, $DeviceSortBy, $DeviceSortDir);'],
                 ]],
                 [
