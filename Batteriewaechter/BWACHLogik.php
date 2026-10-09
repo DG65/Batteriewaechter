@@ -1,7 +1,7 @@
 <?php
 
 // ===========================================================================
-// BWACHLogik — reine Entscheidungslogik des Batteriewächters (DG65 Toolkit).
+// BWACHLogik — reine Entscheidungslogik des Batteriewächters (DG65-Toolkit).
 //
 // Keine IPS-Aufrufe: alles geht über Arrays rein und raus. Dadurch läuft der
 // Prüfstand (.tools/test-bwach.php) ohne Symcon, und jede Regel ist einzeln

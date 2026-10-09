@@ -1,12 +1,12 @@
 {
   "id": "{68C5991B-8E85-23AC-C254-B446AF035AF8}",
   "author": "DG65",
-  "name": "DG65 Toolkit Batteriewächter",
+  "name": "DG65-Toolkit Batteriewächter",
   "url": "https://github.com/DG65/Batteriewaechter",
   "compatibility": {
     "version": "9.0"
   },
-  "version": "0.11.4",
-  "build": 27,
+  "version": "0.11.5",
+  "build": 28,
   "date": 1791417600
 }

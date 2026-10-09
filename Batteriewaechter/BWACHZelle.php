@@ -1,7 +1,7 @@
 <?php
 
 // ===========================================================================
-// BWACHZelle — Zelltypen und Entladekurven des Batteriewächters (DG65 Toolkit).
+// BWACHZelle — Zelltypen und Entladekurven des Batteriewächters (DG65-Toolkit).
 //
 // Rechnet eine gemessene Spannung in einen Ladezustand um. Das ist eine
 // NÄHERUNG: Die Kurven sind typische, vereinfachte Entladekurven je Zellchemie

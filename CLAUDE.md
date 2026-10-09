@@ -1,8 +1,8 @@
-# CLAUDE.md — Batteriewächter (DG65 Toolkit)
+# CLAUDE.md — Batteriewächter (DG65-Toolkit)
 
 Konventionen: `/Users/dietmar/Nextcloud/Claude/TOOLKIT.md` und `SUITE.md` (Formular-Optik, Store-Review-Checkliste, Stolpersteine). Konzept: `.docs/Batterie-Konzept.md`.
 
-- Technischer Name eingefroren, sobald veröffentlicht: Klasse `Batteriewaechter`, Präfix `BWACH`, Repo `DG65/Batteriewaechter`. Anzeigename „DG65 Toolkit Batteriewächter“.
+- Technischer Name eingefroren, sobald veröffentlicht: Klasse `Batteriewaechter`, Präfix `BWACH`, Repo `DG65/Batteriewaechter`. Anzeigename „DG65-Toolkit Batteriewächter“ (mit Bindestrich, Dietmar 10.10.2026; die anderen Toolkit-Module schreiben es noch mit Leerzeichen).
 - Entscheidungslogik ausschließlich in `Batteriewaechter/BWACHLogik.php` (reine Funktionen, ohne IPS). `module.php` sammelt Rohdaten und zeigt an.
 - Jede Regeländerung braucht eine Prüfung in `.tools/test-bwach.php` UND, wenn sie eine Entscheidungsgrenze betrifft, eine Mutation in `.tools/mutation-bwach.php`. Vor jedem Commit: beide Skripte, `check-standalone.php`, `php -l`.
 - Branch-Strategie: nur `beta`; `main` erst nach Live-Bewährung (Dietmar entscheidet).

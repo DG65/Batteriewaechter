@@ -538,7 +538,7 @@ foreach (glob($MODDIR . '/*.php') as $f) {
 }
 $lib = json_decode(file_get_contents($ROOT . '/library.json'), true);
 check('library.json: nur erlaubte Schlüssel (id, author, name, url, compatibility, version, build, date)', array_diff(array_keys($lib), ['id', 'author', 'name', 'url', 'compatibility', 'version', 'build', 'date']) === [] && isset($lib['compatibility']['version']) && !isset($lib['compatibility']['minimum']));
-check('Bibliotheksname „DG65 Toolkit Batteriewächter“ ohne Zusatz', $lib['name'] === 'DG65 Toolkit Batteriewächter');
+check('Bibliotheksname „DG65-Toolkit Batteriewächter“ (mit Bindestrich) ohne Zusatz', $lib['name'] === 'DG65-Toolkit Batteriewächter');
 $mod = json_decode(file_get_contents($MODDIR . '/module.json'), true);
 check('module.json: Präfix BWACH, vendor leer, Bibliothek passt', $mod['prefix'] === 'BWACH' && $mod['vendor'] === '' && $mod['library'] === $lib['id']);
 $php = file_get_contents($MODDIR . '/module.php') . file_get_contents($MODDIR . '/BWACHLogik.php') . file_get_contents($MODDIR . '/BWACHMeldung.php');
@@ -1865,6 +1865,12 @@ $docJson = json_encode((function ($f) { foreach ($f['elements'] as $p) { if (($p
 check('„Dokumentation & Hilfe“ hat immer die Schaltfläche „Forum-Thread“ mit der Thread-URL', strpos($docJson, '"type":"Button","caption":"💬 Forum-Thread"') !== false && strpos($docJson, '/144608') !== false && strpos($docJson, '"link":true') !== false, $docJson);
 $mOld->AckForumHint();
 check('…und sie bleibt, auch wenn der Hinweis weggeklickt ist', !$hasForumHint($mOld) && strpos(json_encode(json_decode($mOld->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '💬 Forum-Thread') !== false);
+
+// Name mit Bindestrich und ehrlicher Sortier-Hinweis
+$modJson = json_decode(file_get_contents($MODDIR . '/module.json'), true);
+check('module.json: Alias „DG65-Toolkit Batteriewächter“ (Bindestrich), der alte Name bleibt Alias', in_array('DG65-Toolkit Batteriewächter', $modJson['aliases'], true) && in_array('DG65 Toolkit Batteriewächter', $modJson['aliases'], true));
+check('README beginnt mit „# DG65-Toolkit Batteriewächter“', strpos(file_get_contents($ROOT . '/README.md'), '# DG65-Toolkit Batteriewächter') === 0);
+check('Sortier-Hinweis: Die Sortierung gilt nach „Änderungen übernehmen“', strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Die Sortierung gilt nach „Änderungen übernehmen“') !== false);
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

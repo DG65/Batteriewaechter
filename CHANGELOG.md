@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.11.5] - 2026-10-10
+
+### Changed
+- **Name mit Bindestrich:** Der Bibliotheksname lautet jetzt „DG65-Toolkit Batteriewächter“ (vorher „DG65 Toolkit Batteriewächter“, mit Leerzeichen). Er steht in `library.json`, in `module.json` als Alias (der alte Name bleibt als Alias, damit die Suche beide findet), im README und in der `CLAUDE.md`. Der technische Name (Klasse `Batteriewaechter`, Präfix `BWACH`, Repository) ändert sich nicht.
+- **Sortierung der Geräte-Einstellungen:** Am Auswahlfeld „Sortieren nach“ steht jetzt, dass die Sortierung nach „Änderungen übernehmen“ gilt. Im offenen Formular sortiert sich die Liste nicht sofort um (an einer Anlage geprüft); die Wahl gilt beim nächsten Öffnen.
+
 ## [0.11.4] - 2026-10-10
 
 ### Changed
@@ -83,7 +89,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 ## [0.7.1] - 2026-10-09
 
 ### Added
-- **Sortierung der Liste „Geräte-Einstellungen“ in der Konsole:** „Sortieren nach“ (Name, Ort, System, Batteriestand, Zelltyp, Gruppe, Kritisch) und „Reihenfolge“ (aufsteigend/absteigend) über der Liste. Das Umsortieren geschieht im offenen Formular (`UpdateFormField` auf die Eigenschaft `sort` der Liste) und lässt ungespeicherte Eingaben unberührt. Die Wahl wird mit „Übernehmen“ in `DeviceSortBy`/`DeviceSortDir` gespeichert und gilt beim nächsten Öffnen als Startsortierung (Standard: nach Name aufsteigend).
+- **Sortierung der Liste „Geräte-Einstellungen“ in der Konsole:** „Sortieren nach“ (Name, Ort, System, Batteriestand, Zelltyp, Gruppe, Kritisch) und „Reihenfolge“ (aufsteigend/absteigend) über der Liste. Die Wahl wird mit „Übernehmen“ in `DeviceSortBy`/`DeviceSortDir` gespeichert und gilt beim nächsten Öffnen als Startsortierung (Standard: nach Name aufsteigend). (Berichtigt in 0.11.5: Der Versuch, die Liste schon im offenen Formular per `UpdateFormField` umzusortieren, wirkt nicht; die Sortierung gilt erst nach „Übernehmen“.)
 - Die Liste zeigt je Gerät **Ort**, **System** und den aktuellen **Batteriestand** (nur zur Ansicht, keine Einstellungen). Die Spalte „Geräteinstanz“ sortiert nach dem Namen, „Batteriestand“ nach der Zahl (Geräte ohne Wert stehen bei „aufsteigend“ hinten). Zwei versteckte Spalten tragen die Sortierwerte.
 
 ## [0.7.0] - 2026-10-09

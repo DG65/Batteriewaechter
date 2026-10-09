@@ -1,7 +1,7 @@
 <?php
 
 // ===========================================================================
-// BWACHMeldung — reine Meldungslogik des Batteriewächters (DG65 Toolkit).
+// BWACHMeldung — reine Meldungslogik des Batteriewächters (DG65-Toolkit).
 //
 // Ohne IPS-Aufrufe, wie BWACHLogik: Zustandsautomat „Meldungen ohne Nerven“,
 // Ruhezeiten, Wochenbericht, Wechselerkennung, Tagebuch, Textbausteine.

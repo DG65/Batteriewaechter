@@ -1,7 +1,7 @@
 <?php
 
 // ===========================================================================
-// Batteriewächter (DG65 Toolkit) — überwacht die Batterien von Geräten im
+// Batteriewächter (DG65-Toolkit) — überwacht die Batterien von Geräten im
 // Haus (Funksensoren, Thermostate, Fensterkontakte, Rauchmelder …).
 //
 // WAS ES ANDERS MACHT ALS EIN REINER „LEER“-MELDER:
@@ -2647,6 +2647,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '❔  Was bedeuten die Spalten?', 'items' => [
                     ['type' => 'Label', 'caption' => $this->deviceHelp()],
                 ]],
+                ['type' => 'Label', 'caption' => 'ℹ️ Die Sortierung gilt nach „Änderungen übernehmen“: Die Liste sortiert sich beim nächsten Öffnen nach deiner Wahl.'],
                 ['type' => 'RowLayout', 'items' => [
                     ['type' => 'Select', 'name' => 'DeviceSortBy', 'caption' => 'Sortieren nach', 'width' => '230px', 'options' => [
                         ['caption' => 'Name', 'value' => 'name'],

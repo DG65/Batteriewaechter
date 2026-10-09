@@ -2,7 +2,7 @@
 
 // ===========================================================================
 // BWACHPrognose — Verlauf, Restlaufzeit, Einkaufsliste, Tauschrunde und
-// Statistik des Batteriewächters (DG65 Toolkit). Reine Rechenlogik ohne IPS.
+// Statistik des Batteriewächters (DG65-Toolkit). Reine Rechenlogik ohne IPS.
 //
 // Grundsatz: lieber ehrlich „unbekannt“ als eine Zahl, die nur so aussieht, als
 // wüsste man etwas. Ein Verlauf braucht Messpunkte über Wochen; viele Geräte

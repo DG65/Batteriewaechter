@@ -265,6 +265,7 @@ $mutations = [
     ['module.php', "if (\$this->ReadAttributeString('ForumHintSeen') === self::FORUM_HINT_REV) {", "if (\$this->ReadAttributeBoolean('ForumHintGone')) {", 'Rückmeldungen-Hinweis bleibt für alle weg, die einen alten weggeklickt haben'],
     ['module.php', "\$this->WriteAttributeString('ForumHintSeen', self::FORUM_HINT_REV);", "\$this->WriteAttributeString('ForumHintSeen', '');", 'Rückmeldungen-Hinweis lässt sich nicht wegklicken'],
     ['module.php', "['type' => 'Button', 'caption' => '💬 Forum-Thread',", "['type' => 'Label', 'caption' => '💬 Forum-Thread',", 'Forum-Link in der Dokumentation fehlt'],
+    ['module.php', "Die Sortierung gilt nach „Änderungen übernehmen“:", "Die Sortierung gilt sofort:", 'Sortier-Hinweis sagt, die Sortierung gelte sofort'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],
