@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.8.0] - 2026-10-09
+
+### Added
+- **Gruppen-Regeln** (neues Panel „Gruppen“): Eine Regel trägt Zelltyp, Anzahl Zellen, Gruppe „Ereignismelder“, „kritisch“ und „ausnehmen“ für alle Geräte ein, auf die ihr Muster passt. Kriterien: Ort (Name der Kategorie der Instanz), System (Modulname) oder Name; mehrere Muster mit Komma (ODER), ohne Groß-/Kleinschreibung, Teiltreffer. Es gilt die erste passende Regel von oben (Reihenfolge per Drag & Drop änderbar); Regeln lassen sich abschalten. Die Spalte „Treffer“ zeigt, wie viele Geräte eine Regel als erste trifft.
+- **Vorrang:** Eine eigene Einstellung in „Geräte-Einstellungen“ geht vor, sobald sie vom Standard abweicht (Zelltyp gewählt, Ereignismelder, kritisch, ausgenommen). Zelltyp und Zellenzahl zählen als Paar. Neue Geräte, die später dazukommen und auf eine Regel passen, bekommen die Werte ohne weiteres Zutun.
+- „Geräte-Einstellungen“ zeigt in der neuen Spalte „Gilt“, was am Ende für ein Gerät zählt (Zelltyp, Zellenzahl, Ereignismelder, kritisch, ausgenommen) und aus welcher Regel es kommt. Das Panel „Gruppen“ nennt die Geräte, die noch keinen Zelltyp haben.
+
+### Changed
+- Die Spalte „Geräteinstanz“ in „Geräte-Einstellungen“ sortiert nach dem Gerätenamen, den auch Kachel und Regeln verwenden (bei Matter der Name der Funktionsinstanz, z. B. „Badfenster Senkrecht“ statt „… Stromversorgung“).
+
 ## [0.7.1] - 2026-10-09
 
 ### Added

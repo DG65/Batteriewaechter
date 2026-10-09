@@ -42,6 +42,10 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.8.0' => [
+            '• Neues Panel „Gruppen“: Regeln tragen Zelltyp, Anzahl Zellen, Ereignismelder, kritisch oder „ausnehmen“ für ganze Gruppen auf einmal ein, z. B. für alle Geräte im Ort „Öffnungskontakte“ (Muster nach Ort, System oder Name, mehrere Muster mit Komma). Es gilt die erste passende Regel von oben; eine eigene Einstellung je Gerät geht vor, sobald sie vom Standard abweicht.',
+            '• In „Geräte-Einstellungen“ zeigt die neue Spalte „Gilt“, was am Ende für jedes Gerät zählt, und aus welcher Regel es kommt. Das Panel „Gruppen“ nennt die Geräte, die noch keinen Zelltyp haben.',
+        ],
         '0.7.1' => [
             '• „Geräte-Einstellungen“ lässt sich sortieren: oben „Sortieren nach“ (Name, Ort, System, Batteriestand, Zelltyp, Gruppe, Kritisch) und „Reihenfolge“. Die Liste zeigt dafür jetzt Ort, System und den aktuellen Batteriestand je Gerät (nur zur Ansicht). Das Umsortieren ändert nichts an Eingaben, die noch nicht mit „Übernehmen“ gespeichert sind. Die Wahl wird mit „Übernehmen“ gespeichert.',
         ],
@@ -148,6 +152,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyBoolean('NameSearch', false);
         $this->RegisterPropertyString('ManualVariables', '[]');
         $this->RegisterPropertyString('DeviceSettings', '[]');
+        $this->RegisterPropertyString('GroupRules', '[]');
         $this->RegisterPropertyString('DeviceSortBy', 'name');
         $this->RegisterPropertyString('DeviceSortDir', 'ascending');
 
@@ -1257,6 +1262,58 @@ class Batteriewaechter extends IPSModule
         return $out;
     }
 
+    /** Gruppen-Regeln aus der Instanzkonfiguration, von oben nach unten. */
+    private function groupRules(): array
+    {
+        $rows = json_decode((string)$this->ReadPropertyString('GroupRules'), true);
+        $out  = [];
+        if (is_array($rows)) {
+            foreach ($rows as $r) {
+                $out[] = [
+                    'Active'   => (bool)($r['Active'] ?? true),
+                    'Label'    => (string)($r['Label'] ?? ''),
+                    'Kind'     => (string)($r['Kind'] ?? ''),
+                    'Pattern'  => (string)($r['Pattern'] ?? ''),
+                    'Cell'     => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
+                    'Cells'    => max(1, min(12, (int)($r['Cells'] ?? 1))),
+                    'Group'    => (string)($r['Group'] ?? ''),
+                    'Critical' => (bool)($r['Critical'] ?? false),
+                    'Excluded' => (bool)($r['Excluded'] ?? false),
+                ];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Name und Ort eines Geräts, wie sie in Kachel, Tabellen und Gruppen-Regeln gelten. Bei Matter heißt das Gerät wie
+     * seine Funktionsinstanz, bei geteilten Einträgen (mehrere Sensoren einer Instanz) hängt der Sensorname dran.
+     *
+     * @return array ['name'=>string,'place'=>string,'module'=>string]
+     */
+    private function deviceLabel(array $d, int $id, bool $isInstance, array $sibs): array
+    {
+        $name = (string)$d['name'];
+        if ($isInstance) {
+            $name = BWACHLogik::matterDeviceName(IPS_GetName($id), array_map('IPS_GetName', $sibs));
+            if (isset($d['parent'])) {
+                $first = null;
+                foreach ($d['signals'] as $list) {
+                    $first = $list[0]['vid'];
+                }
+                $name .= ' › ' . ($first !== null && IPS_VariableExists((int)$first) ? IPS_GetName((int)$first) : '?');
+            }
+        } elseif (IPS_VariableExists($id)) {
+            $name = IPS_GetName($id);
+        }
+        $place = '';
+        if ($isInstance) {
+            $parent = (int)IPS_GetParent($id);
+            $place  = $parent > 0 ? IPS_GetName($parent) : '';
+        }
+        return ['name' => $name, 'place' => $place, 'module' => (string)($d['module'] ?? '')];
+    }
+
     /** Geräteeinstellungen nach Instanz-ID. */
     private function deviceSettings(): array
     {
@@ -1290,6 +1347,7 @@ class Batteriewaechter extends IPSModule
     {
         $now      = $this->now();
         $settings = $this->deviceSettings();
+        $rules    = $this->groupRules();
         $retired  = $this->loadJson('Retired');
         $hist     = $this->loadJson('History');
         $lifeObs  = $this->loadJson('LifeObs');
@@ -1300,16 +1358,18 @@ class Batteriewaechter extends IPSModule
         foreach ($found['devices'] as $key => $d) {
             // Geteilte Einträge (mehrere Sensoren einer Instanz) tragen die Instanz in 'parent'.
             $id = (int)($d['parent'] ?? $key);
-            $st = $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false];
+            $isInstance = IPS_InstanceExists($id);
+            // Matter: Batterie (Endpunkt 0) und Kontakt (Endpunkt 1) sind ein Gerät. Name und Lebenszeichen
+            // kommen vom Funktionsendpunkt: die Stromversorgung meldet sich selten, der Kontakt bei jedem Öffnen.
+            $sibs  = ($isInstance && isset($d['node'])) ? $this->matterSiblings($id) : [];
+            $label = $this->deviceLabel($d, $id, $isInstance, $sibs);
+            // Eigene Einstellung, dann die erste passende Gruppen-Regel
+            $st = BWACHLogik::applyRules($settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false], $label, $rules);
             if ($st['excluded'] || isset($retired[(string)$key])) {
                 continue;
             }
-            $isInstance = IPS_InstanceExists($id);
             $sig  = $this->readSignals($d['signals']);
             $life = $this->lifeSign($id, $isInstance, $d['signals']);
-            // Matter: Batterie (Endpunkt 0) und Kontakt (Endpunkt 1) sind ein Gerät. Name und Lebenszeichen
-            // kommen vom Funktionsendpunkt: die Stromversorgung meldet sich selten, der Kontakt bei jedem Öffnen.
-            $sibs = ($isInstance && isset($d['node'])) ? $this->matterSiblings($id) : [];
             foreach ($sibs as $sb) {
                 $life = max($life, $this->lifeSign($sb, true, []));
             }
@@ -1341,24 +1401,8 @@ class Batteriewaechter extends IPSModule
                 'stillDays'      => $this->ReadPropertyInteger('StillDays'),
                 'stillDaysEvent' => $this->ReadPropertyInteger('StillDaysEvent'),
             ]);
-            $name = (string)$d['name'];
-            if ($isInstance) {
-                $name = BWACHLogik::matterDeviceName(IPS_GetName($id), array_map('IPS_GetName', $sibs));
-                if (isset($d['parent'])) {
-                    $first = null;
-                    foreach ($d['signals'] as $list) {
-                        $first = $list[0]['vid'];
-                    }
-                    $name .= ' › ' . ($first !== null && IPS_VariableExists((int)$first) ? IPS_GetName((int)$first) : '?');
-                }
-            } elseif (IPS_VariableExists($id)) {
-                $name = IPS_GetName($id);
-            }
-            $place = '';
-            if ($isInstance) {
-                $parent = (int)IPS_GetParent($id);
-                $place  = $parent > 0 ? IPS_GetName($parent) : '';
-            }
+            $name  = $label['name'];
+            $place = $label['place'];
             // Prognose aus dem im Modul geführten Verlauf; „bald leer“ nur bei ausreichender Sicherheit
             $f = BWACHPrognose::forecast($hist[(string)$key] ?? [], (float)$this->ReadPropertyInteger('EmptyPercent'), $this->ReadPropertyInteger('ReplaceJumpPercent'));
             $r['soon'] = false;
@@ -2097,20 +2141,52 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Eigenschaften je Gerät, die nur zum Anzeigen und Sortieren in der Liste dienen (nichts davon ist eine Einstellung). */
-    private function deviceInfo(int $id, array $pcts): array
+    private function deviceInfo(int $id, array $pcts, array $own, array $labels, array $rules): array
     {
         if ($id <= 0 || !IPS_InstanceExists($id)) {
-            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0];
+            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'effectiveCell' => BWACHZelle::UNKNOWN];
         }
-        $parent = (int)IPS_GetParent($id);
-        $p      = $pcts[$id] ?? null;
+        $label = $labels[$id] ?? ['name' => IPS_GetName($id), 'place' => '', 'module' => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? '')];
+        $p     = $pcts[$id] ?? null;
+        $eff   = BWACHLogik::applyRules([
+            'group' => (string)$own['Group'], 'critical' => (bool)$own['Critical'], 'ignoreAge' => (bool)$own['IgnoreAge'],
+            'excluded' => (bool)$own['Excluded'], 'cell' => (string)$own['Cell'], 'cells' => (int)$own['Cells'], 'poll' => (bool)$own['Poll'],
+        ], $label, $rules);
+        $parts = [BWACHZelle::isKnown($eff['cell']) ? ($eff['cells'] > 1 ? $eff['cells'] . '× ' : '') . (string)BWACHZelle::shopLabel($eff['cell']) : 'Zelltyp offen'];
+        if ($eff['group'] === BWACHLogik::GROUP_EVENT) { $parts[] = 'Ereignismelder'; }
+        if ($eff['critical']) { $parts[] = 'kritisch'; }
+        if ($eff['excluded']) { $parts[] = 'ausgenommen'; }
+        if ($eff['rule'] !== null) {
+            $rl = $rules[$eff['rule']];
+            $parts[] = 'Regel ' . ($eff['rule'] + 1) . ($rl['Label'] !== '' ? ' (' . $rl['Label'] . ')' : '');
+        }
         return [
-            'Name'        => IPS_GetName($id),
-            'Place'       => $parent > 0 ? IPS_GetName($parent) : '',
-            'Module'      => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? ''),
-            'Percent'     => $p === null ? '—' : BWACHLogik::num($p) . ' %',
-            'PercentSort' => $p === null ? 1000.0 : round($p, 1),   // Geräte ohne Wert landen bei „aufsteigend“ hinten
+            'Name'          => $label['name'],
+            'Place'         => $label['place'],
+            'Module'        => $label['module'],
+            'Percent'       => $p === null ? '—' : BWACHLogik::num($p) . ' %',
+            'PercentSort'   => $p === null ? 1000.0 : round($p, 1),   // Geräte ohne Wert landen bei „aufsteigend“ hinten
+            'Effect'        => implode(' · ', $parts),
+            'effectiveCell' => $eff['cell'],
         ];
+    }
+
+    /** Name, Ort und System je Geräteinstanz, wie sie in den Regeln gelten. */
+    private function deviceLabels(?array $found): array
+    {
+        $out = [];
+        foreach ($found['devices'] ?? [] as $key => $d) {
+            $id = (int)($d['parent'] ?? $key);
+            if (isset($out[$id]) || !IPS_InstanceExists($id)) {
+                continue;
+            }
+            $sibs = isset($d['node']) ? $this->matterSiblings($id) : [];
+            $out[$id] = $this->deviceLabel($d, $id, true, $sibs);
+            if (isset($d['parent'])) {
+                $out[$id]['name'] = IPS_GetName($id);   // geteilte Einträge: die Instanz als Ganzes
+            }
+        }
+        return $out;
     }
 
     /** Aktueller Batteriestand in Prozent je Geräteinstanz (der niedrigste, wenn es mehrere gibt). */
@@ -2162,7 +2238,11 @@ class Batteriewaechter extends IPSModule
         $rows   = [];
         $have   = [];
         $filled = 0;
-        $pcts   = $this->currentPercents($this->found());
+        $found0 = $this->found();
+        $pcts   = $this->currentPercents($found0);
+        $labels = $this->deviceLabels($found0);
+        $rules  = $this->groupRules();
+        $open   = [];
         if (is_array($saved)) {
             foreach ($saved as $r) {
                 $id = (int)($r['Instance'] ?? 0);
@@ -2178,7 +2258,7 @@ class Batteriewaechter extends IPSModule
                     $cell = $fromDev;
                     $filled++;
                 }
-                $rows[] = [
+                $row = [
                     'Instance'  => $id,
                     'Group'     => (string)($r['Group'] ?? BWACHLogik::GROUP_STANDARD),
                     'Critical'  => (bool)($r['Critical'] ?? false),
@@ -2187,7 +2267,11 @@ class Batteriewaechter extends IPSModule
                     'Cell'      => $cell,
                     'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     'Poll'      => (bool)($r['Poll'] ?? false),
-                ] + $this->deviceInfo($id, $pcts);
+                ];
+                $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
+                if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && $id > 0 && IPS_InstanceExists($id)) { $open[] = $info['Name']; }
+                unset($info['effectiveCell']);
+                $rows[] = $row + $info;
             }
         }
         $new = [];
@@ -2199,18 +2283,75 @@ class Batteriewaechter extends IPSModule
                     $have[$id] = true;
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
-                    $new[$id] = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false] + $this->deviceInfo($id, $pcts);
+                    $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
+                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false];
+                    $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
+                    if ($info['effectiveCell'] === BWACHZelle::UNKNOWN) { $open[] = $info['Name']; }
+                    unset($info['effectiveCell']);
+                    $new[$id] = $row + $info;
                 }
             }
-            uasort($new, function ($a, $b) { return strcasecmp(IPS_GetName($a['Instance']), IPS_GetName($b['Instance'])); });
+            uasort($new, function ($a, $b) { return strcasecmp($a['Name'], $b['Name']); });
         }
-        return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new), 'filled' => $filled];
+        sort($open, SORT_NATURAL | SORT_FLAG_CASE);
+        // Treffer je Regel: wie viele Geräte die Regel als erste trifft
+        $hits = array_fill(0, count($rules), 0);
+        foreach ($labels as $lb) {
+            $i = BWACHLogik::firstRule($rules, $lb);
+            if ($i !== null) { $hits[$i]++; }
+        }
+        return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new), 'filled' => $filled, 'open' => $open, 'hits' => $hits, 'labels' => $labels];
     }
 
-    private function DevicesPanel(): array
+    private function RulesPanel(array $dr): array
     {
-        $dr = $this->deviceRows();
+        $rules = $this->groupRules();
+        $rows  = [];
+        foreach ($rules as $i => $r) {
+            $rows[] = $r + ['Hits' => (int)($dr['hits'][$i] ?? 0)];
+        }
+        $open = $dr['open'];
+        $line = count($rules) === 0
+            ? 'ℹ️ Noch keine Regel. Mit Regeln trägst du Zelltyp, Anzahl Zellen und mehr für ganze Gruppen auf einmal ein, z. B. alle Geräte im Ort „Öffnungskontakte“.'
+            : (count($open) === 0
+                ? '✅ Für jedes Gerät ist ein Zelltyp bekannt.'
+                : '⚠️ Noch ohne Zelltyp: ' . implode(', ', array_slice($open, 0, 8)) . (count($open) > 8 ? ' und ' . (count($open) - 8) . ' weitere' : '') . '.');
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => count($rules) === 0 && count($open) > 0,
+            'caption' => '👥  Gruppen',
+            'items' => [
+                ['type' => 'Label', 'name' => 'RuleLine', 'caption' => $line],
+                ['type' => 'Label', 'caption' => 'Eine Regel gilt für alle Geräte, auf die ihr Muster passt: nach Ort (Kategorie der Instanz), System (Modul) oder Name. Mehrere Muster trennst du mit Komma (ODER), Groß- und Kleinschreibung ist egal. Es gilt die erste passende Regel von oben, Ausnahmen gehören also nach oben. Eine eigene Einstellung in „Geräte-Einstellungen“ geht vor, sobald sie vom Standard abweicht (Zelltyp gewählt, Ereignismelder, kritisch, ausgenommen). Die Spalte „Gilt“ dort zeigt, was am Ende für ein Gerät zählt.'],
+                [
+                    'type' => 'List', 'name' => 'GroupRules', 'caption' => 'Regeln', 'rowCount' => 6, 'add' => true, 'delete' => true, 'changeOrder' => true,
+                    'loadValuesFromConfiguration' => false,
+                    'values' => $rows,
+                    'columns' => [
+                        ['caption' => 'An', 'name' => 'Active', 'width' => '50px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Bezeichnung', 'name' => 'Label', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Kriterium', 'name' => 'Kind', 'width' => '150px', 'add' => BWACHLogik::RULE_PLACE, 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'Ort (Kategorie)', 'value' => BWACHLogik::RULE_PLACE],
+                            ['caption' => 'System (Modul)', 'value' => BWACHLogik::RULE_MODULE],
+                            ['caption' => 'Name enthält', 'value' => BWACHLogik::RULE_NAME],
+                        ]]],
+                        ['caption' => 'Muster (Komma = oder)', 'name' => 'Pattern', 'width' => 'auto', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
+                        ['caption' => 'Zellen', 'name' => 'Cells', 'width' => '80px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
+                        ['caption' => 'Gruppe', 'name' => 'Group', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'nicht ändern', 'value' => ''],
+                            ['caption' => 'Ereignismelder', 'value' => BWACHLogik::GROUP_EVENT],
+                        ]]],
+                        ['caption' => 'Kritisch', 'name' => 'Critical', 'width' => '70px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Treffer', 'name' => 'Hits', 'width' => '70px', 'add' => 0],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function DevicesPanel(array $dr): array
+    {
         $fill = $dr['filled'] > 0
             ? ' Bei ' . $dr['filled'] . ' ' . ($dr['filled'] === 1 ? 'Gerät' : 'Geräten') . ' steht der Zelltyp schon drin, weil das Gerät ihn selbst meldet (bei AA/AAA nur die Bauform, Alkali ist angenommen: bei Akkus bitte ändern).'
             : '';
@@ -2249,6 +2390,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Ort', 'name' => 'Place', 'width' => '140px', 'add' => ''],
                         ['caption' => 'System', 'name' => 'Module', 'width' => '120px', 'add' => ''],
                         ['caption' => 'Batteriestand', 'name' => 'Percent', 'width' => '110px', 'add' => '—', 'sortColumn' => 'PercentSort'],
+                        ['caption' => 'Gilt', 'name' => 'Effect', 'width' => '260px', 'add' => ''],
                         ['caption' => 'Name', 'name' => 'Name', 'width' => '0px', 'visible' => false, 'add' => ''],
                         ['caption' => 'Sortierwert Batteriestand', 'name' => 'PercentSort', 'width' => '0px', 'visible' => false, 'add' => 1000],
                         ['caption' => 'Gruppe', 'name' => 'Group', 'width' => '170px', 'add' => BWACHLogik::GROUP_STANDARD, 'edit' => ['type' => 'Select', 'options' => [
@@ -2328,10 +2470,11 @@ class Batteriewaechter extends IPSModule
         $base   = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
         $status = $base['status'] ?? [];
 
+        $dr = $this->deviceRows();
         $elements = array_values(array_filter([
             $this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(),
             $this->DiscoveryPanel(), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ForecastPanel(), $this->ThresholdPanel(),
-            $this->DevicesPanel(), $this->ManualPanel(),
+            $this->RulesPanel($dr), $this->DevicesPanel($dr), $this->ManualPanel(),
             $this->ForumHint(), $this->LicenseHint(),
         ]));
 

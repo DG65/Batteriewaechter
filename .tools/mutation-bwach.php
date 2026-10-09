@@ -17,6 +17,7 @@ $src  = $root . '/Batteriewaechter';
 // [Datei, Suchtext, Ersatz, Beschreibung]
 // Bewusst NICHT aufgenommen: die Grenzfälle „Spannung genau am Kurvenende“ (die Zwischenrechnung liefert dort dasselbe)
 // und Wegfall des Kurzschlusses in truncateBytes (gleiches Ergebnis).
+// Bewusst NICHT aufgenommen (gleichwertige Mutanten der Gruppen-Regeln): Wegfall der Prüfung auf ein unbekanntes Kriterium (das Gerät hat dafür keinen Wert, es passt nie), „Gruppe überschreiben“ und „kritisch setzen“ ohne Blick auf die eigene Einstellung (eigenes „Ereignismelder“ und eigenes „kritisch“ sind schon der Zielwert).
 // Bewusst NICHT aufgenommen (gleichwertige Mutanten, Verhalten bleibt identisch): Wegfall der Namenssperre
 // „ladung“ (die Namenserkennung lässt „Batterieladung“ ohnehin nicht zu) und Wegfall von „$found === null“
 // im Tick (LastDiscoveryTs = 0 löst dieselbe Suche aus).
@@ -153,10 +154,10 @@ $mutations = [
     ['module.php', "if (\$id > 0 && isset(\$have[\$id])) {\n                    continue;", "if (false) {\n                    continue;", 'Doppelte gespeicherte Zeilen werden übernommen'],
     ['module.php', "if (\$id > 0 && !isset(\$have[\$id]) && IPS_InstanceExists(\$id)) {", "if (\$id > 0 && IPS_InstanceExists(\$id)) {", 'Bereits gespeicherte Geräte werden doppelt angelegt'],
     ['module.php', "if (\$id > 0 && !isset(\$have[\$id]) && IPS_InstanceExists(\$id)) {", "if (\$id > 0 && !isset(\$have[\$id])) {", 'Nicht vorhandene Instanzen werden angelegt'],
-    ['module.php', "uasort(\$new, function (\$a, \$b) { return strcasecmp(IPS_GetName(\$a['Instance']), IPS_GetName(\$b['Instance'])); });", "", 'Neue Zeilen unsortiert'],
+    ['module.php', "uasort(\$new, function (\$a, \$b) { return strcasecmp(\$a['Name'], \$b['Name']); });", "", 'Neue Zeilen unsortiert'],
     ['module.php', "'loadValuesFromConfiguration' => false,", "'loadValuesFromConfiguration' => true,", 'Liste ignoriert die eingesetzten Werte'],
     ['module.php', "'expanded' => \$dr['added'] > 0 || \$dr['filled'] > 0,", "'expanded' => false,", 'Panel mit neuen Zeilen bleibt zu'],
-    ['module.php', "'Cell'      => \$cell,\n                    'Cells'     => max(1, min(12, (int)(\$r['Cells'] ?? 1))),\n                    'Poll'      => (bool)(\$r['Poll'] ?? false),\n                ] + \$this->deviceInfo(\$id, \$pcts);", "'Cell'      => BWACHZelle::UNKNOWN,\n                    'Cells'     => 1,\n                    'Poll'      => false,\n                ] + \$this->deviceInfo(\$id, \$pcts);", 'Gespeicherter Zelltyp geht beim Öffnen verloren'],
+    ['module.php', "'Cell'      => \$cell,\n                    'Cells'     => max(1, min(12, (int)(\$r['Cells'] ?? 1))),\n                    'Poll'      => (bool)(\$r['Poll'] ?? false),\n                ];", "'Cell'      => BWACHZelle::UNKNOWN,\n                    'Cells'     => 1,\n                    'Poll'      => false,\n                ];", 'Gespeicherter Zelltyp geht beim Öffnen verloren'],
     ['module.php', "'where'   => 'Instanz „' . IPS_GetName(\$this->InstanceID) . '“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“',", "'where'   => '',", 'Hinweis nennt den Ort nicht'],
     // --- 0.5.2: CR123A-Batterie und RCR123A-Akku
     ['BWACHZelle.php', "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 3 :", "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 1 :", 'Vorschlag nennt keine CR123A in Reihe'],
@@ -166,7 +167,7 @@ $mutations = [
     ['BWACHLogik.php', "if (!isset(\$power[\$node])) {", "if (true) {", 'Matter-Hinweis nennt auch Knoten mit Endpunkt 0'],
     ['BWACHLogik.php', "\$i['endpoint'] < \$first[\$node][0]", "\$i['endpoint'] > \$first[\$node][0]", 'Matter-Hinweis: nicht die erste Funktionsinstanz'],
     ['module.php', "if (\$cell === BWACHZelle::UNKNOWN && (\$fromDev = \$this->cellFromDevice(\$id)) !== BWACHZelle::UNKNOWN) {", "if ((\$fromDev = \$this->cellFromDevice(\$id)) !== BWACHZelle::UNKNOWN) {", 'Geräteliste: gewählter Zelltyp wird mit dem Gerätewert überschrieben'],
-    ['module.php', "'Excluded' => false, 'Cell' => \$cell, 'Cells' => 1, 'Poll' => false] + \$this->deviceInfo(\$id, \$pcts);", "'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false] + \$this->deviceInfo(\$id, \$pcts);", 'Geräteliste: neue Zeilen ohne Zelltyp vom Gerät'],
+    ['module.php', "'Excluded' => false, 'Cell' => \$cell, 'Cells' => 1, 'Poll' => false];", "'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false];", 'Geräteliste: neue Zeilen ohne Zelltyp vom Gerät'],
     ['module.html', "if (missing(va) !== missing(vb)) { return missing(va) ? 1 : -1; }", "if (missing(va) !== missing(vb)) { return missing(va) ? -1 : 1; }", 'Sortierung: Geräte ohne Wert stehen vorn statt hinten'],
     ['module.html', "return c !== 0 ? sign * c : a.i - b.i;", "return c !== 0 ? c : a.i - b.i;", 'Sortierung: Richtung wird ignoriert'],
     ['module.html', "{ id: 'percent',  label: 'Batteriestand',  num: true,  dir: 'asc',", "{ id: 'percent',  label: 'Batteriestand',  num: true,  dir: 'desc',", 'Sortierung: Batteriestand beginnt mit dem höchsten'],
@@ -174,9 +175,18 @@ $mutations = [
     ['module.php', "'cellKey'      => BWACHZelle::isKnown(\$row['cell']) ? (string)BWACHZelle::shopLabel(\$row['cell']) : '',", "'cellKey'      => '',", 'Kachel-Daten ohne Zelltyp-Kurzbezeichnung'],
     ['module.php', "'percent' => 'PercentSort',", "'percent' => 'Percent',", 'Liste: Sortierung nach Batteriestand vergleicht Text statt Zahl'],
     ['module.php', "'direction' => \$dir === 'descending' ? 'descending' : 'ascending',", "'direction' => 'ascending',", 'Liste: Richtung „absteigend“ wird ignoriert'],
-    ['module.php', "'PercentSort' => \$p === null ? 1000.0 : round(\$p, 1),", "'PercentSort' => \$p === null ? -1.0 : round(\$p, 1),", 'Liste: Geräte ohne Batteriewert stehen vorn'],
+    ['module.php', "'PercentSort'   => \$p === null ? 1000.0 : round(\$p, 1),", "'PercentSort'   => \$p === null ? -1.0 : round(\$p, 1),", 'Liste: Geräte ohne Batteriewert stehen vorn'],
     ['module.php', "\$v  = (float)\$sig['percent']['value'] * (float)(\$sig['percent']['scale'] ?? 1.0);", "\$v  = (float)\$sig['percent']['value'];", 'Liste: Matter-Halbprozent-Skala fehlt im angezeigten Batteriestand'],
     ['module.php', "\$this->UpdateFormField('DeviceSettings', 'sort', json_encode(\$this->sortSpec(\$By, \$Dir)));", "\$this->UpdateFormField('DeviceSettings', 'sort', json_encode(\$this->sortSpec('name', 'ascending')));", 'Liste: Umsortieren im offenen Formular ignoriert die Auswahl'],
+    ['BWACHLogik.php', "if (array_key_exists('Active', \$rule) && !\$rule['Active']) {", "if (false) {", 'Regel: abgeschaltete Regel gilt trotzdem'],
+    ['BWACHLogik.php', "if (\$part !== '' && mb_stripos(\$value, \$part) !== false) {", "if (mb_stripos(\$value, \$part) !== false) {", 'Regel: leeres Musterteil trifft alles'],
+    ['BWACHLogik.php', "if (\$part !== '' && mb_stripos(\$value, \$part) !== false) {", "if (\$part !== '' && mb_strpos(\$value, \$part) !== false) {", 'Regel: Groß-/Kleinschreibung zählt'],
+    ['BWACHLogik.php', "if (\$own['cell'] === BWACHZelle::UNKNOWN && BWACHZelle::isKnown((string)(\$r['Cell'] ?? ''))) {", "if (BWACHZelle::isKnown((string)(\$r['Cell'] ?? ''))) {", 'Regel überschreibt den eigenen Zelltyp'],
+    ['BWACHLogik.php', "\$own['cells'] = max(1, min(12, (int)(\$r['Cells'] ?? 1)));", "", 'Regel: Zellenzahl wird nicht übernommen'],
+    ['BWACHLogik.php', "if (!\$own['excluded'] && !empty(\$r['Excluded'])) {", "if (false) {", 'Regel „ausnehmen“ wirkt nicht'],
+    ['BWACHLogik.php', "foreach (array_values(\$rules) as \$i => \$r) {\n            if (self::ruleMatches(\$r, \$dev)) {\n                return \$i;", "foreach (array_reverse(array_values(\$rules), true) as \$i => \$r) {\n            if (self::ruleMatches(\$r, \$dev)) {\n                return \$i;", 'Regel: die letzte statt der ersten passenden gilt'],
+    ['module.php', "\$st = BWACHLogik::applyRules(", "\$st = (fn(\$a, \$b, \$c) => \$a)(", 'Auswertung ignoriert die Gruppen-Regeln'],
+    ['module.php', "\$hits[\$i]++;", "", 'Regel-Treffer werden nicht gezählt'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],

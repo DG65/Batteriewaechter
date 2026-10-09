@@ -184,6 +184,84 @@ final class BWACHLogik
         return $names;
     }
 
+    // =====================================================================
+    //  Gruppen-Regeln
+    // =====================================================================
+
+    public const RULE_PLACE  = 'place';    // Ort = Name der Kategorie, in der die Geräteinstanz liegt
+    public const RULE_MODULE = 'module';   // System = Name des Moduls der Instanz (z. B. „Z-Wave Module“)
+    public const RULE_NAME   = 'name';     // Name des Geräts
+
+    /**
+     * Passt eine Regel auf ein Gerät? Das Muster darf mehrere Teile haben, durch Komma getrennt (ODER); ein Teil
+     * passt, wenn er im Wert vorkommt (ohne Groß-/Kleinschreibung). Ohne Muster oder abgeschaltet passt eine Regel nie.
+     *
+     * @param array $rule ['Active'?,'Kind','Pattern']
+     * @param array $dev  ['name','place','module']
+     */
+    public static function ruleMatches(array $rule, array $dev): bool
+    {
+        if (array_key_exists('Active', $rule) && !$rule['Active']) {
+            return false;
+        }
+        $kind = (string)($rule['Kind'] ?? '');
+        if (!in_array($kind, [self::RULE_PLACE, self::RULE_MODULE, self::RULE_NAME], true)) {
+            return false;
+        }
+        $value = (string)($dev[$kind] ?? '');
+        foreach (explode(',', (string)($rule['Pattern'] ?? '')) as $part) {
+            $part = trim($part);
+            if ($part !== '' && mb_stripos($value, $part) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Nummer der ersten passenden Regel (von oben), null wenn keine passt. */
+    public static function firstRule(array $rules, array $dev): ?int
+    {
+        foreach (array_values($rules) as $i => $r) {
+            if (self::ruleMatches($r, $dev)) {
+                return $i;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Wendet die erste passende Regel auf die Einstellungen eines Geräts an. Eine eigene Einstellung geht vor, aber nur,
+     * wenn sie vom Standard abweicht: Zelltyp und Zellenzahl gelten als Paar (eigener Zelltyp → beides bleibt), Gruppe
+     * „Standard“, „nicht kritisch“ und „nicht ausgenommen“ lassen sich von einer Regel überschreiben.
+     *
+     * @param array $own ['group','critical','ignoreAge','excluded','cell','cells','poll']
+     * @return array die Einstellungen mit 'rule' => Nummer der Regel (0-basiert) oder null
+     */
+    public static function applyRules(array $own, array $dev, array $rules): array
+    {
+        $rules = array_values($rules);
+        $i = self::firstRule($rules, $dev);
+        $own['rule'] = $i;
+        if ($i === null) {
+            return $own;
+        }
+        $r = $rules[$i];
+        if ($own['cell'] === BWACHZelle::UNKNOWN && BWACHZelle::isKnown((string)($r['Cell'] ?? ''))) {
+            $own['cell']  = (string)$r['Cell'];
+            $own['cells'] = max(1, min(12, (int)($r['Cells'] ?? 1)));
+        }
+        if ($own['group'] === self::GROUP_STANDARD && ($r['Group'] ?? '') === self::GROUP_EVENT) {
+            $own['group'] = self::GROUP_EVENT;
+        }
+        if (!$own['critical'] && !empty($r['Critical'])) {
+            $own['critical'] = true;
+        }
+        if (!$own['excluded'] && !empty($r['Excluded'])) {
+            $own['excluded'] = true;
+        }
+        return $own;
+    }
+
     /** Namen, die einen Sammelwert über mehrere Geräte beschreiben („Schwächste Batterie“ eines Raums). */
     public static function isAggregateName(string $name): bool
     {

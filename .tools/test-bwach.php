@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.7.1', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.8.0', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,13 +499,13 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.7.1' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.8.0' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.7.1', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.8.0', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
-check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
-check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand und ihre Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
-    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort'], true)) { return false; } } } } }
+check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 11);
+check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
+    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits'], true)) { return false; } } } } }
     return true;
 })());
 $captions = [];
@@ -1477,7 +1477,7 @@ check('Liste hat eine Startsortierung (Standard: Name aufsteigend)', ($eS['sort'
 check('Auswahl „Sortieren nach“ und „Reihenfolge“ steht über der Liste und ruft BWACH_SetDeviceSort', strpos($pItems, 'DeviceSortBy') !== false && strpos($pItems, 'DeviceSortDir') !== false && substr_count($pItems, 'BWACH_SetDeviceSort') === 2);
 check('Liste zeigt Ort, System und Batteriestand; Instanz und Batteriestand haben Sortierspalten', (function () use ($eS) { $c = array_column($eS['columns'], null, 'name'); return isset($c['Place'], $c['Module'], $c['Percent']) && ($c['Instance']['sortColumn'] ?? '') === 'Name' && ($c['Percent']['sortColumn'] ?? '') === 'PercentSort' && ($c['Name']['visible'] ?? true) === false && ($c['PercentSort']['visible'] ?? true) === false && !isset($c['Place']['edit']) && !isset($c['Percent']['edit']); })());
 $rowsS = array_column($eS['values'], null, 'Instance');
-check('Zeile trägt Name, Ort, System und aktuellen Batteriestand (Knoten 14: 100 %)', (($rowsS[502]['Name'] ?? '') === 'Badfenster Senkrecht Stromversorgung') && ($rowsS[502]['Place'] ?? '') === 'Öffnungskontakte' && ($rowsS[502]['Module'] ?? '') === 'Matter Device' && ($rowsS[502]['Percent'] ?? '') === '100 %' && ($rowsS[502]['PercentSort'] ?? 0) == 100, json_encode($rowsS[502] ?? null, JSON_UNESCAPED_UNICODE));
+check('Zeile trägt Name, Ort, System und aktuellen Batteriestand (Knoten 14: 100 %)', (($rowsS[502]['Name'] ?? '') === 'Badfenster Senkrecht') && ($rowsS[502]['Place'] ?? '') === 'Öffnungskontakte' && ($rowsS[502]['Module'] ?? '') === 'Matter Device' && ($rowsS[502]['Percent'] ?? '') === '100 %' && ($rowsS[502]['PercentSort'] ?? 0) == 100, json_encode($rowsS[502] ?? null, JSON_UNESCAPED_UNICODE));
 $GLOBALS['OBJ'][5021]['var']['value'] = 40;
 [$eS2] = $fl($mdl); $rS2 = array_column($eS2['values'], null, 'Instance');
 check('Batteriestand folgt dem Wert (Rohwert 40 = 20 %)', ($rS2[502]['Percent'] ?? '') === '20 %' && ($rS2[502]['PercentSort'] ?? 0) == 20, json_encode($rS2[502] ?? null));
@@ -1500,6 +1500,50 @@ $mdl->fieldUpdates = []; $mdl->SetDeviceSort('place', 'descending');
 $fu = array_filter($mdl->fieldUpdates, function ($u) { return $u[0] === 'DeviceSettings' && $u[1] === 'sort'; });
 check('SetDeviceSort sortiert im offenen Formular um (nur die Eigenschaft sort, keine Werte) und als JSON', count($fu) === 1 && json_decode(array_values($fu)[0][2], true) === ['column' => 'Place', 'direction' => 'descending'] && count(array_filter($mdl->fieldUpdates, function ($u) { return $u[0] === 'DeviceSettings' && $u[1] === 'values'; })) === 0, json_encode($mdl->fieldUpdates));
 $mdl->props['DeviceSortBy'] = 'name'; $mdl->props['DeviceSortDir'] = 'ascending';
+
+// Gruppen-Regeln: reine Logik
+$dev = ['name' => 'Badfenster Senkrecht', 'place' => 'Öffnungskontakte', 'module' => 'Matter Device'];
+$base = ['group' => 'standard', 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => 'unbekannt', 'cells' => 1, 'poll' => false];
+check('Regel nach Ort trifft (ohne Groß-/Kleinschreibung, Teiltreffer)', BWACHLogik::ruleMatches(['Kind' => 'place', 'Pattern' => 'kontakte'], $dev) && !BWACHLogik::ruleMatches(['Kind' => 'place', 'Pattern' => 'Leckage'], $dev));
+check('Regel nach System und nach Name', BWACHLogik::ruleMatches(['Kind' => 'module', 'Pattern' => 'matter'], $dev) && BWACHLogik::ruleMatches(['Kind' => 'name', 'Pattern' => 'fenster'], $dev) && !BWACHLogik::ruleMatches(['Kind' => 'name', 'Pattern' => 'Tür'], $dev));
+check('Mehrere Muster mit Komma sind ODER, Leerteile zählen nicht', BWACHLogik::ruleMatches(['Kind' => 'name', 'Pattern' => 'Tür, Fenster'], $dev) && !BWACHLogik::ruleMatches(['Kind' => 'name', 'Pattern' => ' , ,'], $dev));
+check('Ohne Muster, abgeschaltet oder mit unbekanntem Kriterium trifft eine Regel nie', !BWACHLogik::ruleMatches(['Kind' => 'name', 'Pattern' => ''], $dev) && !BWACHLogik::ruleMatches(['Active' => false, 'Kind' => 'place', 'Pattern' => 'Öffnung'], $dev) && !BWACHLogik::ruleMatches(['Kind' => 'unsinn', 'Pattern' => 'a'], $dev));
+$ruleA = ['Active' => true, 'Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 'aaa_nimh', 'Cells' => 2, 'Group' => '', 'Critical' => false, 'Excluded' => false];
+$ruleB = ['Active' => true, 'Kind' => 'place', 'Pattern' => 'Öffnungskontakte', 'Cell' => 'cr2032', 'Cells' => 1, 'Group' => 'ereignis', 'Critical' => true, 'Excluded' => false];
+check('Erste passende Regel von oben gilt (Ausnahme oben)', BWACHLogik::firstRule([$ruleA, $ruleB], $dev) === 0 && BWACHLogik::firstRule([$ruleB, $ruleA], $dev) === 0 && BWACHLogik::firstRule([$ruleB, $ruleA], ['name' => 'X', 'place' => 'Öffnungskontakte', 'module' => '']) === 0 && BWACHLogik::firstRule([$ruleA, $ruleB], ['name' => 'X', 'place' => 'Öffnungskontakte', 'module' => '']) === 1 && BWACHLogik::firstRule([$ruleA], ['name' => 'X', 'place' => '', 'module' => '']) === null);
+$e1 = BWACHLogik::applyRules($base, $dev, [$ruleB]);
+check('Regel setzt Zelltyp, Zellenzahl, Ereignismelder und kritisch bei Standardwerten', $e1['cell'] === 'cr2032' && $e1['cells'] === 1 && $e1['group'] === 'ereignis' && $e1['critical'] === true && $e1['rule'] === 0);
+$own = ['cell' => 'aa_alkali', 'cells' => 3, 'group' => 'ereignis', 'critical' => true] + $base;
+$e2 = BWACHLogik::applyRules($own, $dev, [$ruleA]);
+check('Eigener Zelltyp und eigene Zellenzahl gehen vor (als Paar)', $e2['cell'] === 'aa_alkali' && $e2['cells'] === 3);
+$e3 = BWACHLogik::applyRules(['cells' => 4] + $base, $dev, [$ruleA]);
+check('Ohne eigenen Zelltyp zählt die Zellenzahl der Regel (2), nicht die Standard-Eins oder eine liegengebliebene 4', $e3['cell'] === 'aaa_nimh' && $e3['cells'] === 2);
+$e4 = BWACHLogik::applyRules($base, $dev, [['Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 'unbekannt', 'Cells' => 5, 'Group' => '', 'Critical' => false, 'Excluded' => true]]);
+check('Regel ohne Zelltyp ändert Zelltyp und Zellenzahl nicht, „ausnehmen“ wirkt', $e4['cell'] === 'unbekannt' && $e4['cells'] === 1 && $e4['excluded'] === true);
+check('Keine passende Regel: Einstellungen unverändert, rule = null', BWACHLogik::applyRules($base, ['name' => 'Y', 'place' => '', 'module' => ''], [$ruleA]) === $base + ['rule' => null]);
+
+// Gruppen-Regeln im Modul
+$GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 504, 505, 506, 508]];
+$GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';   // Gerät meldet nichts Verwertbares
+$GLOBALS['OBJ'][5071]['var']['value'] = 'Sonderzelle';
+$mdl->props['DeviceSettings'] = '[]';
+$mdl->props['GroupRules'] = json_encode([
+    ['Active' => true, 'Label' => 'Badfenster', 'Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 'aaa_nimh', 'Cells' => 2, 'Group' => '', 'Critical' => false, 'Excluded' => false],
+    ['Active' => true, 'Label' => 'Anwesenheit', 'Kind' => 'name', 'Pattern' => 'Anwesenheitssensor', 'Cell' => 'cr2032', 'Cells' => 1, 'Group' => 'ereignis', 'Critical' => false, 'Excluded' => false],
+]);
+$mdl->ApplyChanges();
+$plR = json_decode(end($mdl->visUpdates), true); $byN = array_column($plR['devices'], null, 'name');
+check('Regel wirkt in der Auswertung: Badfenster 2× AAA Akku, kein „laut Gerät“', isset($byN['Badfenster Senkrecht']) && strpos($byN['Badfenster Senkrecht']['cellText'], '2× AAA Akku NiMH') === 0 && strpos($byN['Badfenster Senkrecht']['cellText'], 'laut Gerät') === false, json_encode($byN['Badfenster Senkrecht'] ?? null, JSON_UNESCAPED_UNICODE));
+[$eR, $pR] = $fl($mdl); $rowsR = array_column($eR['values'], null, 'Instance');
+check('Spalte „Gilt“ nennt Zelltyp und Regel mit Bezeichnung', ($rowsR[502]['Effect'] ?? '') === '2× AAA (Akku) · Regel 1 (Badfenster)', json_encode($rowsR[502] ?? null, JSON_UNESCAPED_UNICODE));
+check('Die Regeln stehen im Formular, mit Treffer je Regel', (function () use ($mdl) { $f = json_decode($mdl->GetConfigurationForm(), true); foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'GroupRules') { return count($it['values']) === 2 && $it['values'][0]['Hits'] === 1 && $it['values'][1]['Hits'] === 1 && $it['changeOrder'] === true; } } } return false; })());
+check('Panel „Gruppen“ nennt die Geräte ohne Zelltyp (Nur Flag hat keine Beschreibung und passt auf keine Regel)', (function () use ($mdl) { $f = json_decode($mdl->GetConfigurationForm(), true); foreach ($f['elements'] as $p) { if (($p['caption'] ?? '') === '👥  Gruppen') { return strpos(json_encode($p, JSON_UNESCAPED_UNICODE), 'Noch ohne Zelltyp') !== false && strpos(json_encode($p, JSON_UNESCAPED_UNICODE), 'Nur Flag') !== false; } } return false; })());
+$mdl->props['DeviceSettings'] = json_encode([['Instance' => 502, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aa_alkali', 'Cells' => 3, 'Poll' => false]]); $mdl->ApplyChanges();
+$byN2 = array_column(json_decode(end($mdl->visUpdates), true)['devices'], null, 'name');
+check('Eigene Einstellung im Geräte-Panel (AA Alkali, 3 Zellen) geht vor der Regel', strpos($byN2['Badfenster Senkrecht']['cellText'] ?? '', '3× AA Alkali') === 0, $byN2['Badfenster Senkrecht']['cellText'] ?? '');
+$mdl->props['GroupRules'] = json_encode([['Active' => true, 'Label' => '', 'Kind' => 'place', 'Pattern' => 'Öffnungskontakte', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => true]]); $mdl->props['DeviceSettings'] = '[]'; $mdl->ApplyChanges();
+check('Regel „ausnehmen“ nimmt die Geräte der Gruppe aus der Überwachung', !isset(array_column(json_decode(end($mdl->visUpdates), true)['devices'], null, 'name')['Badfenster Senkrecht']));
+$mdl->props['GroupRules'] = '[]'; $mdl->props['DeviceSettings'] = '[]';
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
