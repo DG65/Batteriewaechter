@@ -257,6 +257,8 @@ $mutations = [
     ['module.php', "bis du „Meldungen aktiv“ einschaltest.", "bis Sie „Meldungen aktiv“ einschalten.", 'Förmliche Anrede im Meldungen-Hinweis'],
     ['module.php', "\$cut = count(\$pending) > 3;", "\$cut = false;", '„Neu“ zeigt die ganze Entwicklungsgeschichte'],
     ['module.php', "\$pending = array_slice(\$pending, -3, 3, true);", "\$pending = array_slice(\$pending, 0, 3, true);", '„Neu“ zeigt die ältesten statt der neuesten drei Versionen'],
+    ['module.php', "/144608';", "/144609';", 'Rückmeldungen: falsche Thread-URL'],
+    ['module.php', "['type' => 'Button', 'caption' => 'Zum Forum-Thread', 'onClick' => \"echo '\" . self::FORUM_URL . \"';\", 'link' => true],", "", 'Rückmeldungen: Forum-Schaltfläche fehlt'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],

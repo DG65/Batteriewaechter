@@ -1825,6 +1825,13 @@ check('Keine förmliche Anrede („Ihre“, „Ihnen“, „Wählen Sie“, „b
 check('Keine veralteten Zusagen („folgt in einer späteren Version“, „nach 14 Tagen nicht“) im Formular', strpos($allTxt, 'späteren Version') === false && strpos($allTxt, 'antwortet es nach 14 Tagen nicht') === false && strpos($allTxt, 'folgt, sobald genug Wechsel') === false);
 check('Skript-Liste in der Dokumentation nennt die neuen Funktionen', (function ($t) { foreach (['BWACH_ShoppingText', 'BWACH_SendShopping', 'BWACH_DeviceListCsv', 'BWACH_AddReplacement', 'BWACH_AcknowledgePlace', 'BWACH_Diagnosis'] as $f) { if (strpos($t, $f) === false) { return false; } } return true; })($allTxt));
 
+// Panel „Rückmeldungen“ mit dem Forum-Thread
+$mFh = new BWTest(); $mFh->Create(); $mFh->ApplyChanges();
+$fhPanel = null; foreach (json_decode($mFh->GetConfigurationForm(), true)['elements'] as $p) { if (($p['name'] ?? '') === 'ForumHintPanel') { $fhPanel = $p; } }
+$fhJson = json_encode($fhPanel, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+check('Rückmeldungen: Schaltfläche „Zum Forum-Thread“ mit der echten Thread-URL (link=true), daneben „Zum Repository“', $fhPanel !== null && strpos($fhJson, 'Zum Forum-Thread') !== false && strpos($fhJson, 'https://community.symcon.de/t/beta-modul-dg65-toolkit-batteriewaechter-batterien-aller-funkgeraete-im-blick-mit-prognose-einkaufsliste-tauschrunde-und-meldungen/144608') !== false && strpos($fhJson, 'Zum Repository') !== false && substr_count($fhJson, '"link":true') === 2, $fhJson);
+check('Rückmeldungen: der Text nennt den Forum-Thread und die Diagnose, nicht mehr nur GitHub', strpos($fhJson, 'im Forum-Thread willkommen') !== false && strpos($fhJson, 'Diagnose fürs Forum') !== false && strpos($fhJson, '(GitHub)') === false);
+
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
 mkvar(1015, 101, 'linkquality', 'Verbindungsqualität', 1, 30, $GLOBALS['CLOCK'] - 60);

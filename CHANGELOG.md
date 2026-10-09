@@ -6,6 +6,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 ## [0.11.2] - 2026-10-09
 
 ### Changed
+- Panel „Rückmeldungen“: Der Hinweis nennt den Forum-Thread als Ort für Rückmeldungen und hat die neue Schaltfläche „Zum Forum-Thread“ (der Thread ist am 09.10.2026 erschienen), daneben bleibt „Zum Repository“. Die Version bleibt dabei 0.11.2, ohne neuen Build.
 - Durchsicht als Neunutzer (Neuinstallations-Simulation der Store-Checkliste, Punkt 12): Anrede einheitlich „du“ (vorher gemischt „Sie“ und „du“, die anderen Module des Verbunds sagen „du“). Veraltete Sätze in „Dokumentation & Hilfe“ korrigiert („die Auswertung nach Zelltyp folgt in einer späteren Version“, „antwortet es nach 14 Tagen nicht“, unvollständige Skript-Liste, Auswertung des Tagebuchs).
 - **Das Panel „Neu bis Version“ entfällt bis zur ersten veröffentlichten Version** (Dietmar, 09.10.2026): Vorher bekam eine neue Instanz die ganze Entwicklungsgeschichte ab Version 0.1.0 zu sehen (über 60 Zeilen). Die Geschichte steht im `CHANGELOG.md`. Ab der ersten Veröffentlichung wird die Liste (`NEWS_VERSIONS`) mit den Änderungen seitdem gepflegt; das Panel zeigt dann höchstens die letzten drei Versionen mit Verweis auf das Änderungsprotokoll.
 
