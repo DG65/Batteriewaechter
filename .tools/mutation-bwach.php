@@ -260,6 +260,8 @@ $mutations = [
     ['module.php', "if (\$info['effectiveCell'] === BWACHZelle::UNKNOWN && !\$info['effectiveExcluded'] && \$id > 0 && IPS_InstanceExists(\$id)) { \$open[] = \$info['Name']; }", "if (\$info['effectiveCell'] === BWACHZelle::UNKNOWN && \$id > 0 && IPS_InstanceExists(\$id)) { \$open[] = \$info['Name']; }", 'Ausgenommene Geräte zählen als „ohne Zelltyp“ (gespeicherte Zeile)'],
     ['module.php', "'effectiveExcluded' => (bool)\$eff['excluded'],", "'effectiveExcluded' => false,", 'Ausgenommene Geräte zählen als „ohne Zelltyp“ (per Regel)'],
     ['module.php', "\$ok    = \$this->deliver('🛒 Batterien einkaufen', \$parts[1] ?? \$parts[0], 'bell', \$channels);", "\$ok    = \$this->deliver('🛒 Batterien einkaufen', \$this->ShoppingText(), 'bell', \$channels);", 'Einkaufsliste senden: Überschrift doppelt'],
+    ['module.php', "/144608';", "/144609';", 'Rückmeldungen: falsche Thread-URL'],
+    ['module.php', "['type' => 'Button', 'caption' => 'Zum Forum-Thread', 'onClick' => \"echo '\" . self::FORUM_URL . \"';\", 'link' => true],", "", 'Rückmeldungen: Forum-Schaltfläche fehlt'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],

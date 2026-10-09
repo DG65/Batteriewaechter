@@ -8,6 +8,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 ### Fixed
 - **„Noch ohne Zelltyp“ und „Erste Schritte“ zählten ausgenommene Geräte mit.** An einer Anlage mit alten, ausgenommenen Instanzen standen deren Namen in der Warnung, obwohl sie gar nicht überwacht werden. Ausgenommene Geräte (einzeln oder per Regel) zählen jetzt nicht mehr.
 - **Einkaufsliste senden:** Die Überschrift stand doppelt in der Push-Meldung (Titel „🛒 Batterien einkaufen“ und gleich noch einmal als erste Zeile des Textes). Der Text beginnt jetzt direkt mit den Zeilen.
+- Panel „Rückmeldungen“: Der Hinweis nennt den Forum-Thread als Ort für Rückmeldungen und hat die neue Schaltfläche „Zum Forum-Thread“ (der Thread ist am 09.10.2026 erschienen), daneben bleibt „Zum Repository“. Die Version bleibt dabei 0.11.3, ohne neuen Build.
 - Die Auswahl „Reihenfolge“ in „Geräte-Einstellungen“ zeigte ihre Texte abgeschnitten („aufsteigend (A–Z, niedrig …“). Jetzt „aufsteigend (A–Z)“ und „absteigend (Z–A)“.
 
 ## [0.11.2] - 2026-10-09

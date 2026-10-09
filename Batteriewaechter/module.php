@@ -53,6 +53,7 @@ class Batteriewaechter extends IPSModule
     private const MAX_DIARY_ROWS = 50;
 
     private const REPO_URL    = 'https://github.com/DG65/Batteriewaechter';
+    private const FORUM_URL   = 'https://community.symcon.de/t/beta-modul-dg65-toolkit-batteriewaechter-batterien-aller-funkgeraete-im-blick-mit-prognose-einkaufsliste-tauschrunde-und-meldungen/144608';
     private const LICENSE_URL = 'https://github.com/DG65/Batteriewaechter/blob/beta/LICENSE';
     private const PAYPAL_URL  = 'https://paypal.me/DietmarGureth';
 
@@ -2718,7 +2719,8 @@ class Batteriewaechter extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
             'caption' => '💬  Rückmeldungen',
             'items' => [
-                ['type' => 'Label', 'caption' => '🧪 Der Batteriewächter ist neu — Fragen, Wünsche oder Fehler sind willkommen (GitHub). Besonders gefragt: Erfahrungen mit Zigbee2MQTT, Matter und HomeMatic, die der Entwickler selbst nicht testen kann.'],
+                ['type' => 'Label', 'caption' => '🧪 Der Batteriewächter ist neu — Fragen, Wünsche oder Fehler sind im Forum-Thread willkommen. Besonders gefragt: Erfahrungen mit Zigbee2MQTT, Matter und HomeMatic, die der Entwickler selbst nicht testen kann. Wer sie ausprobiert, drückt unter „Gefundene Geräte“ auf „Diagnose fürs Forum“ und stellt die Ausgabe dort ein.'],
+                ['type' => 'Button', 'caption' => 'Zum Forum-Thread', 'onClick' => "echo '" . self::FORUM_URL . "';", 'link' => true],
                 ['type' => 'Button', 'caption' => 'Zum Repository', 'onClick' => "echo '" . self::REPO_URL . "';", 'link' => true],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'BWACH_AckForumHint($id);'],
             ],
