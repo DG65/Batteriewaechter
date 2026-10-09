@@ -42,6 +42,9 @@ class Batteriewaechter extends IPSModule
 
     // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik", NEWS_VERSIONS-Muster)
     private const NEWS_VERSIONS = [
+        '0.6.4' => [
+            '• „Geräte-Einstellungen“ trägt den Zelltyp ein, den ein Matter-Gerät selbst meldet (z. B. „AAA“, „CR2032“). Er steht in der Liste und wird mit „Übernehmen“ gespeichert; eine eigene Wahl bleibt unberührt. Bei AA/AAA ist nur die Bauform bekannt, Alkali ist angenommen: bei Akkus bitte ändern.',
+        ],
         '0.6.3' => [
             '• Der Matter-Hinweis sagt jetzt, wie die Stromversorgung angelegt wird: Instanz „Matter Gerät“ von Hand hinzufügen (Knoten-ID des Geräts, Endpunkt 0). Der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot, ohne dass etwas nicht stimmt.',
         ],
@@ -2073,11 +2076,21 @@ class Batteriewaechter extends IPSModule
      *
      * @return array ['rows'=>array[], 'added'=>int]
      */
+    /** Zelltyp, den das Gerät selbst als Ersatz nennt (Matter), sonst „unbekannt“. */
+    private function cellFromDevice(int $id): string
+    {
+        if ($id <= 0 || !IPS_InstanceExists($id)) {
+            return BWACHZelle::UNKNOWN;
+        }
+        return BWACHZelle::fromDescription($this->replacementText($id)) ?? BWACHZelle::UNKNOWN;
+    }
+
     private function deviceRows(): array
     {
-        $saved = json_decode((string)$this->ReadPropertyString('DeviceSettings'), true);
-        $rows  = [];
-        $have  = [];
+        $saved  = json_decode((string)$this->ReadPropertyString('DeviceSettings'), true);
+        $rows   = [];
+        $have   = [];
+        $filled = 0;
         if (is_array($saved)) {
             foreach ($saved as $r) {
                 $id = (int)($r['Instance'] ?? 0);
@@ -2087,13 +2100,19 @@ class Batteriewaechter extends IPSModule
                 if ($id > 0) {
                     $have[$id] = true;
                 }
+                // Ein noch nicht gewählter Zelltyp wird mit dem vorbelegt, was das Gerät meldet; eine Wahl bleibt unberührt
+                $cell = BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN;
+                if ($cell === BWACHZelle::UNKNOWN && ($fromDev = $this->cellFromDevice($id)) !== BWACHZelle::UNKNOWN) {
+                    $cell = $fromDev;
+                    $filled++;
+                }
                 $rows[] = [
                     'Instance'  => $id,
                     'Group'     => (string)($r['Group'] ?? BWACHLogik::GROUP_STANDARD),
                     'Critical'  => (bool)($r['Critical'] ?? false),
                     'IgnoreAge' => (bool)($r['IgnoreAge'] ?? false),
                     'Excluded'  => (bool)($r['Excluded'] ?? false),
-                    'Cell'      => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
+                    'Cell'      => $cell,
                     'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     'Poll'      => (bool)($r['Poll'] ?? false),
                 ];
@@ -2106,23 +2125,29 @@ class Batteriewaechter extends IPSModule
                 $id = (int)($d['parent'] ?? $key);
                 if ($id > 0 && !isset($have[$id]) && IPS_InstanceExists($id)) {
                     $have[$id] = true;
+                    $cell = $this->cellFromDevice($id);
+                    $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $new[$id] = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false];
+                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false];
                 }
             }
             uasort($new, function ($a, $b) { return strcasecmp(IPS_GetName($a['Instance']), IPS_GetName($b['Instance'])); });
         }
-        return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new)];
+        return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new), 'filled' => $filled];
     }
 
     private function DevicesPanel(): array
     {
         $dr = $this->deviceRows();
+        $fill = $dr['filled'] > 0
+            ? ' Bei ' . $dr['filled'] . ' ' . ($dr['filled'] === 1 ? 'Gerät' : 'Geräten') . ' steht der Zelltyp schon drin, weil das Gerät ihn selbst meldet (bei AA/AAA nur die Bauform, Alkali ist angenommen: bei Akkus bitte ändern).'
+            : '';
         $line = $dr['added'] > 0
-            ? '✅ Alle erkannten Geräte stehen schon in der Liste (' . $dr['added'] . ' neu, noch nicht gespeichert). Je Gerät nur den Zelltyp und die Anzahl Zellen wählen, dann unten „Übernehmen“ klicken.'
-            : (count($dr['rows']) > 0 ? '✅ Alle erkannten Geräte stehen in der Liste.' : 'ℹ️ Noch keine Geräte erkannt: zuerst oben „Jetzt neu suchen“ drücken.');
+            ? '✅ Alle erkannten Geräte stehen schon in der Liste (' . $dr['added'] . ' neu, noch nicht gespeichert). Je Gerät nur den Zelltyp und die Anzahl Zellen wählen, dann unten „Übernehmen“ klicken.' . $fill
+            : ($dr['filled'] > 0 ? '✅ Alle erkannten Geräte stehen in der Liste, noch nicht gespeichert.' . $fill . ' Zum Speichern unten „Übernehmen“ klicken.'
+            : (count($dr['rows']) > 0 ? '✅ Alle erkannten Geräte stehen in der Liste.' : 'ℹ️ Noch keine Geräte erkannt: zuerst oben „Jetzt neu suchen“ drücken.'));
         return [
-            'type' => 'ExpansionPanel', 'expanded' => $dr['added'] > 0,
+            'type' => 'ExpansionPanel', 'expanded' => $dr['added'] > 0 || $dr['filled'] > 0,
             'caption' => '🏷️  Geräte-Einstellungen',
             'items' => [
                 ['type' => 'Label', 'name' => 'DeviceRowsLine', 'caption' => $line],

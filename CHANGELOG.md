@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.6.4] - 2026-10-09
+
+### Changed
+- „Geräte-Einstellungen“ trägt den Zelltyp ein, den das Gerät selbst meldet (Matter „Ersatz Beschreibung“: CR2032, CR2450, CR123A, RCR123A, 16340, AA, AAA, 9V). Das gilt für neue Zeilen und für gespeicherte Zeilen, in denen noch kein Zelltyp gewählt ist; eine eigene Wahl wird nie überschrieben. Die Werte stehen nur in der Liste und werden erst mit „Übernehmen“ gespeichert. Bei AA/AAA nennt das Gerät nur die Bauform: Alkali ist angenommen, der Hinweis im Formular sagt es.
+
 ## [0.6.3] - 2026-10-09
 
 ### Changed

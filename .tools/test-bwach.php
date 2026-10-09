@@ -475,7 +475,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.6.3', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '🆕  Neu bis Version 0.6.4', '📖  Dokumentation & Hilfe', '🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '🏷️  Geräte-Einstellungen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → Neu → Doku → Fachpanels → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck-, Neu- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === true && $form['elements'][2]['expanded'] === false);
 check('Lizenz-Panel nicht wegklickbar (kein name) und eingeklappt', !isset(end($form['elements'])['name']) && end($form['elements'])['expanded'] === false);
@@ -499,9 +499,9 @@ $upd = array_column($m6->fieldUpdates, 0);
 check('Suche aktualisiert Kopfzeile UND Zustandszeile gemeinsam', in_array('DiscoveryStatus', $upd, true) && in_array('CheckStatus', $upd, true));
 check('Kopfzeile im Muster „✅ N Geräte gefunden (zuletzt HH:MM:SS Uhr).“', (bool)preg_match('/✅ 11 Geräte gefunden \(zuletzt \d\d:\d\d:\d\d Uhr\)\./u', json_encode($form, JSON_UNESCAPED_UNICODE)));
 $m6->AckNews();
-check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.6.3' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
+check('„Verstanden“ speichert die installierte Version und blendet das Panel aus', $m6->ReadAttributeString('SeenNews') === '0.6.4' && in_array(['NewsPanel', 'visible', false], $m6->fieldUpdates, true));
 $form2 = json_decode($m6->GetConfigurationForm(), true);
-check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.6.3', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
+check('News-Panel erscheint danach nicht mehr', !in_array('🆕  Neu bis Version 0.6.4', array_map(function ($e) { return $e['caption']; }, $form2['elements']), true));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 10);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern)', (function () use ($form) {
@@ -1427,6 +1427,20 @@ check('Suchergebnis nennt Matter-Geräte ohne Endpunkt 0 (Knoten 8 und 4), nicht
 $GLOBALS['OBJ'] = array_filter($GLOBALS['OBJ'], function ($k) { return !in_array($k, [503, 507], true); }, ARRAY_FILTER_USE_KEY);
 $GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 504, 505, 506]];
 check('Alle Matter-Knoten haben Endpunkt 0: kein Hinweis', strpos($mn->Search(), 'Matter: Für') === false);
+
+// Geräteliste: Zelltyp vom Gerät vorbelegt
+$GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 504, 505, 506]];
+mkvar(5071, 506, 'PowerSource_BatReplacementDescription', 'Ersatz Beschreibung', 3, 'CR2032', $GLOBALS['CLOCK'] - 60);
+$mdl = new BWTest(); $mdl->Create(); $mdl->ApplyChanges();
+$fl = function (BWTest $m) { $f = json_decode($m->GetConfigurationForm(), true); foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { return [$it, $p]; } } } return [null, null]; };
+[$e1, $p1] = $fl($mdl);
+$byInst = array_column($e1['values'], null, 'Instance');
+check('Neue Zeile: Zelltyp vom Gerät („AAA“ → AAA Alkali, „CR2032“ → CR2032)', ($byInst[502]['Cell'] ?? '') === 'aaa_alkali' && ($byInst[506]['Cell'] ?? '') === 'cr2032', json_encode(array_column($e1['values'], 'Cell', 'Instance')));
+check('Hinweis nennt die Zahl und die Annahme bei AA/AAA; Panel aufgeklappt', strpos(json_encode($p1, JSON_UNESCAPED_UNICODE), 'steht der Zelltyp schon drin') !== false && strpos(json_encode($p1, JSON_UNESCAPED_UNICODE), 'Alkali ist angenommen') !== false && $p1['expanded'] === true);
+check('Die Liste speichert nichts', ($mdl->props['DeviceSettings'] ?? '[]') === '[]' || json_decode($mdl->props['DeviceSettings'], true) === []);
+$mdl->props['DeviceSettings'] = json_encode([['Instance' => 502, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false], ['Instance' => 506, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aaa_nimh', 'Cells' => 2, 'Poll' => false]]);
+[$e2] = $fl($mdl); $by2 = array_column($e2['values'], null, 'Instance');
+check('Gespeicherte Zeile ohne Zelltyp wird vorbelegt, eine eigene Wahl (AAA Akku, 2 Zellen) bleibt unberührt', ($by2[502]['Cell'] ?? '') === 'aaa_alkali' && ($by2[506]['Cell'] ?? '') === 'aaa_nimh' && ($by2[506]['Cells'] ?? 0) === 2, json_encode($by2));
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
