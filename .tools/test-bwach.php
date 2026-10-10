@@ -985,6 +985,25 @@ chk('Zweiter Klick sendet ack_place mit dem Ort', global.sent.length===1 && glob
 P.allowAck=false; handleMessage(P); click(function(e){ return e.textContent==='🛒 Einkauf'; });
 chk('Ohne Quittier-Erlaubnis keine Orts-Schaltfläche', texts(global.ROOT).indexOf('Alles getauscht')<0);
 P.allowAck=true; handleMessage(P);
+var savedDevices = P.devices; P.devices=[{id:'1',name:'Alpha <b>',place:'Flur',module:'Z',status:'leer',funk:'aktiv',percent:3,percentText:'3 %',voltageText:'',valueAgeText:'',lifeText:'',critical:false,quality:[],urgency:1100,reasons:[],note:'',soon:false,forecastText:'',cellText:'',derived:false},{id:'2',name:'Beta Fenster',place:'Bad',module:'Matter Device',status:'ok',funk:'aktiv',percent:80,percentText:'80 %',voltageText:'',valueAgeText:'',lifeText:'',critical:false,quality:[],urgency:0,reasons:[],note:'',soon:false,forecastText:'',cellText:'',derived:false},{id:'3',name:'Gamma',place:'Küche',module:'Z-Wave Module',status:'ok',funk:'aktiv',percent:100,percentText:'100 %',voltageText:'',valueAgeText:'',lifeText:'',critical:false,quality:[],urgency:0,reasons:[],note:'',soon:false,forecastText:'',cellText:'',derived:false}]; P.summary.total=3; handleMessage(P);
+click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='Alle'; });
+var sin = all(global.ROOT).filter(function(e){ return e.className==='bw-search'; })[0];
+chk('Suchfeld über der Liste (Name, Ort, System)', !!sin && sin.placeholder.indexOf('Suchen')>=0);
+sin.value='fenster'; sin.oninput();
+chk('Suche nach „fenster“ (ohne Groß-/Kleinschreibung) zeigt nur das passende Gerät', order().join()==='Beta Fenster');
+sin = all(global.ROOT).filter(function(e){ return e.className==='bw-search'; })[0];
+chk('Das Suchfeld behält seinen Text nach dem Neuaufbau', sin.value==='fenster');
+sin.value='küche'; sin.oninput();
+chk('Suche trifft auch den Ort („küche“ → Gamma)', order().join()==='Gamma');
+sin = all(global.ROOT).filter(function(e){ return e.className==='bw-search'; })[0]; sin.value='matter'; sin.oninput();
+chk('Suche trifft auch das System („matter“ → Beta Fenster)', order().join()==='Beta Fenster');
+sin = all(global.ROOT).filter(function(e){ return e.className==='bw-search'; })[0]; sin.value='gibtesnicht'; sin.oninput();
+chk('Ohne Treffer steht, wonach gesucht wurde', texts(global.ROOT).indexOf('Kein Gerät passt zu „gibtesnicht“.')>=0 && order().length===0);
+sin = all(global.ROOT).filter(function(e){ return e.className==='bw-search'; })[0]; sin.value='  '; sin.oninput();
+chk('Nur Leerzeichen zählen nicht als Suche', order().length===3);
+click(function(e){ return e.textContent==='🛒 Einkauf'; });
+chk('In Einkauf und Statistik gibt es kein Suchfeld', all(global.ROOT).filter(function(e){ return e.className==='bw-search'; }).length===0);
+P.devices = savedDevices; handleMessage(P);
 click(function(e){ return e.textContent==='📈 Statistik'; });
 t = texts(global.ROOT);
 chk('Statistik: Lebensdauer und Restlaufzeit je Gerät', t.indexOf('Zelle CR2032')>=0 && t.indexOf('395 Tage (3 Intervalle)')>=0 && t.indexOf('Restlaufzeit je Gerät')>=0 && t.indexOf('reicht noch etwa 4 Tage')>=0 && t.indexOf('Für 1 Gerät gibt es noch keine Prognose')>=0 && t.indexOf('Restlaufzeit unbekannt: zu wenig')<0);
@@ -1859,7 +1878,7 @@ $mOld = new BWTest(); $mOld->Create(); $mOld->ApplyChanges();
 check('Rückmeldungen-Hinweis ist bei einer neuen Instanz da', $hasForumHint($mOld));
 $mOld->AckForumHint();
 check('Nach „Verstanden“ ist er weg', !$hasForumHint($mOld));
-$rm = new ReflectionMethod($mOld, 'WriteAttributeString'); $rm->setAccessible(true); $rm->invoke($mOld, 'ForumHintSeen', ''); $rb = new ReflectionMethod($mOld, 'WriteAttributeBoolean'); $rb->setAccessible(true); $rb->invoke($mOld, 'ForumHintGone', true);
+$rm = new ReflectionMethod($mOld, 'WriteAttributeString'); $rm->invoke($mOld, 'ForumHintSeen', ''); $rb = new ReflectionMethod($mOld, 'WriteAttributeBoolean'); $rb->invoke($mOld, 'ForumHintGone', true);
 check('Wer ihn in einer älteren Version weggeklickt hat (altes Attribut ForumHintGone, kein Stand), sieht ihn mit dem Forum-Thread einmal wieder', $hasForumHint($mOld));
 $docJson = json_encode((function ($f) { foreach ($f['elements'] as $p) { if (($p['caption'] ?? '') === '📖  Dokumentation & Hilfe') { return $p; } } return []; })(json_decode($mOld->GetConfigurationForm(), true)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 check('„Dokumentation & Hilfe“ hat immer die Schaltfläche „Forum-Thread“ mit der Thread-URL', strpos($docJson, '"type":"Button","caption":"💬 Forum-Thread"') !== false && strpos($docJson, '/144608') !== false && strpos($docJson, '"link":true') !== false, $docJson);
@@ -1912,6 +1931,25 @@ $GLOBALS['OBJ'][70031]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 3600; $GL
 $GLOBALS['OBJ'][7002]['module'] = 'Fremdmodul'; $GLOBALS['OBJ'][7001]['module'] = 'Fremdmodul'; $GLOBALS['OBJ'][70011]['var']['value'] = false;
 $mh2 = new BWTest(); $mh2->Create(); $mh2->ApplyChanges();
 check('Nur HomeMatic-Instanzen werden nach Adresse zusammengefasst (anderes Modul mit gleicher Adresse nicht)', count(array_filter(json_decode(end($mh2->visUpdates), true)['devices'], function ($d) { return strpos($d['name'], 'LEQ0141683') !== false; })) === 2);
+
+// ===== 0.12.1: Anzeigename und Suchfeld =====
+$GLOBALS['OBJ'][7001]['module'] = 'Fremdmodul'; $GLOBALS['OBJ'][7002]['module'] = 'Fremdmodul';
+$alRow = ['Instance' => 7002, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false, 'Alias' => "  Rauchmelder\nSchlafzimmer  "];
+$mal = new BWTest(); $mal->Create(); $mal->props['DeviceSettings'] = json_encode([$alRow]);
+$mal->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'r', 'Kind' => 'name', 'Pattern' => 'LEQ0141683:1', 'Cell' => 'aaa_alkali', 'Cells' => 2, 'Group' => '', 'Critical' => false, 'Excluded' => false, 'Poll' => false]]);
+$mal->ApplyChanges();
+$byAl = array_column(json_decode(end($mal->visUpdates), true)['devices'], null, 'name');
+check('Anzeigename ersetzt den Namen in der Kachel (Zeilenumbruch und Leerraum bereinigt), der Ort bleibt', isset($byAl['Rauchmelder Schlafzimmer']) && $byAl['Rauchmelder Schlafzimmer']['place'] === 'Schlafzimmer' && !isset($byAl['HM-Sec-RHS LEQ0141683:1']), implode(' | ', array_keys($byAl)));
+check('Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz (Regel „Name enthält LEQ0141683:1“ trifft trotz Anzeigename)', strpos($byAl['Rauchmelder Schlafzimmer']['cellText'] ?? '', '2× AAA Alkali') === 0, $byAl['Rauchmelder Schlafzimmer']['cellText'] ?? '');
+check('Andere Geräte ohne Anzeigename behalten den Namen der Instanz', isset($byAl['HM-Sec-RHS LEQ0141683:0']) || isset($byAl['Nur Namen LEQ9999999:1']) || count($byAl) >= 2);
+check('Tabellen und Meldungstexte nutzen den Anzeigenamen', strpos($mal->GetValue('TableAll'), 'Rauchmelder Schlafzimmer') !== false && strpos($mal->GetValue('TableAll'), 'HM-Sec-RHS LEQ0141683:1') === false);
+check('Tagebuch trägt den Anzeigenamen ein', strpos($mal->AddReplacement('7002', date('d.m.Y', $GLOBALS['CLOCK'] - 20 * 86400)), 'Rauchmelder Schlafzimmer') !== false);
+$mal->props['DeviceSettings'] = json_encode([array_merge($alRow, ['Alias' => str_repeat('ä', 90)])]); $mal->ApplyChanges();
+check('Ein überlanger Anzeigename wird auf 60 Zeichen gekürzt', isset(array_column(json_decode(end($mal->visUpdates), true)['devices'], null, 'name')[str_repeat('ä', 60)]));
+$alCols = (function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { return array_column($it['columns'], null, 'name'); } } } return []; })(json_decode($mal->GetConfigurationForm(), true));
+check('„Geräte-Einstellungen“ hat die Spalte „Anzeigename“ (editierbar, geht beim Speichern nicht verloren)', isset($alCols['Alias']) && ($alCols['Alias']['edit']['type'] ?? '') === 'ValidationTextBox' && $alCols['Alias']['caption'] === 'Anzeigename');
+check('Hilfetext erklärt den Anzeigenamen', strpos(json_encode(json_decode($mal->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Anzeigename: ein eigener Name') !== false);
+$mal->props['DeviceSettings'] = '[]'; $mal->props['GroupRules'] = '[]';
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

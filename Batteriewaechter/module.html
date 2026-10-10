@@ -31,6 +31,21 @@
     .bw-sorts .lbl { opacity: .65; margin-right: 2px; }
     .bw-sorts .bw-chip { font-size: .95em; padding: 3px 9px; }
 
+    /* Suchfeld */
+    .bw-searchrow { margin: -2px 0 10px; }
+    .bw-search {
+        width: 100%;
+        box-sizing: border-box;
+        background: var(--ui-elevation-1, rgba(255, 255, 255, .07));
+        color: inherit;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font: inherit;
+        font-size: .85em;
+    }
+    .bw-search:focus { outline: none; border-color: var(--ui-primary, #4fc3f7); }
+
     /* Zeilen */
     .bw-list { display: flex; flex-direction: column; gap: 6px; }
     .bw-row {
@@ -108,6 +123,9 @@
     var bwOpen = null;
     var bwSure = null;
     var bwLocalMsg = '';
+    var bwSearch = '';
+    var bwSearchFocus = false;
+    var bwSearchEl = null;
     var bwGroup = false;
     try { bwGroup = window.localStorage.getItem('bw-group') === '1'; } catch (e) { /* Speicher gesperrt */ }
     var bwSort = { key: 'urgency', dir: 'desc' };
@@ -446,10 +464,28 @@
         } else {
             var f = BW_FILTERS.filter(function (x) { return x.id === bwFilter; })[0] || BW_FILTERS[0];
             var shown = BW.devices.filter(f.test);
+            var q = bwSearch.trim().toLowerCase();
+            if (q !== '') {
+                shown = shown.filter(function (d) {
+                    return (String(d.name || '') + ' ' + String(d.place || '') + ' ' + String(d.module || '')).toLowerCase().indexOf(q) >= 0;
+                });
+            }
+            if (BW.devices.length > 0) {
+                var sbox = bwEl('div', 'bw-searchrow');
+                var inp = document.createElement('input');
+                inp.type = 'search';
+                inp.className = 'bw-search';
+                inp.placeholder = '🔍 Suchen (Name, Ort, System)';
+                inp.value = bwSearch;
+                inp.oninput = function () { bwSearch = inp.value; bwSearchFocus = true; bwOpen = null; bwSure = null; bwRender(); };
+                sbox.appendChild(inp);
+                root.appendChild(sbox);
+                bwSearchEl = inp;
+            }
             if (BW.devices.length === 0) {
                 root.appendChild(bwEl('div', 'bw-empty', 'Es werden noch keine Geräte überwacht. In der Instanz „Jetzt neu suchen“ drücken.'));
             } else if (shown.length === 0) {
-                root.appendChild(bwEl('div', 'bw-empty', bwFilter === 'problems' ? '✅ Alles in Ordnung — kein Gerät braucht Aufmerksamkeit.' : 'Kein Gerät in dieser Ansicht.'));
+                root.appendChild(bwEl('div', 'bw-empty', q !== '' ? 'Kein Gerät passt zu „' + bwSearch.trim() + '“.' : (bwFilter === 'problems' ? '✅ Alles in Ordnung — kein Gerät braucht Aufmerksamkeit.' : 'Kein Gerät in dieser Ansicht.')));
             } else {
                 var sorts = bwEl('div', 'bw-sorts');
                 sorts.appendChild(bwEl('span', 'lbl', 'Sortieren:'));
@@ -495,6 +531,14 @@
             }
         }
 
+        if (bwSearchFocus && bwSearchEl) {
+            // Nach dem Neuaufbau steht der Cursor wieder im Suchfeld, am Ende des Textes
+            bwSearchFocus = false;
+            try {
+                bwSearchEl.focus();
+                bwSearchEl.setSelectionRange(bwSearchEl.value.length, bwSearchEl.value.length);
+            } catch (e) { /* ohne Fokus weiter */ }
+        }
         var shownMsg = bwLocalMsg || BW.message;
         if (shownMsg) { root.appendChild(bwEl('div', 'bw-msg', shownMsg)); }
         root.appendChild(bwEl('div', 'bw-foot', BW.summary.total + ' Geräte überwacht · Stand ' + BW.asOf));

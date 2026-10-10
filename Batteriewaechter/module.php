@@ -1490,6 +1490,13 @@ class Batteriewaechter extends IPSModule
         return ['name' => $name, 'place' => $place, 'module' => (string)($d['module'] ?? '')];
     }
 
+    /** Anzeigename je Gerät: ohne Zeilenumbruch und Steuerzeichen, höchstens 60 Zeichen, leer = Name der Instanz. */
+    private function cleanAlias(string $s): string
+    {
+        $s = trim((string)preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $s));
+        return mb_substr($s, 0, 60);
+    }
+
     /** Geräteeinstellungen nach Instanz-ID. */
     private function deviceSettings(): array
     {
@@ -1507,6 +1514,7 @@ class Batteriewaechter extends IPSModule
                         'cell'      => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
                         'cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                         'poll'      => (bool)($r['Poll'] ?? false),
+                        'alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                     ];
                 }
             }
@@ -1586,6 +1594,12 @@ class Batteriewaechter extends IPSModule
             ]);
             $name  = $label['name'];
             $place = $label['place'];
+            // Anzeigename aus „Geräte-Einstellungen“: gilt in Kachel, Tabellen, Meldungen, Tagebuch und Liste.
+            // Die Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz, damit eine Umbenennung nichts verstellt.
+            $alias = (string)($st['alias'] ?? '');
+            if ($alias !== '') {
+                $name = isset($d['parent']) ? $alias . mb_substr($name, mb_strlen($label['name'])) : $alias;
+            }
             // Prognose aus dem im Modul geführten Verlauf; „bald leer“ nur bei ausreichender Sicherheit
             $f = BWACHPrognose::forecast($hist[(string)$key] ?? [], (float)$this->ReadPropertyInteger('EmptyPercent'), $this->ReadPropertyInteger('ReplaceJumpPercent'));
             $r['soon'] = false;
@@ -2535,6 +2549,7 @@ class Batteriewaechter extends IPSModule
                     'Cell'      => $cell,
                     'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     'Poll'      => (bool)($r['Poll'] ?? false),
+                    'Alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                 ];
                 $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
                 if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded'] && $id > 0 && IPS_InstanceExists($id)) { $open[] = $info['Name']; }
@@ -2552,7 +2567,7 @@ class Batteriewaechter extends IPSModule
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false];
+                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'Alias' => ''];
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
                     if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
                     unset($info['effectiveCell'], $info['effectiveExcluded']);
@@ -2657,6 +2672,7 @@ class Batteriewaechter extends IPSModule
             . "Kritisch: für Geräte, bei denen eine leere Batterie weh tut. Der Wächter warnt früher (schwach ab $crit % statt $low %), sortiert das Gerät weiter oben und erinnert öfter (alle $remC statt $rem Tage)" . ($quiet ? '; die Ruhezeit gilt dafür nicht' : '') . ". Bei einem Widerspruch zwischen Prozentwert und Hinweis „schwach“ zählt die schlechtere Aussage.\n\n"
             . "Ohne Altersprüfung: normal gilt ein Batteriewert, der älter als $old Tage ist, als „veraltet“. Mit diesem Haken entfällt das, für Geräte, die ihren Batteriewert nur sehr selten melden. Die Funkstille-Prüfung bleibt davon unberührt.\n\n"
             . "Ausnehmen: das Gerät wird gar nicht überwacht (keine Meldung, nicht in Kachel und Zahlen). Die Zeile bleibt stehen, damit die Einstellung erhalten bleibt. Etwas anderes als „Außer Betrieb“ in der Kachel.\n\n"
+            . "Anzeigename: ein eigener Name für das Gerät in Kachel, Tabellen, Meldungen und Tagebuch (leer = Name der Instanz). Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz.\n\n"
             . "Zelltyp und Anzahl Zellen: damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen. Meldet ein Matter-Gerät seinen Zelltyp selbst, steht er schon drin.\n\n"
             . "Abfragen: bei Z-Wave und Matter. Ist der Batteriewert älter als $pAfter Tage, schickt der Wächter dem Gerät höchstens alle $pEvery Tage eine Statusanfrage und zeigt, ob es antwortet. Ein schlafendes Z-Wave-Gerät antwortet erst beim nächsten Aufwachen, ob das den Batteriewert früher liefert, ist dort nicht belegt. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Bei anderen Systemen tut der Haken nichts.";
     }
@@ -2717,6 +2733,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
                         ['caption' => 'Anzahl Zellen', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
+                        ['caption' => 'Anzeigename', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                     ],
                 ],

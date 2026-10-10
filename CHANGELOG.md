@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.1] - 2026-10-10
+
+### Added
+- **Anzeigename je Gerät:** Neue Spalte „Anzeigename“ in „Geräte-Einstellungen“ (Wunsch aus dem Forum). Der Name gilt in Kachel, Tabellen, Meldungen, Einkaufsliste, Tagebuch und Geräteliste. Leer = Name der Instanz. Zeilenumbrüche und Steuerzeichen werden entfernt, höchstens 60 Zeichen. Bei Geräten mit mehreren Sensoren in einer Instanz („Wetterstation › Sensor 2“) ersetzt der Anzeigename den Instanznamen, der Sensorname bleibt dahinter. **Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz**, damit eine Umbenennung keine Regel verstellt.
+- **Suchfeld in der Kachel** über den Listen (Handlungsbedarf, Alle und die Filter): filtert nach Name, Ort und System, ohne Groß-/Kleinschreibung, behält den Text und den Cursor beim Neuaufbau. In Einkauf, Statistik und Tagebuch gibt es kein Suchfeld.
+
 ## [0.12.0] - 2026-10-10
 
 ### Added
