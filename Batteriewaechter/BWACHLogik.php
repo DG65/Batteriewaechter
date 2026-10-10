@@ -463,6 +463,10 @@ final class BWACHLogik
                 if (($v['node'] ?? '') !== '') {
                     $devices[$key]['node'] = (string)$v['node'];   // Matter: Knoten, zu dem die Instanz gehört
                 }
+                if (($v['group'] ?? '') !== '') {
+                    $devices[$key]['group'] = (string)$v['group']; // HomeMatic: Gerät (Seriennummer), zu dem der Kanal gehört
+                    $devices[$key]['chan']  = (string)($v['chan'] ?? '');
+                }
             }
             $kind = $s['kind'];
             $devices[$key]['signals'][$kind][] = ['vid' => $vid, 'basis' => $s['basis'], 'scale' => $s['scale'], 'unverified' => $s['unverified'], 'label' => $name];
@@ -483,13 +487,49 @@ final class BWACHLogik
             unset($devices[$inst]);
         }
 
+        // Kanäle EINES Geräts (HomeMatic: Wartungskanal :0 und Funktionskanäle, beide mit LOWBAT) sind ein Gerät.
+        // Hauptinstanz ist der erste Funktionskanal; Name und Ort kommen von ihr, das Lebenszeichen von allen.
+        $byGroup = [];
+        foreach ($devices as $key => $d) {
+            if (($d['group'] ?? '') !== '' && is_int($key)) {
+                $byGroup[$d['group']][] = $key;
+            }
+        }
+        foreach ($byGroup as $keys) {
+            if (count($keys) < 2) {
+                continue;
+            }
+            sort($keys);
+            $primary = $keys[0];
+            foreach ($keys as $k) {
+                if (($devices[$k]['chan'] ?? '') !== '0') {
+                    $primary = $k;
+                    break;
+                }
+            }
+            $members = $keys;
+            foreach ($keys as $k) {
+                if ($k === $primary) {
+                    continue;
+                }
+                foreach ($devices[$k]['signals'] as $kind => $list) {
+                    foreach ($list as $sg) {
+                        $devices[$primary]['signals'][$kind][] = $sg;
+                    }
+                }
+                unset($devices[$k]);
+            }
+            $devices[$primary]['members'] = $members;
+            $devices[$primary]['merged']  = true;
+        }
+
         // Mehrere Signale GLEICHER Art an einer Instanz (z. B. neun Bodenfeuchtesensoren an einer
         // Wetterstation) sind mehrere Geräte, kein Gerät mit mehreren Werten: jedes bekommt einen
         // eigenen Eintrag, sonst überdeckt ein unplausibler Wert alle übrigen.
         foreach ($devices as $key => $d) {
             foreach ($d['signals'] as $kind => $list) {
-                if (count($list) < 2) {
-                    continue;
+                if (count($list) < 2 || !empty($d['merged'])) {
+                    continue;   // zusammengeführte Kanäle: mehrere Flags sind EIN Gerät, das schlechteste zählt
                 }
                 foreach ($list as $sg) {
                     $devices[$key . '-' . $sg['vid']] = [

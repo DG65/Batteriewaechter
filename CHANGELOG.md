@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.0] - 2026-10-10
+
+### Added
+- **HomeMatic: Kanäle eines Geräts sind ein Gerät.** Ein HomeMatic-Gerät besteht aus Kanälen (je eine Instanz): Kanal `:0` („MAINTENANCE“) und Funktionskanäle (`:1`, „SMOKE_DETECTOR“ …). Viele haben ein `LOWBAT`. Bisher legte der Wächter für jeden Kanal ein eigenes Gerät an; der Wartungskanal aktualisiert sich oft nie und stand dann dauerhaft bei Funkstille (Rückmeldung eines Nutzers im Forum). Jetzt werden die Kanäle über die Seriennummer der Adresse zusammengefasst: Name und Ort vom ersten Funktionskanal, Lebenszeichen vom jüngsten Kanal, bei mehreren `LOWBAT` zählt das schlechtere. Erkannt wird über die Eigenschaft `Address` der HomeMatic-Instanz („LEQ0141683:1“), notfalls über den Instanznamen. **An echten HomeMatic-Geräten noch nicht geprüft.**
+
 ## [0.11.5] - 2026-10-10
 
 ### Changed

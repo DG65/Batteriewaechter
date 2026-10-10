@@ -1288,6 +1288,8 @@ class Batteriewaechter extends IPSModule
                 'moduleName'       => $inst['module'] ?? '',
                 'instanceName'     => $inst['name'] ?? '',
                 'node'             => $inst['node'] ?? '',
+                'group'            => $inst['group'] ?? '',
+                'chan'             => $inst['chan'] ?? '',
             ];
         }
         return $out;
@@ -1303,6 +1305,11 @@ class Batteriewaechter extends IPSModule
         $m    = $this->matterNode($parent, $info['module']);
         if ($m !== null) {
             $info['node'] = $m['node'];
+        }
+        $h = $this->homematicChannel($parent, $info['module'], $info['name']);
+        if ($h !== null) {
+            $info['group'] = $h['group'];
+            $info['chan']  = $h['chan'];
         }
         return $info;
     }
@@ -1324,6 +1331,25 @@ class Batteriewaechter extends IPSModule
             return null;
         }
         return ['node' => (string)$cfg['NodeId'], 'endpoint' => (int)($cfg['EndpointId'] ?? 0)];
+    }
+
+    /**
+     * HomeMatic: Gerät (Seriennummer) und Kanal einer Geräteinstanz. Die Adresse steht in der Eigenschaft „Address“
+     * („LEQ0141683:1“), notfalls im Instanznamen. Ohne Kanal („:n“) gibt es nichts zusammenzufassen.
+     *
+     * @return array|null ['group'=>'HM:LEQ0141683','chan'=>'1']
+     */
+    private function homematicChannel(int $inst, string $module, string $name): ?array
+    {
+        if (stripos($module, 'homematic') === false) {
+            return null;
+        }
+        $cfg  = json_decode((string)IPS_GetConfiguration($inst), true);
+        $addr = is_array($cfg) ? (string)($cfg['Address'] ?? '') : '';
+        if (!preg_match('/^([^:\s]+):(\d+)$/', $addr, $m) && !preg_match('/([A-Za-z0-9]{6,}):(\d+)\s*$/', $name, $m)) {
+            return null;
+        }
+        return ['group' => 'HM:' . $m[1], 'chan' => $m[2]];
     }
 
     /** Die übrigen Instanzen desselben Matter-Knotens (ohne Endpunkt 0), nach Endpunkt sortiert. */
@@ -1523,6 +1549,12 @@ class Batteriewaechter extends IPSModule
             $life = $this->lifeSign($id, $isInstance, $d['signals']);
             foreach ($sibs as $sb) {
                 $life = max($life, $this->lifeSign($sb, true, []));
+            }
+            // HomeMatic: zusammengeführte Kanäle, das jüngste Lebenszeichen aller zählt
+            foreach ($d['members'] ?? [] as $mb) {
+                if ((int)$mb !== $id && IPS_InstanceExists((int)$mb)) {
+                    $life = max($life, $this->lifeSign((int)$mb, true, []));
+                }
             }
             // Zelltyp: was der Nutzer gewählt hat; sonst, was das Gerät selbst als Ersatz nennt
             $cellHint = $isInstance ? $this->replacementText($id) : '';

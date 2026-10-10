@@ -1872,6 +1872,47 @@ check('module.json: Alias „DG65-Toolkit Batteriewächter“ (Bindestrich), der
 check('README beginnt mit „# DG65-Toolkit Batteriewächter“', strpos(file_get_contents($ROOT . '/README.md'), '# DG65-Toolkit Batteriewächter') === 0);
 check('Sortier-Hinweis: Die Sortierung gilt nach „Änderungen übernehmen“', strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Die Sortierung gilt nach „Änderungen übernehmen“') !== false);
 
+// ===== 0.12.0: HomeMatic-Kanäle sind ein Gerät =====
+$hmV = function (int $vid, int $parent, string $inst, string $ident = 'LOWBAT') { return ['vid' => $vid, 'ident' => $ident, 'name' => $ident, 'type' => 0, 'profile' => '', 'parentId' => $parent, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => $inst, 'node' => '', 'group' => 'HM:LEQ0141683', 'chan' => $parent === 7001 ? '0' : '1']; };
+$hmF = BWACHLogik::classify([$hmV(1, 7001, 'HM-Sec-RHS LEQ0141683:0'), $hmV(2, 7002, 'HM-Sec-RHS LEQ0141683:1')], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+check('HomeMatic: Wartungskanal :0 und Funktionskanal :1 mit je LOWBAT sind EIN Gerät, Hauptinstanz ist der Funktionskanal', count($hmF['devices']) === 1 && array_key_first($hmF['devices']) === 7002 && ($hmF['devices'][7002]['members'] ?? []) === [7001, 7002] && count($hmF['devices'][7002]['signals']['flag']) === 2 && $hmF['devices'][7002]['name'] === 'HM-Sec-RHS LEQ0141683:1');
+$hmV2 = $hmV(3, 7003, 'HM-Sec-RHS ABC1234567:1'); $hmV2['group'] = 'HM:ABC1234567';
+$hmF2 = BWACHLogik::classify([$hmV(1, 7001, 'a'), $hmV(2, 7002, 'b'), $hmV2], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+check('HomeMatic: ein anderes Gerät (andere Seriennummer) bleibt eigenes Gerät', count($hmF2['devices']) === 2 && isset($hmF2['devices'][7003]) && empty($hmF2['devices'][7003]['merged']));
+$hmSolo = $hmV(5, 7005, 'Solo LEQ1:1'); $hmSolo['group'] = 'HM:LEQ1';
+check('HomeMatic: ein Kanal allein wird nicht zusammengefasst', count(BWACHLogik::classify([$hmSolo], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []])['devices']) === 1 && !isset(BWACHLogik::classify([$hmSolo], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []])['devices'][7005]['merged']));
+$hmOnly0a = $hmV(8, 7001, 'x'); $hmOnly0b = $hmV(9, 7009, 'y'); $hmOnly0b['chan'] = '0'; $hmOnly0a['chan'] = '0';
+check('HomeMatic: sind alle Kanäle Wartungskanäle, gilt der erste (kleinste ID)', array_key_first(BWACHLogik::classify([$hmOnly0a, $hmOnly0b], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []])['devices']) === 7001);
+// im Modul mit simuliertem IPS
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Schlafzimmer');
+mkinst(7001, 'HM-Sec-RHS LEQ0141683:0', 'HomeMatic Device', 900); $GLOBALS['OBJ'][7001]['config'] = ['Address' => 'LEQ0141683:0', 'Protocol' => 2];
+mkvar(70011, 7001, 'LOWBAT', 'LOWBAT', 0, false, $GLOBALS['CLOCK'] - 40 * 86400);
+mkvar(70012, 7001, 'UNREACH', 'UNREACH', 0, false, $GLOBALS['CLOCK'] - 12 * 86400);
+mkinst(7002, 'HM-Sec-RHS LEQ0141683:1', 'HomeMatic Device', 900); $GLOBALS['OBJ'][7002]['config'] = ['Address' => 'LEQ0141683:1', 'Protocol' => 2];
+mkvar(70021, 7002, 'LOWBAT', 'LOWBAT', 0, false, $GLOBALS['CLOCK'] - 3600);
+mkvar(70022, 7002, 'STATE', 'STATE', 1, 0, $GLOBALS['CLOCK'] - 3600);
+mkinst(7003, 'Nur Namen LEQ9999999:1', 'HomeMatic Device', 900); $GLOBALS['OBJ'][7003]['config'] = [];
+mkvar(70031, 7003, 'LOWBAT', 'LOWBAT', 0, false, $GLOBALS['CLOCK'] - 3600);
+mkinst(7004, 'Nur Namen LEQ9999999:0', 'HomeMatic Device', 900); $GLOBALS['OBJ'][7004]['config'] = [];
+mkvar(70041, 7004, 'LOWBAT', 'LOWBAT', 0, false, $GLOBALS['CLOCK'] - 50 * 86400);
+$GLOBALS['INSTS'] = [];
+$mh = new BWTest(); $mh->Create(); $mh->ApplyChanges();
+$plH = json_decode(end($mh->visUpdates), true);
+$namesH = array_column($plH['devices'], 'name');
+sort($namesH);
+check('HomeMatic im Modul: aus vier Kanal-Instanzen werden zwei Geräte (Adresse aus der Eigenschaft, notfalls aus dem Namen)', count($plH['devices']) === 2 && $namesH === ['HM-Sec-RHS LEQ0141683:1', 'Nur Namen LEQ9999999:1'], json_encode($namesH, JSON_UNESCAPED_UNICODE));
+$byH = array_column($plH['devices'], null, 'name');
+check('HomeMatic: Das Lebenszeichen kommt vom jüngsten Kanal, keine Funkstille (der Wartungskanal war 40 Tage still)', $byH['HM-Sec-RHS LEQ0141683:1']['funk'] === 'aktiv' && $byH['Nur Namen LEQ9999999:1']['funk'] === 'aktiv' && $mh->GetValue('Silent') === 0, json_encode($byH['HM-Sec-RHS LEQ0141683:1'], JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][70011]['var']['value'] = true; $mh->Check();
+check('HomeMatic: meldet EIN Kanal „Batterie schwach“, gilt das Gerät als schwach (das schlechtere Flag zählt)', array_column(json_decode(end($mh->visUpdates), true)['devices'], null, 'name')['HM-Sec-RHS LEQ0141683:1']['status'] === 'schwach');
+$GLOBALS['OBJ'][70031]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 40 * 86400; $GLOBALS['OBJ'][70041]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 60; $mh->Check();
+check('HomeMatic: ist der Funktionskanal still, der Wartungskanal aber aktuell, zählt dessen Lebenszeichen (keine Funkstille)', array_column(json_decode(end($mh->visUpdates), true)['devices'], null, 'name')['Nur Namen LEQ9999999:1']['funk'] === 'aktiv');
+$GLOBALS['OBJ'][70031]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 3600; $GLOBALS['OBJ'][70041]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 50 * 86400;
+// Fremdes Modul mit „:“ in der Adresse wird nicht zusammengefasst
+$GLOBALS['OBJ'][7002]['module'] = 'Fremdmodul'; $GLOBALS['OBJ'][7001]['module'] = 'Fremdmodul'; $GLOBALS['OBJ'][70011]['var']['value'] = false;
+$mh2 = new BWTest(); $mh2->Create(); $mh2->ApplyChanges();
+check('Nur HomeMatic-Instanzen werden nach Adresse zusammengefasst (anderes Modul mit gleicher Adresse nicht)', count(array_filter(json_decode(end($mh2->visUpdates), true)['devices'], function ($d) { return strpos($d['name'], 'LEQ0141683') !== false; })) === 2);
+
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
 mkvar(1015, 101, 'linkquality', 'Verbindungsqualität', 1, 30, $GLOBALS['CLOCK'] - 60);
