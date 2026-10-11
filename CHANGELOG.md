@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.10] - 2026-10-11
+
+### Fixed
+- **Gruppen-Regeln hatten kein „Ohne Altersprüfung“** (Forum: Es ließ sich nur je Gerät einstellen, in der Regel fehlte es). Die Regel hat jetzt die Spalte „Ohne Altersprüfung“. „Gilt“ in den Geräte-Einstellungen nennt sie („ohne Altersprüfung“), auch wenn sie vom Gerät selbst kommt. Eine eigene Einstellung am Gerät bleibt, auch wenn die Regel sie nicht setzt.
+
 ## [0.12.9] - 2026-10-11
 
 ### Added

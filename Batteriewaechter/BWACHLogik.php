@@ -284,6 +284,9 @@ final class BWACHLogik
         if (!$own['critical'] && !empty($r['Critical'])) {
             $own['critical'] = true;
         }
+        if (empty($own['ignoreAge']) && !empty($r['IgnoreAge'])) {
+            $own['ignoreAge'] = true;
+        }
         if (!$own['excluded'] && !empty($r['Excluded'])) {
             $own['excluded'] = true;
         }

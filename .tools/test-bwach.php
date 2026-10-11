@@ -842,6 +842,13 @@ $m->fieldUpdates = [];
 $m->Unretire('103');
 check('Einzeln aufnehmen lässt das andere Gerät außer Betrieb', array_keys(json_decode($m->GetValue('Retired'), true)) === ['105-1051']);
 
+// Gruppen-Regel „Ohne Altersprüfung“ im Formular und in „Gilt“
+$mIA = freshModule(['NotificationsActive' => false]);
+$mIA->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'alle', 'Kind' => 'name', 'Pattern' => 'Sensor', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'IgnoreAge' => true, 'Excluded' => false, 'Poll' => false]]);
+$iaJson = json_encode(json_decode($mIA->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+check('Gruppen-Regeln haben die Spalte „Ohne Altersprüfung“', strpos($iaJson, '"name":"IgnoreAge","width":"150px","add":false,"edit":{"type":"CheckBox"}') !== false);
+check('„Gilt“ nennt „ohne Altersprüfung“, wenn eine Regel sie setzt', strpos($iaJson, 'ohne Altersprüfung · Regel 1') !== false, '');
+
 // Formular: Aufbau (Reihenfolge und Aufklapp-Zustand der Fachpanels)
 $capsOf = function ($mm) { return array_map(function ($e) { return $e['caption']; }, json_decode($mm->GetConfigurationForm(), true)['elements']); };
 $expOf  = function ($mm, $cap) { foreach (json_decode($mm->GetConfigurationForm(), true)['elements'] as $e) { if ($e['caption'] === $cap) { return $e['expanded']; } } return null; };
@@ -1664,6 +1671,10 @@ $e3 = BWACHLogik::applyRules(['cells' => 4] + $base, $dev, [$ruleA]);
 check('Ohne eigenen Zelltyp zählt die Zellenzahl der Regel (2), nicht die Standard-Eins oder eine liegengebliebene 4', $e3['cell'] === 'aaa_nimh' && $e3['cells'] === 2);
 $e4 = BWACHLogik::applyRules($base, $dev, [['Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 'unbekannt', 'Cells' => 5, 'Group' => '', 'Critical' => false, 'Excluded' => true]]);
 check('Regel ohne Zelltyp ändert Zelltyp und Zellenzahl nicht, „ausnehmen“ wirkt', $e4['cell'] === 'unbekannt' && $e4['cells'] === 1 && $e4['excluded'] === true);
+$e5 = BWACHLogik::applyRules($base, $dev, [['Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'IgnoreAge' => true, 'Excluded' => false]]);
+check('Regel „Ohne Altersprüfung“ wirkt, ohne die Regel bleibt es aus', $e5['ignoreAge'] === true && $e1['ignoreAge'] === false);
+$e6 = BWACHLogik::applyRules(['ignoreAge' => true] + $base, $dev, [$ruleA]);
+check('Eigene Einstellung „Ohne Altersprüfung“ bleibt, auch wenn die Regel sie nicht setzt', $e6['ignoreAge'] === true);
 check('Keine passende Regel: Einstellungen unverändert, rule = null', BWACHLogik::applyRules($base, ['name' => 'Y', 'place' => '', 'module' => ''], [$ruleA]) === $base + ['rule' => null]);
 
 // Gruppen-Regeln im Modul

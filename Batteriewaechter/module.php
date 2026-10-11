@@ -1586,6 +1586,7 @@ class Batteriewaechter extends IPSModule
                     'Cells'    => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     'Group'    => (string)($r['Group'] ?? ''),
                     'Critical' => (bool)($r['Critical'] ?? false),
+                    'IgnoreAge' => (bool)($r['IgnoreAge'] ?? false),
                     'Excluded' => (bool)($r['Excluded'] ?? false),
                     'Poll'     => (bool)($r['Poll'] ?? false),
                 ];
@@ -2609,6 +2610,7 @@ class Batteriewaechter extends IPSModule
         $parts = [BWACHZelle::isKnown($eff['cell']) ? ($eff['cells'] > 1 ? $eff['cells'] . '× ' : '') . (string)BWACHZelle::shopLabel($eff['cell']) : 'Zelltyp offen'];
         if ($eff['group'] === BWACHLogik::GROUP_EVENT) { $parts[] = 'Ereignismelder'; }
         if ($eff['critical']) { $parts[] = 'kritisch'; }
+        if ($eff['ignoreAge']) { $parts[] = 'ohne Altersprüfung'; }
         if ($eff['excluded']) { $parts[] = 'ausgenommen'; }
         if ($eff['rule'] !== null) {
             $rl = $rules[$eff['rule']];
@@ -2819,6 +2821,7 @@ class Batteriewaechter extends IPSModule
                             ['caption' => 'Ereignismelder', 'value' => BWACHLogik::GROUP_EVENT],
                         ]]],
                         ['caption' => 'Kritisch', 'name' => 'Critical', 'width' => '70px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Ohne Altersprüfung', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Abfragen', 'name' => 'Poll', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Treffer', 'name' => 'Hits', 'width' => '70px', 'add' => 0],

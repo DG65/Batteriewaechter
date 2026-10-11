@@ -311,6 +311,8 @@ $mutations = [
     ['BWACHLogik.php', "\$s['basis'] !== self::BASIS_MANUAL && isset(\$v['value'])", "isset(\$v['value'])", 'Von Hand zugeordnete Spannung bleibt'],
     ['BWACHLogik.php', "'Gerät meldet ' . self::num(\$raw) . ' %, gewertet als voll (100 %)'", "''", '120 %: gemeldeter Wert steht in den Gründen'],
     ['BWACHLogik.php', "if (\$r['urgency'] === 0) { \$s['ok']++; } else { \$s['action']++; }", "if (\$r['urgency'] === 0) { \$s['ok']++; }", 'Kennzahl Handlungsbedarf zählt'],
+    ['BWACHLogik.php', "if (empty(\$own['ignoreAge']) && !empty(\$r['IgnoreAge'])) {", "if (false) {", 'Gruppen-Regel: Ohne Altersprüfung wirkt'],
+    ['module.php', "'IgnoreAge' => (bool)(\$r['IgnoreAge'] ?? false),\n                    'Excluded' => (bool)(\$r['Excluded'] ?? false),\n                    'Poll'     => (bool)(\$r['Poll'] ?? false),", "'IgnoreAge' => false,\n                    'Excluded' => (bool)(\$r['Excluded'] ?? false),\n                    'Poll'     => (bool)(\$r['Poll'] ?? false),", 'Gruppen-Regel: Ohne Altersprüfung wird gelesen'],
     ['module.php', "\$sig['voltage'] = ['value' => \$volt >= 400 ? \$volt / 1000 : \$volt, 'updated' => \$upd];", "\$sig['voltage'] = ['value' => \$volt, 'updated' => \$upd];", 'Millivolt werden als Volt gelesen'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],
