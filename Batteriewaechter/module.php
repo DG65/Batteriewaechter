@@ -1376,9 +1376,24 @@ class Batteriewaechter extends IPSModule
                 'node'             => $inst['node'] ?? '',
                 'group'            => $inst['group'] ?? '',
                 'chan'             => $inst['chan'] ?? '',
+                // Nur für Spannungen nötig: damit Netzspannung (232 V) nicht als Batterie gilt
+                'value'            => $this->voltValue($vid, $obj, $var),
             ];
         }
         return $out;
+    }
+
+    /** Wert einer Variable, die nach Spannung aussieht (Float/Integer mit „volt“ im Ident oder Namen), sonst null. */
+    private function voltValue(int $vid, array $obj, array $var): ?float
+    {
+        $type = (int)($var['VariableType'] ?? -1);
+        if ($type !== 1 && $type !== 2) {
+            return null;
+        }
+        if (!preg_match('/volt/i', (string)($obj['ObjectIdent'] ?? '') . ' ' . (string)($obj['ObjectName'] ?? ''))) {
+            return null;
+        }
+        return (float)GetValue($vid);
     }
 
     /**
@@ -1886,9 +1901,9 @@ class Batteriewaechter extends IPSModule
                         $sig['flag'] = ['value' => (bool)$val, 'updated' => $upd, 'reversed' => $rev];
                     }
                 } elseif ($kind === BWACHLogik::KIND_VOLTAGE && !isset($sig['voltage'])) {
-                    // Matter meldet die Batteriespannung in Millivolt (z. B. 3000); über 100 V gibt es bei Batterien nicht
+                    // Matter meldet die Batteriespannung in Millivolt (z. B. 3000); Werte ab 400 gelten als Millivolt
                     $volt = (float)$val;
-                    $sig['voltage'] = ['value' => $volt > 100 ? $volt / 1000 : $volt, 'updated' => $upd];
+                    $sig['voltage'] = ['value' => $volt >= 400 ? $volt / 1000 : $volt, 'updated' => $upd];
                 }
             }
         }

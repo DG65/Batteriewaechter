@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.8] - 2026-10-11
+
+### Changed
+- **Netzspannung gilt nicht als Batteriespannung** (Forum: Messsteckdosen mit `VOLTAGE` und `OPERATING_VOLTAGE`): Eine Spannung zwischen 30 und 400 V (z. B. 232 V) ist keine Batterie. Sie steht unter „Ausgeschlossen“ („Spannung 232,2 V ist Netzspannung, keine Batteriespannung“) und in der Diagnose. Zellen und Blöcke bleiben unter 30 V, ab 400 gilt ein Wert wie bisher als Millivolt (Matter, 3000 = 3 V). Eine von Hand zugeordnete Spannung wird nie ausgeschlossen. Früher wurde ein Wert über 100 durch 1000 geteilt; das gilt jetzt erst ab 400.
+- **120 % und mehr bis 120 %:** Die Gründe nennen den gemeldeten Wert („Gerät meldet 120 %, gewertet als voll (100 %)“), damit die Anzeige von 100 % nichts verschweigt.
+
 ## [0.12.7] - 2026-10-11
 
 ### Changed

@@ -73,6 +73,15 @@ final class BWACHLogik
      * @param array $v ['ident','name','type','profile']  (profile = aufgelöstes Profil, '' wenn keines)
      * @return array|null ['kind','basis','scale','unverified'] oder null
      */
+    /**
+     * Netzspannung statt Batteriespannung: Zellen und Blöcke bleiben unter 30 V, Werte ab 400 gelten als
+     * Millivolt (Matter, 3000 = 3 V). Dazwischen (z. B. 232 V einer Messsteckdose) ist es keine Batterie.
+     */
+    public static function isMainsVoltage(float $v): bool
+    {
+        return $v > 30 && $v < 400;
+    }
+
     public static function detectSignal(array $v): ?array
     {
         $type    = (int)($v['type'] ?? -1);
@@ -466,6 +475,10 @@ final class BWACHLogik
                 continue;
             }
             $name = (string)$v['name'];
+            if ($s['kind'] === self::KIND_VOLTAGE && $s['basis'] !== self::BASIS_MANUAL && isset($v['value']) && self::isMainsVoltage((float)$v['value'])) {
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'Spannung ' . self::num((float)$v['value']) . ' V ist Netzspannung, keine Batteriespannung'];
+                continue;
+            }
 
             if ($s['basis'] !== self::BASIS_MANUAL) {
                 if (!$v['parentIsInstance']) {
@@ -613,8 +626,9 @@ final class BWACHLogik
             $raw = (float)$sig['percent']['value'] * (float)($sig['percent']['scale'] ?? 1.0);
             $pctUpdated = (int)$sig['percent']['updated'];
             if ($raw > 100 && $raw <= 120) {
-                // Messtoleranz (z. B. frische Batterie meldet 120 %): gilt als voll
+                // Messtoleranz (z. B. frische Batterie meldet 120 %): gilt als voll, der gemeldete Wert steht dabei
                 $pct = 100.0;
+                $reasons[] = 'Gerät meldet ' . self::num($raw) . ' %, gewertet als voll (100 %)';
             } elseif ($raw < 0 || $raw > 120) {
                 $quality[] = 'unplausibel';
                 $reasons[] = 'Prozentwert außerhalb von 0–100 % (' . self::num($raw) . ' %), wird nicht bewertet';

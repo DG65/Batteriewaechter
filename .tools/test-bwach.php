@@ -314,6 +314,7 @@ check('−20 %: unplausibel, Status unbekannt, Grund genannt', $r['status'] === 
 check('130 % ebenfalls unplausibel', in_array('unplausibel', ev(pctSig(130, $n), $n)['quality'], true));
 $r120 = ev(pctSig(120, $n), $n);
 check('120 % (Messtoleranz) gilt als voll, nicht unplausibel', $r120['status'] === 'ok' && !in_array('unplausibel', $r120['quality'], true));
+check('120 %: der gemeldete Wert steht in den Gründen, damit nichts verschwiegen wird', strpos(implode(' | ', $r120['reasons']), 'meldet 120 %') !== false && strpos(implode(' | ', $r120['reasons']), 'voll') !== false, implode(' | ', $r120['reasons']));
 check('121 % ist unplausibel', in_array('unplausibel', ev(pctSig(121, $n), $n)['quality'], true));
 $r = ev(pctSig(82, ts('2024-01-07 07:22')), $n - 60);
 check('Drei Jahre alter Wert: Status ok, aber „veraltet“ (Dringlichkeit 300)', $r['status'] === 'ok' && in_array('veraltet', $r['quality'], true) && $r['urgency'] === 300);
@@ -1813,6 +1814,15 @@ check('Erste Schritte: alles erledigt, Einzahl, kein Matter-Hinweis', array_colu
 $fsPanel = function (BWTest $m) { foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $p) { if (($p['caption'] ?? '') === '🚀  Erste Schritte') { return $p; } } return null; };
 $pnl = $fsPanel($mdl);
 check('Panel „Erste Schritte“ im Formular: aufgeklappt, solange etwas offen ist, mit Häkchen-Zeichen', $pnl !== null && $pnl['expanded'] === true && strpos(json_encode($pnl, JSON_UNESCAPED_UNICODE), '✅') !== false && strpos(json_encode($pnl, JSON_UNESCAPED_UNICODE), '⬜') !== false);
+// Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
+$mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
+$mv = [$mk(1, 'OPERATING_VOLTAGE', 232.2, 70), $mk(2, 'OPERATING_VOLTAGE', 3.0, 71), $mk(3, 'OPERATING_VOLTAGE', 3000.0, 72), $mk(4, 'OPERATING_VOLTAGE', 30.0, 73), $mk(5, 'OPERATING_VOLTAGE', 31.0, 74), $mk(6, 'OPERATING_VOLTAGE', 400.0, 75)];
+$mf = BWACHLogik::classify($mv, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+check('232 V gilt nicht als Batteriespannung, Grund steht bei „Ausgeschlossen“', !isset($mf['devices'][70]) && strpos(json_encode($mf['excluded'], JSON_UNESCAPED_UNICODE), 'Netzspannung') !== false && strpos(json_encode($mf['excluded'], JSON_UNESCAPED_UNICODE), '232,2') !== false, json_encode($mf['excluded'], JSON_UNESCAPED_UNICODE));
+check('3 V, 3000 mV, genau 30 V und 400 mV bleiben Batteriespannung, 31 V nicht', isset($mf['devices'][71]) && isset($mf['devices'][72]) && isset($mf['devices'][73]) && isset($mf['devices'][75]) && !isset($mf['devices'][74]));
+$mm = BWACHLogik::classify($mv, ['excludedModules' => [], 'nameSearch' => false, 'manual' => [['vid' => 1, 'kind' => 'voltage']]]);
+check('Von Hand zugeordnete Spannung wird nie als Netzspannung ausgeschlossen', isset($mm['devices'][70]));
+
 // Diagnose
 $dgV = [['vid' => 1, 'ident' => 'battery', 'name' => 'Batterie', 'type' => 1, 'profile' => '', 'parentId' => 10, 'parentIsInstance' => true, 'moduleName' => 'Zigbee2MQTT Device', 'instanceName' => 'Mein Sensor im Wohnzimmer'],
     ['vid' => 2, 'ident' => 'battery_low', 'name' => 'Batterie schwach', 'type' => 0, 'profile' => '', 'parentId' => 10, 'parentIsInstance' => true, 'moduleName' => 'Zigbee2MQTT Device', 'instanceName' => 'Mein Sensor im Wohnzimmer'],
