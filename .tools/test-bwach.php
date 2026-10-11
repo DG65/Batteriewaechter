@@ -1592,6 +1592,7 @@ $hint = $mn->Search();
 check('Suchergebnis nennt Matter-Geräte ohne Endpunkt 0 (Knoten 8 und 4), nicht die mit', strpos($hint, 'Matter: Für 2 Geräte') !== false && strpos($hint, 'Anderer Kontakt') !== false && strpos($hint, 'Luftqualitätssensor') !== false && strpos($hint, 'Badfenster') === false && strpos($hint, 'Netzbetriebene') !== false, $hint);
 $GLOBALS['OBJ'] = array_filter($GLOBALS['OBJ'], function ($k) { return !in_array($k, [503, 507], true); }, ARRAY_FILTER_USE_KEY);
 $GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 504, 505, 506]];
+check('Matter-Hinweis nennt die angekündigte Besserung mit Symcon 9.1', strpos($hint, '9.1') !== false);
 check('Alle Matter-Knoten haben Endpunkt 0: kein Hinweis', strpos($mn->Search(), 'Matter: Für') === false);
 
 // Geräteliste: Zelltyp vom Gerät vorbelegt

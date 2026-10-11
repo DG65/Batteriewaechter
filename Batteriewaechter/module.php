@@ -2022,7 +2022,7 @@ class Batteriewaechter extends IPSModule
         $shown = array_slice($names, 0, 8);
         $more  = count($names) - count($shown);
         return "\n\nℹ️ Matter: Für " . count($names) . ($more === 0 && count($names) === 1 ? ' Gerät gibt es' : ' Geräte gibt es') . ' keine Instanz für die Stromversorgung (Endpunkt 0): '
-            . implode(', ', $shown) . ($more > 0 ? ' und ' . $more . ' weitere' : '') . '. Hat ein Gerät eine Batterie, fehlt dem Wächter ihr Wert, bis dafür eine Instanz „Matter Gerät“ mit der Knoten-ID des Geräts und dem Endpunkt 0 angelegt ist (Objektbaum: Instanz hinzufügen; der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot). Netzbetriebene Geräte haben keine Batterie.';
+            . implode(', ', $shown) . ($more > 0 ? ' und ' . $more . ' weitere' : '') . '. Hat ein Gerät eine Batterie, fehlt dem Wächter ihr Wert, bis dafür eine Instanz „Matter Gerät“ mit der Knoten-ID des Geräts und dem Endpunkt 0 angelegt ist (Objektbaum: Instanz hinzufügen; der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot). Netzbetriebene Geräte haben keine Batterie. Symcon hat angekündigt, dass der Matter Konfigurator den Endpunkt 0 mit Version 9.1 anbietet; bis dahin geht es nur von Hand.';
     }
 
     private function summaryLine(array $sum, int $now): string

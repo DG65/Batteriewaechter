@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.7] - 2026-10-11
+
+### Changed
+- Der Matter-Hinweis bei Geräten ohne Endpunkt 0 nennt die von Symcon angekündigte Besserung: Der Matter Konfigurator soll den Endpunkt 0 mit Version 9.1 anbieten, bis dahin geht es nur von Hand.
+
 ## [0.12.6] - 2026-10-11
 
 ### Added
