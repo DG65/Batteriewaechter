@@ -1980,6 +1980,14 @@ $ownV = [['vid' => 1, 'ident' => 'Empty', 'name' => 'Batterie leer', 'type' => 1
 $ownT = BWACHLogik::diagnosis($ownV, BWACHLogik::classify($ownV, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]), '1', '9');
 check('Diagnose: Variablen des Batteriewächters selbst erscheinen nicht unter „nicht erkannt“, fremde schon', strpos($ownT, 'Modul „Batteriewaechter“') === false && strpos($ownT, 'Modul „HUE Device Power“, Ident battery_state') !== false, $ownT);
 
+// IDs in der Kachel (Fehlersuche)
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Flur');
+mkinst(8101, 'Sensor Flur', 'Z-Wave Module', 900); mkvar(81011, 8101, 'BatteryVariable', 'Batterie', 1, 70, $GLOBALS['CLOCK'] - 60, '~Battery.100'); mkvar(81012, 8101, 'BatteryLowVariable', 'Batterie schwach', 0, false, $GLOBALS['CLOCK'] - 60, '~Battery');
+$GLOBALS['INSTS'] = []; $mid = new BWTest(); $mid->Create(); $mid->ApplyChanges();
+$idTxt = json_decode(end($mid->visUpdates), true)['devices'][0]['idText'] ?? '';
+check('Kachel-Daten nennen die IDs: Instanz und Batterie-Variablen (Prozent, „schwach“-Flag)', strpos($idTxt, 'Instanz #8101') === 0 && strpos($idTxt, 'Prozent #81011') !== false && strpos($idTxt, '„schwach“-Flag #81012') !== false, $idTxt);
+check('Kachel zeigt die IDs im aufgeklappten Gerät (🆔)', strpos(file_get_contents($MODDIR . '/module.html'), "'🆔 ' + d.idText") !== false);
+
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);
 mkvar(1015, 101, 'linkquality', 'Verbindungsqualität', 1, 30, $GLOBALS['CLOCK'] - 60);

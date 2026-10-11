@@ -668,6 +668,7 @@ class Batteriewaechter extends IPSModule
                 'derived'      => !empty($r['derived']),
                 'signalText'   => $row['signal']['text'] ?? '',
                 'pollText'     => $row['poll'],
+                'idText'       => $this->idText($row),
             ];
         }
         $diary = [];
@@ -1672,6 +1673,7 @@ class Batteriewaechter extends IPSModule
             }
             $rows[] = ['id' => (string)$key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r,
                 'forecast' => $f, 'cell' => $st['cell'], 'cells' => $st['cells'], 'life' => $life, 'inst' => $id, 'poll' => $pollText,
+                'members' => array_values(array_map('intval', $d['members'] ?? [])), 'sigIds' => array_map(function ($list) { return array_values(array_map(function ($s) { return (int)$s['vid']; }, $list)); }, $d['signals']),
                 'cellHint' => $cellHint, 'cellAuto' => $cellAuto,
                 'signal' => $isInstance ? $this->signalInfo($id) : null, 'pollOn' => $st['poll']];
         }
@@ -1871,6 +1873,25 @@ class Batteriewaechter extends IPSModule
     // =====================================================================
     //  Darstellung
     // =====================================================================
+
+    /**
+     * Die Objekt-IDs eines Geräts für die Fehlersuche: Instanz (bei zusammengefassten Kanälen alle) und die
+     * Variablen, aus denen die Batteriewerte kommen.
+     */
+    private function idText(array $row): string
+    {
+        $inst = [(int)$row['inst']];
+        foreach ($row['members'] ?? [] as $m) {
+            if (!in_array($m, $inst, true)) {
+                $inst[] = $m;
+            }
+        }
+        $parts = [(count($inst) > 1 ? 'Instanzen ' : 'Instanz ') . implode(', ', array_map(function ($i) { return '#' . $i; }, $inst))];
+        foreach ($row['sigIds'] ?? [] as $kind => $vids) {
+            $parts[] = $this->kindLabel((string)$kind) . ' ' . implode(', ', array_map(function ($v) { return '#' . $v; }, $vids));
+        }
+        return implode(' · ', $parts);
+    }
 
     private function kindLabel(string $kind): string
     {

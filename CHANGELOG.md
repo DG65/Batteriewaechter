@@ -11,6 +11,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 - „Diagnose fürs Forum“ nannte unter „nicht erkannt“ auch die eigenen Zähler und Tabellen des Wächters (`Empty`, `Low`, `TableDiary`).
 
 ### Added
+- **Objekt-IDs in der Kachel:** Im aufgeklappten Gerät steht eine Zeile „🆔 Instanz #… · Prozent #… · „schwach“-Flag #…“ (bei zusammengefassten HomeMatic-Kanälen alle Instanzen). Wunsch aus dem Forum, hilft bei der Fehlersuche.
 - **Boolean „Battery“ mit Beschriftungen der Darstellung wird erkannt** (X-Sense und ähnliche): Ident `battery`, `battery_status` oder `battery_state` ohne Profil. Die Bedeutung von True steht dort nur in der Darstellung („Niedrig“ bei True = schwach, „Niedrig“ bei False und „OK“ bei True = umgekehrt). Ohne eindeutige Beschriftung („Ja/Nein“, „An/Aus“) wird nicht geraten.
 
 ### Changed
