@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.6] - 2026-10-11
+
+### Added
+- **Panel „🪟 Formular: Aufbau“:** Für jedes Fachpanel lässt sich festlegen, ob es beim Öffnen des Formulars aufgeklappt oder zugeklappt ist („Standard“ heißt: wie das Modul es vorsieht), und an welcher Position es steht (Zahl; bei gleicher Zahl bleibt die Standardreihenfolge). Anlass: Symcon merkt sich das Auf- und Zuklappen nicht selbst. Die Panels oben (Zweck, Neu, Dokumentation, Erste Schritte) und unten (Rückmeldungen, Über dieses Modul) bleiben fest. „Auf Standard zurücksetzen“ (`BWACH_ResetFormLayout`) setzt alles zurück. Eine kaputte oder unvollständige Einstellung fällt auf den Standard zurück. Neue Einstellung: `FormLayout`.
+
 ## [0.12.5] - 2026-10-11
 
 ### Changed

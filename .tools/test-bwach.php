@@ -485,7 +485,7 @@ heading('5 Formular- und Dateihygiene');
 $form = json_decode($m6->GetConfigurationForm(), true);
 check('Formular ist gültiges JSON', is_array($form) && isset($form['elements']));
 $caps = array_map(function ($e) { return $e['caption']; }, $form['elements']);
-$order = ['👋  Wozu dieses Modul?', '📖  Dokumentation & Hilfe', '🚀  Erste Schritte', '🔎  Gefundene Geräte', '🏷️  Geräte-Einstellungen', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '➕  Weitere Variablen', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
+$order = ['👋  Wozu dieses Modul?', '📖  Dokumentation & Hilfe', '🚀  Erste Schritte', '🔎  Gefundene Geräte', '🏷️  Geräte-Einstellungen', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch', '🧮  Prognose und Einkauf', '⚙️  Schwellen', '👥  Gruppen', '➕  Weitere Variablen', '🪟  Formular: Aufbau', '💬  Rückmeldungen', '🧡  Über dieses Modul'];
 check('Panel-Reihenfolge nach Verbund-Konvention (Zweck → [Neu erst nach der ersten Veröffentlichung] → Doku → Fachpanels, das meistgenutzte „Geräte-Einstellungen“ gleich nach „Gefundene Geräte“ → Forum → Lizenz)', $caps === $order, implode(' | ', $caps));
 check('Zweck- und Doku-Panel stehen in der richtigen Aufklapp-Lage', $form['elements'][0]['expanded'] === true && $form['elements'][1]['expanded'] === false);
 check('Solange noch keine Version veröffentlicht ist, gibt es kein Panel „Neu“ (und keine Entwicklungsgeschichte im Formular)', strpos(json_encode($form, JSON_UNESCAPED_UNICODE), 'Neu bis Version') === false && strpos(json_encode($form, JSON_UNESCAPED_UNICODE), 'NewsPanel') === false && strpos(json_encode($form, JSON_UNESCAPED_UNICODE), 'Version 0.1.0:') === false);
@@ -519,9 +519,9 @@ $mN->fieldUpdates = []; $mN->AckNews();
 check('„Verstanden“ speichert die letzte Version und blendet das Panel aus', $mN->ReadAttributeString('SeenNews') === $libV && in_array(['NewsPanel', 'visible', false], $mN->fieldUpdates, true));
 check('News-Panel erscheint danach nicht mehr, aber bei einer neueren Version wieder', !in_array('🆕  Neu bis Version ' . $libV, array_map(function ($e) { return $e['caption']; }, json_decode($mN->GetConfigurationForm(), true)['elements']), true) && (function ($m) { $m->news['99.0.0'] = ['• zukünftige']; return in_array('🆕  Neu bis Version 99.0.0', array_map(function ($e) { return $e['caption']; }, json_decode($m->GetConfigurationForm(), true)['elements']), true); })($mN));
 $m6->AckPurposeIntro(); $m6->AckForumHint();
-check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 12);
+check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 13);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
-    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits'], true)) { return false; } } } } }
+    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits', 'Panel'], true)) { return false; } } } } }
     return true;
 })());
 $captions = [];
@@ -839,6 +839,35 @@ check('„Alle aufnehmen“ steht nur noch hinter einer Rückfrage (Popup)', (bo
 $m->fieldUpdates = [];
 $m->Unretire('103');
 check('Einzeln aufnehmen lässt das andere Gerät außer Betrieb', array_keys(json_decode($m->GetValue('Retired'), true)) === ['105-1051']);
+
+// Formular: Aufbau (Reihenfolge und Aufklapp-Zustand der Fachpanels)
+$capsOf = function ($mm) { return array_map(function ($e) { return $e['caption']; }, json_decode($mm->GetConfigurationForm(), true)['elements']); };
+$expOf  = function ($mm, $cap) { foreach (json_decode($mm->GetConfigurationForm(), true)['elements'] as $e) { if ($e['caption'] === $cap) { return $e['expanded']; } } return null; };
+$m = freshModule(['NotificationsActive' => true]);
+$std = $capsOf($m);
+$m->props['FormLayout'] = json_encode([['Key' => 'notify', 'Open' => 'open', 'Pos' => 1], ['Key' => 'discovery', 'Open' => 'std', 'Pos' => 2], ['Key' => 'devices', 'Open' => 'closed', 'Pos' => 7]]);
+$c2 = $capsOf($m);
+check('Formular-Aufbau: Position bringt „Meldungen“ an die erste Stelle der Fachpanels', array_search('🔔  Meldungen', $c2) === array_search('🔎  Gefundene Geräte', $std) && array_search('🔔  Meldungen', $c2) < array_search('🔎  Gefundene Geräte', $c2));
+check('Formular-Aufbau: „Aufgeklappt“ und „Zugeklappt“ überstimmen den Standard', $expOf($m, '🔔  Meldungen') === true && $expOf($m, '🏷️  Geräte-Einstellungen') === false);
+check('Formular-Aufbau: feste Panels bleiben oben und unten', array_slice($c2, 0, 3) === array_slice($std, 0, 3) && array_slice($c2, -3) === array_slice($std, -3));
+check('Formular-Aufbau: kein Panel geht verloren oder doppelt', count($c2) === count($std) && count(array_unique($c2)) === count($c2) && !array_diff($std, $c2));
+$m->props['FormLayout'] = '[]';
+check('Formular-Aufbau: ohne Einstellung gilt die Standardreihenfolge', $capsOf($m) === $std);
+$m->props['FormLayout'] = 'kaputt';
+check('Formular-Aufbau: kaputte Einstellung fällt auf den Standard zurück', $capsOf($m) === $std);
+$m->props['FormLayout'] = json_encode([['Key' => 'gibtsnicht', 'Open' => 'open', 'Pos' => 1], ['Key' => 'ack', 'Open' => 'quatsch', 'Pos' => 500]]);
+check('Formular-Aufbau: unbekannter Schlüssel wird ignoriert, ungültiger Zustand gilt als Standard, Position wird auf 99 begrenzt', count($capsOf($m)) === count($std) && $expOf($m, '✅  Quittieren und Batterietagebuch') === false && array_search('✅  Quittieren und Batterietagebuch', $capsOf($m)) === array_search('➕  Weitere Variablen', $std));
+check('Formular-Aufbau: Liste zeigt für einen ungültigen Zustand „Standard“', (function () use ($m) {
+    foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $e) { foreach ($e['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'FormLayout') { foreach ($it['values'] as $v) { if ($v['Key'] === 'ack') { return $v['Open'] === 'std'; } } } } }
+    return false;
+})());
+$m->props['FormLayout'] = json_encode([['Key' => 'ack', 'Open' => 'std', 'Pos' => -5]]);
+check('Formular-Aufbau: Position unter 1 wird auf 1 begrenzt (bei Gleichstand gilt die Standardreihenfolge)', array_search('✅  Quittieren und Batterietagebuch', $capsOf($m)) === array_search('🔎  Gefundene Geräte', $std) + 1);
+$m->props['FormLayout'] = '[]';
+$m->fieldUpdates = [];
+$r = $m->ResetFormLayout();
+check('Auf Standard zurücksetzen füllt die Liste neu', strpos($r, 'Übernehmen') !== false && count(array_filter($m->fieldUpdates, function ($u) { return $u[0] === 'FormLayout' && $u[1] === 'values'; })) === 1);
+check('Formular-Aufbau: Liste hat eine gespeicherte Schlüsselspalte', strpos(json_encode(json_decode($m->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '"name":"Key","width":"0px","visible":false,"add":"","save":true') !== false);
 
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);

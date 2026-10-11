@@ -88,6 +88,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyInteger('OrphanDays', 60);
         $this->RegisterPropertyBoolean('TileAllowAck', true);
         $this->RegisterPropertyBoolean('LightTheme', false);
+        $this->RegisterPropertyString('FormLayout', '[]');
         $this->RegisterPropertyBoolean('NameSearch', false);
         $this->RegisterPropertyString('ManualVariables', '[]');
         $this->RegisterPropertyString('DeviceSettings', '[]');
@@ -2938,18 +2939,121 @@ class Batteriewaechter extends IPSModule
         ];
     }
 
+    /**
+     * Reihenfolge und Aufklapp-Zustand der Fachpanels aus der Einstellung „FormLayout“.
+     * Unbekannte oder fehlende Einträge fallen auf die Standardreihenfolge und „Standard“ zurück.
+     *
+     * @param string[] $keys Schlüssel der Fachpanels in Standardreihenfolge
+     * @return array key => ['open' => 'std'|'open'|'closed', 'pos' => int], in der anzuwendenden Reihenfolge
+     */
+    private function formLayout(array $keys): array
+    {
+        $saved = json_decode((string)$this->ReadPropertyString('FormLayout'), true);
+        $by = [];
+        foreach (is_array($saved) ? $saved : [] as $row) {
+            if (is_array($row) && isset($row['Key'])) {
+                $by[(string)$row['Key']] = $row;
+            }
+        }
+        $out = [];
+        foreach ($keys as $i => $k) {
+            $r    = $by[$k] ?? [];
+            $open = (string)($r['Open'] ?? 'std');
+            $out[$k] = [
+                'open' => in_array($open, ['open', 'closed'], true) ? $open : 'std',
+                'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
+                'idx'  => $i,
+            ];
+        }
+        uasort($out, function ($a, $b) { return [$a['pos'], $a['idx']] <=> [$b['pos'], $b['idx']]; });
+        return $out;
+    }
+
+    /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */
+    private function LayoutPanel(array $layout, array $free): array
+    {
+        $rows = [];
+        foreach ($layout as $key => $l) {
+            $rows[] = ['Key' => $key, 'Panel' => (string)($free[$key]['caption'] ?? $key), 'Open' => $l['open'], 'Pos' => $l['pos']];
+        }
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🪟  Formular: Aufbau',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
+                ['type' => 'Label', 'caption' => '„Standard“ heißt: wie das Modul es vorsieht (z. B. „Geräte-Einstellungen“ aufgeklappt, wenn es etwas Neues gibt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. Die Bereiche oben (Zweck, Dokumentation, Erste Schritte) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind.'],
+                [
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'loadValuesFromConfiguration' => false,
+                    'values' => $rows,
+                    'columns' => [
+                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Beim Öffnen', 'name' => 'Open', 'width' => '170px', 'add' => 'std', 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'Standard', 'value' => 'std'],
+                            ['caption' => 'Aufgeklappt', 'value' => 'open'],
+                            ['caption' => 'Zugeklappt', 'value' => 'closed'],
+                        ]]],
+                        ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
+                    ],
+                ],
+                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo BWACH_ResetFormLayout($id);'],
+            ],
+        ];
+    }
+
+    /** Setzt Aufklapp-Zustand und Reihenfolge der Fachpanels im offenen Formular auf den Standard (gilt nach „Übernehmen“). */
+    public function ResetFormLayout(): string
+    {
+        $keys = ['discovery', 'devices', 'status', 'notify', 'ack', 'forecast', 'threshold', 'rules', 'manual'];
+        $rows = [];
+        foreach ($keys as $i => $k) {
+            $rows[] = ['Key' => $k, 'Panel' => $this->panelCaption($k), 'Open' => 'std', 'Pos' => $i + 1];
+        }
+        $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
+        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
+    }
+
+    private function panelCaption(string $key): string
+    {
+        $dr  = $this->deviceRows();
+        $map = [
+            'discovery' => $this->DiscoveryPanel(), 'devices' => $this->DevicesPanel($dr), 'status' => $this->StatusPanel(),
+            'notify' => $this->NotifyPanel(), 'ack' => $this->AckPanel(), 'forecast' => $this->ForecastPanel(),
+            'threshold' => $this->ThresholdPanel(), 'rules' => $this->RulesPanel($dr), 'manual' => $this->ManualPanel(),
+        ];
+        return (string)($map[$key]['caption'] ?? $key);
+    }
+
     public function GetConfigurationForm()
     {
         $base   = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
         $status = $base['status'] ?? [];
 
         $dr = $this->deviceRows();
-        $elements = array_values(array_filter([
-            $this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(), $this->FirstStepsPanel($dr),
-            $this->DiscoveryPanel(), $this->DevicesPanel($dr), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ForecastPanel(), $this->ThresholdPanel(),
-            $this->RulesPanel($dr), $this->ManualPanel(),
-            $this->ForumHint(), $this->LicenseHint(),
-        ]));
+        // Oben und unten stehen die Panels der Verbund-Konvention fest; dazwischen liegen die Fachpanels,
+        // deren Reihenfolge und Aufklapp-Zustand der Nutzer im Panel „Formular: Aufbau“ wählen kann.
+        $free = [
+            'discovery' => $this->DiscoveryPanel(), 'devices' => $this->DevicesPanel($dr), 'status' => $this->StatusPanel(),
+            'notify' => $this->NotifyPanel(), 'ack' => $this->AckPanel(), 'forecast' => $this->ForecastPanel(),
+            'threshold' => $this->ThresholdPanel(), 'rules' => $this->RulesPanel($dr), 'manual' => $this->ManualPanel(),
+        ];
+        $layout = $this->formLayout(array_keys($free));
+        $middle = [];
+        foreach ($layout as $key => $l) {
+            $panel = $free[$key];
+            if ($l['open'] === 'open') {
+                $panel['expanded'] = true;
+            } elseif ($l['open'] === 'closed') {
+                $panel['expanded'] = false;
+            }
+            $middle[] = $panel;
+        }
+        $elements = array_values(array_filter(array_merge(
+            [$this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(), $this->FirstStepsPanel($dr)],
+            $middle,
+            [$this->LayoutPanel($layout, $free), $this->ForumHint(), $this->LicenseHint()]
+        )));
 
         return json_encode(['elements' => $elements, 'actions' => [], 'status' => $status]);
     }
