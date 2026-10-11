@@ -777,7 +777,7 @@ final class BWACHLogik
     /** Zählt die Ergebnisse für die Kennzahlen-Variablen. */
     public static function summarize(array $results): array
     {
-        $s = ['total' => 0, 'empty' => 0, 'low' => 0, 'silent' => 0, 'unknown' => 0, 'check' => 0, 'ok' => 0];
+        $s = ['total' => 0, 'empty' => 0, 'low' => 0, 'silent' => 0, 'unknown' => 0, 'check' => 0, 'ok' => 0, 'action' => 0];
         foreach ($results as $r) {
             $s['total']++;
             if ($r['status'] === self::ST_EMPTY) { $s['empty']++; }
@@ -785,7 +785,7 @@ final class BWACHLogik
             if ($r['funk'] === 'still') { $s['silent']++; }
             if ($r['status'] === self::ST_UNKNOWN) { $s['unknown']++; }
             if (array_intersect(['widerspruch', 'unplausibel', 'veraltet', 'auffaellig', 'zelltyp_passt_nicht', 'keine_antwort'], $r['quality'])) { $s['check']++; }
-            if ($r['urgency'] === 0) { $s['ok']++; }
+            if ($r['urgency'] === 0) { $s['ok']++; } else { $s['action']++; }
         }
         return $s;
     }

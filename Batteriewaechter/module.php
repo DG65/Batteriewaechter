@@ -146,6 +146,7 @@ class Batteriewaechter extends IPSModule
         $this->MaintainVariable('Empty', 'Batterie leer', VARIABLETYPE_INTEGER, '', 20, true);
         $this->MaintainVariable('Low', 'Batterie schwach', VARIABLETYPE_INTEGER, '', 30, true);
         $this->MaintainVariable('Silent', 'Funkstille', VARIABLETYPE_INTEGER, '', 40, true);
+        $this->MaintainVariable('Action', 'Handlungsbedarf (Anzahl)', VARIABLETYPE_INTEGER, '', 45, true);
         $this->MaintainVariable('Check', 'Daten prüfen', VARIABLETYPE_INTEGER, '', 50, true);
         $this->MaintainVariable('Unknown', 'Status unbekannt', VARIABLETYPE_INTEGER, '', 60, true);
         $this->MaintainVariable('StatusLine', 'Zusammenfassung', VARIABLETYPE_STRING, '', 70, true);
@@ -257,6 +258,7 @@ class Batteriewaechter extends IPSModule
         $this->setIntIfChanged('Empty', $sum['empty']);
         $this->setIntIfChanged('Low', $sum['low']);
         $this->setIntIfChanged('Silent', $sum['silent']);
+        $this->setIntIfChanged('Action', $sum['action']);
         $this->setIntIfChanged('Check', $sum['check']);
         $this->setIntIfChanged('Unknown', $sum['unknown']);
 

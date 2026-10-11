@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.9] - 2026-10-11
+
+### Added
+- **Variable „Handlungsbedarf (Anzahl)“** (Wunsch aus dem Forum, für Hinweise in IPSView und eigene Skripte): Anzahl der Geräte, die in der Tabelle „Handlungsbedarf“ stehen, also leer, schwach, Funkstille, Daten prüfen, unbekannt oder bald leer. Größer als 0 heißt: etwas ist zu tun. Bisher gab es nur die Zahlen je Befund.
+
 ## [0.12.8] - 2026-10-11
 
 ### Changed

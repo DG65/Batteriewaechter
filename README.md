@@ -17,7 +17,7 @@
 2. Instanz „Batteriewächter“ anlegen.
 3. „🔎 Jetzt neu suchen“, dann „📋 Was würde gefunden?“ prüfen.
 4. Ereignismelder (Fenster-/Rauchmelder), kritische Geräte und Geräte ohne Altersprüfung unter „Geräte-Einstellungen“ eintragen.
-5. Die Variablen „Handlungsbedarf“ und „Alle Geräte“ (HTML-Tabellen) per Verknüpfung ins WebFront legen.
+5. Die Variablen „Handlungsbedarf“ und „Alle Geräte“ (HTML-Tabellen) per Verknüpfung ins WebFront legen. Für eigene Hinweise (z. B. in IPSView) gibt es Zähler als Integer-Variablen: „Batterie leer“, „Batterie schwach“, „Funkstille“, „Daten prüfen“, „Status unbekannt“, „Bald leer“ und „Handlungsbedarf (Anzahl)“ (alles, was in der Tabelle „Handlungsbedarf“ steht).
 
 ## Zelltyp, Prognose, Einkauf
 

@@ -353,7 +353,7 @@ check('Matter-Halbprozent: 150 → 75 %, 30 → 15 % schwach', ev(pctSig(150, $n
 check('Wert zum Zeitpunkt „nie aktualisiert“ (0): kein Alter, nicht veraltet', ev(pctSig(50, 0), $n)['valueAge'] === null && !in_array('veraltet', ev(pctSig(50, 0), $n)['quality'], true));
 // summarize
 $sum = BWACHLogik::summarize([ev(pctSig(2, $n), $n), ev(pctSig(15, $n), $n), ev(pctSig(100, $n), $n - 30 * $d), ev(pctSig(100, $n - 200 * $d), $n), ev(pctSig(100, $n), $n)]);
-check('Kennzahlen: 5 gesamt, 1 leer, 1 schwach, 1 Funkstille, 1 prüfen, 1 ok', $sum === ['total' => 5, 'empty' => 1, 'low' => 1, 'silent' => 1, 'unknown' => 0, 'check' => 1, 'ok' => 1], json_encode($sum));
+check('Kennzahlen: 5 gesamt, 1 leer, 1 schwach, 1 Funkstille, 1 prüfen, 1 ok, 4 mit Handlungsbedarf', $sum === ['total' => 5, 'empty' => 1, 'low' => 1, 'silent' => 1, 'unknown' => 0, 'check' => 1, 'ok' => 1, 'action' => 4], json_encode($sum));
 
 // ===========================================================================
 heading('4 Modul gegen simuliertes IPS');
@@ -436,6 +436,7 @@ buildWorld($GLOBALS['CLOCK']);
 $m3 = new BWTest(); $m3->Create();
 $m3->props['DeviceSettings'] = json_encode([['Instance' => 103, 'Group' => 'ereignis', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false]]);
 $m3->ApplyChanges();
+check('Variable „Handlungsbedarf (Anzahl)“ gleicht den Zeilen der Tabelle Handlungsbedarf', $m3->GetValue('Action') === substr_count($m3->GetValue('TableProblems'), '<tr') - 1 && $m3->GetValue('Action') >= $m3->GetValue('Silent'), $m3->GetValue('Action') . ' / ' . substr_count($m3->GetValue('TableProblems'), '<tr'));
 check('Ereignismelder-Gruppe: 16 Tage ohne Lebenszeichen sind keine Funkstille (nur das ausgebaute Thermostat bleibt still)', $m3->GetValue('Silent') === 1, (string)$m3->GetValue('Silent'));
 
 // Resync (Modulverwaltung löscht Attribute)
