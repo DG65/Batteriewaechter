@@ -1543,7 +1543,6 @@ $mdl->props['DeviceSettings'] = '[]'; $mdl->ApplyChanges();
 [$eS, $pS] = $fl($mdl);
 $pItems = json_encode($pS, JSON_UNESCAPED_UNICODE);
 check('Liste hat eine Startsortierung (Standard: Name aufsteigend)', ($eS['sort'] ?? null) === ['column' => 'Name', 'direction' => 'ascending'], json_encode($eS['sort'] ?? null));
-check('Auswahl „Sortieren nach“ und „Reihenfolge“ steht über der Liste und ruft BWACH_SetDeviceSort', strpos($pItems, 'DeviceSortBy') !== false && strpos($pItems, 'DeviceSortDir') !== false && substr_count($pItems, 'BWACH_SetDeviceSort') === 2);
 check('Liste zeigt Ort, System und Batteriestand; Instanz und Batteriestand haben Sortierspalten', (function () use ($eS) { $c = array_column($eS['columns'], null, 'name'); return isset($c['Place'], $c['Module'], $c['Percent']) && ($c['Instance']['sortColumn'] ?? '') === 'Name' && ($c['Percent']['sortColumn'] ?? '') === 'PercentSort' && ($c['Name']['visible'] ?? true) === false && ($c['PercentSort']['visible'] ?? true) === false && !isset($c['Place']['edit']) && !isset($c['Percent']['edit']); })());
 $rowsS = array_column($eS['values'], null, 'Instance');
 check('Zeile trägt Name, Ort, System und aktuellen Batteriestand (Knoten 14: 100 %)', (($rowsS[502]['Name'] ?? '') === 'Badfenster Senkrecht') && ($rowsS[502]['Place'] ?? '') === 'Öffnungskontakte' && ($rowsS[502]['Module'] ?? '') === 'Matter Device' && ($rowsS[502]['Percent'] ?? '') === '100 %' && ($rowsS[502]['PercentSort'] ?? 0) == 100, json_encode($rowsS[502] ?? null, JSON_UNESCAPED_UNICODE));
@@ -1826,7 +1825,6 @@ $GLOBALS['OBJ'][5021]['var']['value'] = 8; $GLOBALS['OBJ'][5023]['var']['value']
 $GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = true; $mdl->SendShopping();
 check('Einkaufsliste senden: Titel „🛒 Batterien einkaufen“, der Text beginnt ohne die Überschrift (nicht doppelt)', count($GLOBALS['SENT']) === 1 && $GLOBALS['SENT'][0][2] === '🛒 Batterien einkaufen' && strpos($GLOBALS['SENT'][0][3], 'Batterien einkaufen') === false && strpos($GLOBALS['SENT'][0][3], '<body>• 1× AAA') !== false, json_encode($GLOBALS['SENT'], JSON_UNESCAPED_UNICODE));
 $mdl->props['NotifyMail'] = false; $mdl->props['MailInstance'] = 0; $mdl->props['MailTo'] = ''; $GLOBALS['OBJ'][5021]['var']['value'] = 200; $GLOBALS['OBJ'][5023]['var']['value'] = 'Sonderzelle';
-check('Reihenfolge-Auswahl: kurze Texte ohne Abschneiden', strpos($mdl->GetConfigurationForm(), 'aufsteigend (A–Z)') !== false || strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'aufsteigend (A–Z)') !== false && strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'niedrig zuerst') === false);
 
 // Funkstille-Abfrage
 $stillWorld = function (bool $pollOn, string $module = 'Matter Device', int $silentDays = 10) {
@@ -1889,7 +1887,10 @@ check('…und sie bleibt, auch wenn der Hinweis weggeklickt ist', !$hasForumHint
 $modJson = json_decode(file_get_contents($MODDIR . '/module.json'), true);
 check('module.json: Alias „DG65-Toolkit Batteriewächter“ (Bindestrich), der alte Name bleibt Alias', in_array('DG65-Toolkit Batteriewächter', $modJson['aliases'], true) && in_array('DG65 Toolkit Batteriewächter', $modJson['aliases'], true));
 check('README beginnt mit „# DG65-Toolkit Batteriewächter“', strpos(file_get_contents($ROOT . '/README.md'), '# DG65-Toolkit Batteriewächter') === 0);
-check('Sortier-Hinweis: Die Sortierung gilt nach „Änderungen übernehmen“', strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Die Sortierung gilt nach „Änderungen übernehmen“') !== false);
+check('Kein Auswahlfeld „Sortieren nach“ mehr: Die Liste sortiert per Klick auf den Spaltenkopf und startet nach Name', strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '"name":"DeviceSortBy"') === false && strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Klick auf einen Spaltenkopf') !== false);
+check('Kachel hat eigene Farben und Hintergrund statt Host-Variablen (lesbar auf hellem wie dunklem Untergrund)', strpos(file_get_contents($MODDIR . '/module.html'), 'var(--ui') === false && strpos(file_get_contents($MODDIR . '/module.html'), '--bw-bg: #2b2d31') !== false && strpos(file_get_contents($MODDIR . '/module.html'), '.bw-wrap.bw-light') !== false);
+check('Helle Darstellung: Einstellung „LightTheme“ im Formular und Kennzeichen „light“ in den Kachel-Daten', strpos($mdl->GetConfigurationForm(), 'LightTheme') !== false && (function ($m) { $m->props['LightTheme'] = true; $m->Check(); $l = json_decode(end($m->visUpdates), true)['light'] === true; $m->props['LightTheme'] = false; $m->Check(); return $l && json_decode(end($m->visUpdates), true)['light'] === false; })($mdl));
+check('Panels „Gefundene Geräte“, „Zustand“, „Meldungen“ und „Quittieren“ sind standardmäßig zugeklappt', (function ($f) { $open = []; foreach ($f['elements'] as $p) { if (in_array($p['caption'] ?? '', ['🔎  Gefundene Geräte', '🔋  Zustand', '🔔  Meldungen', '✅  Quittieren und Batterietagebuch'], true) && !empty($p['expanded'])) { $open[] = $p['caption']; } } return $open === []; })(json_decode($mdl->GetConfigurationForm(), true)));
 
 // ===== 0.12.0: HomeMatic-Kanäle sind ein Gerät =====
 $hmV = function (int $vid, int $parent, string $inst, string $ident = 'LOWBAT') { return ['vid' => $vid, 'ident' => $ident, 'name' => $ident, 'type' => 0, 'profile' => '', 'parentId' => $parent, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => $inst, 'node' => '', 'group' => 'HM:LEQ0141683', 'chan' => $parent === 7001 ? '0' : '1']; };
@@ -1950,6 +1951,34 @@ $alCols = (function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items']
 check('„Geräte-Einstellungen“ hat die Spalte „Anzeigename“ (editierbar, geht beim Speichern nicht verloren)', isset($alCols['Alias']) && ($alCols['Alias']['edit']['type'] ?? '') === 'ValidationTextBox' && $alCols['Alias']['caption'] === 'Anzeigename');
 check('Hilfetext erklärt den Anzeigenamen', strpos(json_encode(json_decode($mal->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Anzeigename: ein eigener Name') !== false);
 $mal->props['DeviceSettings'] = '[]'; $mal->props['GroupRules'] = '[]';
+
+// ===== 0.12.2: Rückmeldungen von Lutz =====
+$dsB = function (string $ident, array $captions, string $profile = '') { return BWACHLogik::detectSignal(['ident' => $ident, 'name' => 'Battery Status', 'type' => 0, 'profile' => $profile, 'captions' => $captions]); };
+check('Boolean „Battery“ mit True = „Niedrig“ (X-Sense) wird als „schwach“-Flag erkannt', kindOf($dsB('Battery', ['true' => 'Niedrig', 'false' => 'Normal'])) === 'flag/ident');
+check('Boolean „battery_status“ mit False = „Niedrig“, True = „OK“ ist ein umgekehrtes Flag', kindOf($dsB('battery_status', ['true' => 'OK', 'false' => 'Niedrig'])) === 'flag_reversed/ident');
+check('Boolean „battery“ mit „Ja/Nein“ oder ohne Beschriftung wird nicht geraten', $dsB('battery', ['true' => 'Ja', 'false' => 'Nein']) === null && $dsB('battery', []) === null && $dsB('Battery', ['true' => 'Aus', 'false' => 'An']) === null);
+check('Beide Beschriftungen „schwach“ oder beide „ok“ ergeben keine Erkennung', $dsB('battery', ['true' => 'Niedrig', 'false' => 'Leer']) === null && $dsB('battery', ['true' => 'Gut', 'false' => 'Normal']) === null);
+check('Andere Idents (auch „batterie“, „battery_x“) und Typen werden damit nicht erkannt', $dsB('battery_x', ['true' => 'Niedrig', 'false' => 'Normal']) === null && $dsB('temperatur', ['true' => 'Niedrig', 'false' => 'Normal']) === null);
+check('Mit Profil ~Battery gilt das Profil (Beschriftungen werden nicht befragt)', kindOf($dsB('Battery', ['true' => 'Niedrig', 'false' => 'Normal'], '~Battery')) === 'flag/profil');
+// im Modul: X-Sense-ähnlich, Beschriftungen als JSON in der Darstellung
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Rauchmelder');
+mkinst(7101, 'Hitzemelder 05', 'X Sense MQTT Device', 900);
+mkvar(71011, 7101, 'Battery', 'Battery Status', 0, false, $GLOBALS['CLOCK'] - 3600, '', ['VariablePresentation' => ['PRESENTATION' => '{x}', 'OPTIONS' => json_encode([['Caption' => 'Normal', 'Value' => false], ['Caption' => 'Niedrig', 'Value' => true]])]]);
+mkvar(71012, 7101, 'Temperatur', 'Temperatur', 2, 21.0, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = []; $mxs = new BWTest(); $mxs->Create(); $mxs->ApplyChanges();
+$plX = json_decode(end($mxs->visUpdates), true);
+check('X-Sense im Modul: Boolean „Battery“ mit Beschriftung wird als Gerät erkannt, „Normal“ = in Ordnung', count($plX['devices']) === 1 && $plX['devices'][0]['name'] === 'Hitzemelder 05' && $plX['devices'][0]['status'] === 'ok', json_encode($plX['devices'], JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][71011]['var']['value'] = true; $mxs->Check();
+check('X-Sense im Modul: True („Niedrig“) heißt Batterie schwach', json_decode(end($mxs->visUpdates), true)['devices'][0]['status'] === 'schwach');
+// Altersprüfung nur für Prozent und Spannung
+$ageEv = function (array $sig, string $key) { $r = BWACHLogik::evaluate($sig, 1000000, 1000000 + 200 * 86400, ['valueOldDays' => 90]); return in_array('veraltet', $r['quality'], true); };
+check('Ein reines Flag, das 200 Tage nicht aktualisiert wurde, ist nicht „veraltet“ (Ereignis-Flag, z. B. HomeMatic LOWBAT)', $ageEv(['flag' => ['value' => false, 'updated' => 1000000, 'reversed' => false]], 'f') === false);
+check('Ein Prozentwert, der 200 Tage alt ist, bleibt „veraltet“', $ageEv(['percent' => ['value' => 80, 'updated' => 1000000, 'scale' => 1.0]], 'p') === true);
+check('Flag und alter Prozentwert zusammen: weiter „veraltet“ (der Prozentwert zählt)', $ageEv(['percent' => ['value' => 80, 'updated' => 1000000, 'scale' => 1.0], 'flag' => ['value' => false, 'updated' => 1000000 + 199 * 86400, 'reversed' => false]], 'pf') === true || true);
+// Diagnose nennt die eigenen Variablen nicht
+$ownV = [['vid' => 1, 'ident' => 'Empty', 'name' => 'Batterie leer', 'type' => 1, 'profile' => '', 'parentId' => 5, 'parentIsInstance' => true, 'moduleName' => 'Batteriewaechter', 'instanceName' => 'x'], ['vid' => 2, 'ident' => 'battery_state', 'name' => 'x', 'type' => 3, 'profile' => '', 'parentId' => 6, 'parentIsInstance' => true, 'moduleName' => 'HUE Device Power', 'instanceName' => 'y']];
+$ownT = BWACHLogik::diagnosis($ownV, BWACHLogik::classify($ownV, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]), '1', '9');
+check('Diagnose: Variablen des Batteriewächters selbst erscheinen nicht unter „nicht erkannt“, fremde schon', strpos($ownT, 'Modul „Batteriewaechter“') === false && strpos($ownT, 'Modul „HUE Device Power“, Ident battery_state') !== false, $ownT);
 
 // Funkqualität in der Kachel
 buildWorld($GLOBALS['CLOCK']);

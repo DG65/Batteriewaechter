@@ -1,9 +1,29 @@
 <style>
+    /* Eigene Farben statt der des Hosts: Die Kachel hat einen eigenen Hintergrund und liest sich so auf jedem
+       Untergrund (Kachel-Visualisierung hell oder dunkel, IPSView). Dunkel ist Standard, „Helle Darstellung“ im Formular. */
     .bw-wrap {
+        --bw-bg: #2b2d31;
+        --bw-text: #e8eaed;
+        --bw-el1: rgba(255, 255, 255, .07);
+        --bw-el2: rgba(255, 255, 255, .12);
+        --bw-el3: rgba(255, 255, 255, .2);
+        --bw-chip-on: rgba(79, 195, 247, .16);
+        --bw-primary: #4fc3f7;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        color: var(--ui-text, #e8eaed);
-        padding: 4px 2px 8px;
+        background: var(--bw-bg);
+        color: var(--bw-text);
+        border-radius: 12px;
+        padding: 10px 10px 8px;
         box-sizing: border-box;
+    }
+    .bw-wrap.bw-light {
+        --bw-bg: #f4f5f7;
+        --bw-text: #1f2328;
+        --bw-el1: rgba(0, 0, 0, .06);
+        --bw-el2: rgba(0, 0, 0, .1);
+        --bw-el3: rgba(0, 0, 0, .16);
+        --bw-chip-on: rgba(2, 119, 189, .14);
+        --bw-primary: #0277bd;
     }
     .bw-wrap button {
         font: inherit;
@@ -14,7 +34,7 @@
     /* Filterzeile */
     .bw-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
     .bw-chip {
-        background: var(--ui-elevation-1, rgba(255, 255, 255, .07));
+        background: var(--bw-el1);
         border: 1px solid transparent;
         border-radius: 999px;
         padding: 4px 11px;
@@ -22,8 +42,8 @@
         line-height: 1.25;
         white-space: nowrap;
     }
-    .bw-chip:hover { background: var(--ui-elevation-2, rgba(255, 255, 255, .12)); }
-    .bw-chip.on { border-color: var(--ui-primary, #4fc3f7); background: var(--ui-elevation-2, rgba(79, 195, 247, .16)); }
+    .bw-chip:hover { background: var(--bw-el2); }
+    .bw-chip.on { border-color: var(--bw-primary); background: var(--bw-chip-on); }
     .bw-chip .n { font-weight: 700; margin-left: 4px; }
 
     /* Sortierzeile */
@@ -36,7 +56,7 @@
     .bw-search {
         width: 100%;
         box-sizing: border-box;
-        background: var(--ui-elevation-1, rgba(255, 255, 255, .07));
+        background: var(--bw-el1);
         color: inherit;
         border: 1px solid transparent;
         border-radius: 999px;
@@ -44,12 +64,12 @@
         font: inherit;
         font-size: .85em;
     }
-    .bw-search:focus { outline: none; border-color: var(--ui-primary, #4fc3f7); }
+    .bw-search:focus { outline: none; border-color: var(--bw-primary); }
 
     /* Zeilen */
     .bw-list { display: flex; flex-direction: column; gap: 6px; }
     .bw-row {
-        background: var(--ui-elevation-1, rgba(255, 255, 255, .06));
+        background: var(--bw-el1);
         border-radius: 10px;
         border-left: 4px solid transparent;
         overflow: hidden;
@@ -86,19 +106,19 @@
     .bw-detail .facts { opacity: .75; margin-bottom: 8px; }
     .bw-acts { display: flex; flex-wrap: wrap; gap: 6px; }
     .bw-acts button {
-        background: var(--ui-elevation-2, rgba(255, 255, 255, .12));
+        background: var(--bw-el2);
         border: 0;
         border-radius: 8px;
         padding: 6px 10px;
         font-size: .95em;
     }
-    .bw-acts button:hover { background: var(--ui-elevation-3, rgba(255, 255, 255, .2)); }
+    .bw-acts button:hover { background: var(--bw-el3); }
     .bw-acts button.sure { background: #c62828; color: #fff; }
 
     .bw-link { text-decoration: none; }
 
     /* Rückmeldung, leer, Fuß */
-    .bw-msg { margin-top: 10px; font-size: .85em; padding: 7px 10px; border-radius: 8px; background: var(--ui-elevation-1, rgba(255, 255, 255, .07)); }
+    .bw-msg { margin-top: 10px; font-size: .85em; padding: 7px 10px; border-radius: 8px; background: var(--bw-el1); }
     .bw-empty { padding: 18px 8px; text-align: center; opacity: .75; font-size: .92em; }
     .bw-foot { margin-top: 8px; font-size: .72em; opacity: .55; text-align: right; }
 
@@ -430,6 +450,7 @@
     function bwRender() {
         var root = document.getElementById('bw-root');
         if (!root || !BW) { return; }
+        root.className = 'bw-wrap' + (BW.light ? ' bw-light' : '');
         while (root.firstChild) { root.removeChild(root.firstChild); }
 
         var chips = bwEl('div', 'bw-chips');

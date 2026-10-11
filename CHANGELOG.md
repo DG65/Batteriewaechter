@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.2] - 2026-10-11
+
+### Fixed
+- **Kachel war auf hellem Untergrund kaum lesbar** (Rückmeldung eines Nutzers aus dem Forum, IPSView auf iPhone und Android: weiße Schrift auf hellgrauem Grund). Die Kachel hatte keinen eigenen Hintergrund, sondern setzte helle Schrift voraus und verließ sich auf Variablen des Hosts, die es dort nicht gibt. Jetzt hat sie einen eigenen Hintergrund und eigene Farben (dunkel, wie bisher auf PC und iPad). Neu: Einstellung **„Helle Darstellung der Kachel“** unter „Zustand“ (hellgrau mit dunkler Schrift). Eine automatische Erkennung des Themes gibt Symcon einer Kachel nicht.
+- **Reine „schwach“-Flags gelten nicht mehr als „veraltet“** (HomeMatic `LOWBAT` und andere Ereignis-Flags ändern sich nur bei Ereignissen, nach Rückmeldung eines Nutzers landeten solche Geräte dauerhaft in „Handlungsbedarf“). Die Altersprüfung gilt nur noch für Prozent und Spannung; ob ein Gerät lebt, sagt die Funkstille.
+- „Diagnose fürs Forum“ nannte unter „nicht erkannt“ auch die eigenen Zähler und Tabellen des Wächters (`Empty`, `Low`, `TableDiary`).
+
+### Added
+- **Boolean „Battery“ mit Beschriftungen der Darstellung wird erkannt** (X-Sense und ähnliche): Ident `battery`, `battery_status` oder `battery_state` ohne Profil. Die Bedeutung von True steht dort nur in der Darstellung („Niedrig“ bei True = schwach, „Niedrig“ bei False und „OK“ bei True = umgekehrt). Ohne eindeutige Beschriftung („Ja/Nein“, „An/Aus“) wird nicht geraten.
+
+### Changed
+- „Gefundene Geräte“, „Zustand“, „Meldungen“ und „Quittieren und Batterietagebuch“ sind standardmäßig zugeklappt (Symcon merkt sich den Zustand der Panels nicht; „Geräte-Einstellungen“ und der Hinweis „Rückmeldungen“ bleiben, wie sie waren).
+- Die Auswahl „Sortieren nach“ und „Reihenfolge“ in „Geräte-Einstellungen“ entfällt: Die Liste sortiert sich per Klick auf einen Spaltenkopf (an einer Anlage bestätigt). Die Eigenschaften `DeviceSortBy`/`DeviceSortDir` und die Funktion `BWACH_SetDeviceSort` bleiben aus Kompatibilität bestehen.
+
 ## [0.12.1] - 2026-10-10
 
 ### Added

@@ -87,6 +87,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyInteger('PollEveryDays', 7);
         $this->RegisterPropertyInteger('OrphanDays', 60);
         $this->RegisterPropertyBoolean('TileAllowAck', true);
+        $this->RegisterPropertyBoolean('LightTheme', false);
         $this->RegisterPropertyBoolean('NameSearch', false);
         $this->RegisterPropertyString('ManualVariables', '[]');
         $this->RegisterPropertyString('DeviceSettings', '[]');
@@ -681,6 +682,7 @@ class Batteriewaechter extends IPSModule
             'devices'  => $devices,
             'diary'    => $diary,
             'allowAck' => $this->ReadPropertyBoolean('TileAllowAck'),
+            'light'    => $this->ReadPropertyBoolean('LightTheme'),
             'shopping' => $this->tileShopping($views),
             'asOf'     => date('H:i', $now) . ' Uhr',
             'message'  => $message,
@@ -1287,12 +1289,43 @@ class Batteriewaechter extends IPSModule
                 'parentIsInstance' => $inst !== null,
                 'moduleName'       => $inst['module'] ?? '',
                 'instanceName'     => $inst['name'] ?? '',
+                'captions'         => ((int)($var['VariableType'] ?? -1) === 0) ? $this->boolCaptions($var) : [],
                 'node'             => $inst['node'] ?? '',
                 'group'            => $inst['group'] ?? '',
                 'chan'             => $inst['chan'] ?? '',
             ];
         }
         return $out;
+    }
+
+    /**
+     * Beschriftungen für True und False aus der Darstellung einer Boolean-Variable (Wertanzeige mit Tabelle
+     * Wert/Beschriftung). Ohne Darstellung oder ohne beide Werte: leer.
+     *
+     * @return array ['true'=>string,'false'=>string] oder []
+     */
+    private function boolCaptions(array $var): array
+    {
+        foreach (['VariableCustomPresentation', 'VariablePresentation'] as $key) {
+            $pres = $var[$key] ?? null;
+            if (!is_array($pres) || empty($pres['OPTIONS'])) {
+                continue;
+            }
+            $opts = is_string($pres['OPTIONS']) ? json_decode($pres['OPTIONS'], true) : $pres['OPTIONS'];
+            if (!is_array($opts)) {
+                continue;
+            }
+            $out = [];
+            foreach ($opts as $o) {
+                if (is_array($o) && array_key_exists('Value', $o) && isset($o['Caption'])) {
+                    $out[$o['Value'] ? 'true' : 'false'] = (string)$o['Caption'];
+                }
+            }
+            if (isset($out['true'], $out['false'])) {
+                return $out;
+            }
+        }
+        return [];
     }
 
     private function instanceInfo(int $parent): ?array
@@ -2074,7 +2107,7 @@ class Batteriewaechter extends IPSModule
         $found = $this->found();
         $line  = $found === null ? 'ℹ️ Noch nicht gesucht.' : $this->discoveryLine($found);
         return [
-            'type' => 'ExpansionPanel', 'expanded' => true,
+            'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => '🔎  Gefundene Geräte',
             'items' => [
                 ['type' => 'RowLayout', 'items' => [
@@ -2098,12 +2131,13 @@ class Batteriewaechter extends IPSModule
             $line = (string)$this->GetValue('StatusLine');
         }
         return [
-            'type' => 'ExpansionPanel', 'expanded' => true,
+            'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => '🔋  Zustand',
             'items' => [
                 ['type' => 'Button', 'caption' => '🔄 Jetzt prüfen', 'onClick' => 'echo BWACH_Check($id);'],
                 ['type' => 'Label', 'name' => 'CheckStatus', 'caption' => $line],
                 ['type' => 'Label', 'caption' => 'Kachel: In der Kachel-Visualisierung diese Instanz als Kachel hinzufügen. Die Kachel zeigt die Geräte nach Dringlichkeit, mit Filter, Batterietagebuch und den Schaltflächen zum Quittieren — ohne eigenen Titel, den liefert der Instanzname.'],
+                ['type' => 'CheckBox', 'name' => 'LightTheme', 'caption' => 'Helle Darstellung der Kachel (hellgrauer Hintergrund mit dunkler Schrift)'],
                 ['type' => 'CheckBox', 'name' => 'TileAllowAck', 'caption' => 'Quittieren aus der Kachel erlauben („getauscht“, „später“, „außer Betrieb“)'],
                 ['type' => 'Label', 'caption' => 'Wer die Kachel sehen darf, kann dann auch quittieren. Ausschalten, wenn die Kachel nur anzeigen soll. Die Tabellen „Handlungsbedarf“, „Alle Geräte“ und „Batterietagebuch“ liegen zusätzlich als Variablen unter der Instanz im Objektbaum (per Verknüpfung ins WebFront legbar).'],
             ],
@@ -2146,7 +2180,7 @@ class Batteriewaechter extends IPSModule
             : 'ℹ️ Meldungen sind AUS — es wird nichts verschickt, bis du „Meldungen aktiv“ einschaltest.';
 
         return [
-            'type' => 'ExpansionPanel', 'expanded' => true,
+            'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => '🔔  Meldungen',
             'items' => [
                 ['type' => 'CheckBox', 'name' => 'NotificationsActive', 'caption' => 'Meldungen aktiv'],
@@ -2307,7 +2341,7 @@ class Batteriewaechter extends IPSModule
             }
         }
         return [
-            'type' => 'ExpansionPanel', 'expanded' => true,
+            'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => '✅  Quittieren und Batterietagebuch',
             'items' => [
                 ['type' => 'Label', 'caption' => 'Gerät wählen und sagen, was damit ist: „Habe ich getauscht“ trägt den Wechsel ins Tagebuch ein (3 Tage Wartezeit, bis das Gerät den neuen Stand meldet), „Erinnere mich später“ stellt die Meldung zurück, „Außer Betrieb“ nimmt das Gerät dauerhaft aus der Überwachung.'],
@@ -2691,25 +2725,9 @@ class Batteriewaechter extends IPSModule
             'caption' => '🏷️  Geräte-Einstellungen',
             'items' => [
                 ['type' => 'Label', 'name' => 'DeviceRowsLine', 'caption' => $line],
-                ['type' => 'Label', 'caption' => 'Hier steht jedes erkannte Gerät mit neutralen Standardwerten. Nur ändern, was abweicht. Für viele gleiche Geräte auf einmal gibt es das Panel „Gruppen“. Die Spalte „Gilt“ zeigt, was am Ende für ein Gerät zählt.'],
+                ['type' => 'Label', 'caption' => 'Hier steht jedes erkannte Gerät mit neutralen Standardwerten. Nur ändern, was abweicht. Für viele gleiche Geräte auf einmal gibt es das Panel „Gruppen“. Die Spalte „Gilt“ zeigt, was am Ende für ein Gerät zählt. Die Liste lässt sich per Klick auf einen Spaltenkopf sortieren.'],
                 ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '❔  Was bedeuten die Spalten?', 'items' => [
                     ['type' => 'Label', 'caption' => $this->deviceHelp()],
-                ]],
-                ['type' => 'Label', 'caption' => 'ℹ️ Die Sortierung gilt nach „Änderungen übernehmen“: Die Liste sortiert sich beim nächsten Öffnen nach deiner Wahl.'],
-                ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Select', 'name' => 'DeviceSortBy', 'caption' => 'Sortieren nach', 'width' => '230px', 'options' => [
-                        ['caption' => 'Name', 'value' => 'name'],
-                        ['caption' => 'Ort', 'value' => 'place'],
-                        ['caption' => 'System', 'value' => 'module'],
-                        ['caption' => 'Batteriestand', 'value' => 'percent'],
-                        ['caption' => 'Zelltyp', 'value' => 'cell'],
-                        ['caption' => 'Gruppe', 'value' => 'group'],
-                        ['caption' => 'Kritisch', 'value' => 'critical'],
-                    ], 'onChange' => 'BWACH_SetDeviceSort($id, $DeviceSortBy, $DeviceSortDir);'],
-                    ['type' => 'Select', 'name' => 'DeviceSortDir', 'caption' => 'Reihenfolge', 'width' => '200px', 'options' => [
-                        ['caption' => 'aufsteigend (A–Z)', 'value' => 'ascending'],
-                        ['caption' => 'absteigend (Z–A)', 'value' => 'descending'],
-                    ], 'onChange' => 'BWACH_SetDeviceSort($id, $DeviceSortBy, $DeviceSortDir);'],
                 ]],
                 [
                     'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Geräte', 'rowCount' => 12, 'add' => true, 'delete' => true,

@@ -100,6 +100,14 @@ final class BWACHLogik
             if (preg_match('/(^|_)battery_?ok($|_)/i', $ident)) {
                 return self::sig(self::KIND_FLAG_REV, self::BASIS_IDENT);
             }
+            // Boolean „battery“/„battery_status“ ohne Profil: die Bedeutung von True steht nur in den Beschriftungen der
+            // Darstellung (z. B. X-Sense: False = „Normal“, True = „Niedrig“). Ohne eindeutige Beschriftung wird nicht geraten.
+            if ($profile === '' && preg_match('/^battery(_?(status|state))?$/i', $ident)) {
+                $pol = self::polarityFromCaptions((array)($v['captions'] ?? []));
+                if ($pol !== null) {
+                    return self::sig($pol, self::BASIS_IDENT);
+                }
+            }
             // Matter, Cluster Stromversorgung (Power Source): das Gerät meldet selbst „Batterie ersetzen“
             if (preg_match('/(^|_)batreplacementneeded$/i', $ident)) {
                 return self::sig(self::KIND_FLAG, self::BASIS_IDENT);
@@ -362,7 +370,7 @@ final class BWACHLogik
             }
             // Nur Variablen von Geräteinstanzen mit Ident zählen: Skriptvariablen, Heimspeicher (Ausschlussliste) und
             // Variablen ohne Ident sind hier Rauschen und keine Geräte, die der Wächter übersehen hat.
-            if (empty($v['parentIsInstance']) || (string)$v['ident'] === '' || in_array(mb_strtolower((string)$v['moduleName']), $excludedModules, true)) {
+            if (empty($v['parentIsInstance']) || (string)$v['ident'] === '' || (string)$v['moduleName'] === 'Batteriewaechter' || in_array(mb_strtolower((string)$v['moduleName']), $excludedModules, true)) {
                 continue;
             }
             if (preg_match('/(batt|\bbat\b|lowbat|low_bat|akku|battery)/i', (string)$v['ident'] . ' ' . (string)$v['name'])) {
@@ -386,6 +394,30 @@ final class BWACHLogik
         $out[] = '';
         $out[] = 'Die Ausgabe enthält nur Modulnamen, Idents, Typen und Profile, keine Gerätenamen und keine Objekt-IDs.';
         return implode("\n", $out);
+    }
+
+    /**
+     * Bedeutung eines Boolean-Batteriesignals aus den Beschriftungen seiner Darstellung.
+     *
+     * @param array $c ['true'=>Beschriftung für True,'false'=>Beschriftung für False]
+     * @return string|null KIND_FLAG (True = schwach), KIND_FLAG_REV (True = in Ordnung) oder null, wenn nicht eindeutig
+     */
+    public static function polarityFromCaptions(array $c): ?string
+    {
+        $t = trim((string)($c['true'] ?? ''));
+        $f = trim((string)($c['false'] ?? ''));
+        if ($t === '' || $f === '') {
+            return null;
+        }
+        $low = '/(niedrig|schwach|leer|kritisch|warn|wechsel|tausch|ersetz|low|empty|replace|critical)/iu';
+        $ok  = '/(normal|^ok$|in ordnung|gut|voll|good|full)/iu';
+        if (preg_match($low, $t) && !preg_match($low, $f)) {
+            return self::KIND_FLAG;
+        }
+        if (preg_match($low, $f) && !preg_match($low, $t) && preg_match($ok, $t)) {
+            return self::KIND_FLAG_REV;
+        }
+        return null;
     }
 
     /** Namen, die einen Sammelwert über mehrere Geräte beschreiben („Schwächste Batterie“ eines Raums). */
@@ -659,7 +691,10 @@ final class BWACHLogik
         $newest = max($pctUpdated, $flagUpdated, (int)($sig['voltage']['updated'] ?? 0));
         $valueAge = $newest > 0 ? max(0, $now - $newest) : null;
         $oldDays = (int)($p['valueOldDays'] ?? 90);
-        if ($valueAge !== null && empty($p['ignoreAge']) && $status !== self::ST_UNKNOWN && $valueAge > $oldDays * 86400) {
+        // Ein reines „schwach“-Flag (HomeMatic LOWBAT u. a.) ändert sich nur bei Ereignissen: dass es lange nicht
+        // aktualisiert wurde, heißt nicht, dass es veraltet ist. Ob das Gerät lebt, sagt die Funkstille.
+        $periodic = !empty($sig['percent']) || !empty($sig['voltage']);
+        if ($periodic && $valueAge !== null && empty($p['ignoreAge']) && $status !== self::ST_UNKNOWN && $valueAge > $oldDays * 86400) {
             $quality[] = 'veraltet';
             $reasons[] = 'Batteriewert ist ' . self::days($valueAge) . ' alt';
         }
