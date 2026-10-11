@@ -144,6 +144,14 @@ final class BWACHLogik
                 // Matter: Halbprozent-Skala (0–200); live bestätigt (Rohwert 200 = 100 %, Symcon rechnet nur die Anzeige um)
                 return self::sig(self::KIND_PERCENT, self::BASIS_IDENT, 0.5);
             }
+            // „Battery“ mit einem Spannungsprofil (Tempest: `Tempest.Volt.3`) ist eine Spannung, kein Prozentwert
+            if (preg_match('/^(battery|bat|batt)$/i', $ident) && preg_match('/volt/i', $profile)) {
+                return self::sig(self::KIND_VOLTAGE, self::BASIS_IDENT);
+            }
+            // „…Status“/„…State“ mit eigenem Profil (Aufzählung wie `Tempest_battery_status`) ist ein Statuscode, kein Prozentwert
+            if (preg_match('/^(battery|bat|batt)_?(status|state)$/i', $ident) && $profile !== '' && $profile[0] !== '~') {
+                return null;
+            }
             if (preg_match('/^(battery|bat|batt)(_?(percent(age)?|level|variable|status))?$/i', $ident)
                 || preg_match('/battery_?percent(age)?$/i', $ident)
                 // USV über NUT (DP_battery_charge): Ladezustand in Prozent

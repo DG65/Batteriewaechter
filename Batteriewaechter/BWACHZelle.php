@@ -44,6 +44,11 @@ final class BWACHZelle
             'curve' => [[1.80, 100], [1.70, 90], [1.60, 60], [1.50, 30], [1.40, 10], [1.20, 0]]],
         'block9v' => ['label' => '9-V-Block', 'shop' => '9-V-Block',
             'curve' => [[9.60, 100], [8.40, 60], [7.50, 30], [6.60, 10], [5.40, 0]]],
+        // Fest eingebauter LTO-Akku (Lithium-Titanat, 2,4 V), z. B. in einer Wetterstation mit Solarzelle. Die Kurve folgt den
+        // dokumentierten Schwellen eines solchen Geräts (Voll ca. 2,8 V, Sparmodus ab 2,455 V, „niedrig“ bei 2,355 V), nicht
+        // der allgemeinen Entladekurve einer LTO-Zelle (die bis etwa 1,5 V reicht): sie soll rechtzeitig warnen.
+        'lto' => ['label' => 'LTO-Akku (Lithium-Titanat, fest eingebaut, 2,4 V)', 'shop' => 'LTO-Akku (fest eingebaut)',
+            'curve' => [[2.80, 100], [2.70, 85], [2.60, 65], [2.455, 40], [2.40, 20], [2.355, 8], [2.30, 0]]],
         'liion' => ['label' => 'Li-Ion/LiPo-Akku (fest eingebaut, 3,7 V)', 'shop' => 'Akku (Li-Ion/LiPo)',
             'curve' => [[4.20, 100], [4.10, 90], [3.95, 70], [3.80, 50], [3.70, 35], [3.60, 20], [3.50, 10], [3.30, 3], [3.00, 0]]],
     ];
@@ -128,7 +133,7 @@ final class BWACHZelle
         foreach (self::TYPES as $id => $t) {
             foreach ([1, 2, 3, 4] as $n) {
                 // Knopfzellen, 9-V-Block und fest eingebaute Akkus kommen einzeln vor; CR123A/RCR123A auch zu zweit oder zu dritt
-                $maxCells = in_array($id, ['cr123a', 'rcr123a'], true) ? 3 : (in_array($id, ['cr2032', 'cr2450', 'block9v', 'liion'], true) ? 1 : 4);
+                $maxCells = in_array($id, ['cr123a', 'rcr123a'], true) ? 3 : (in_array($id, ['cr2032', 'cr2450', 'block9v', 'liion', 'lto'], true) ? 1 : 4);
                 if ($n <= $maxCells && self::percentFromVoltage($id, $n, $volt) !== null) {
                     $cand[] = ($n > 1 ? $n . '× ' : '') . $t['shop'];
                 }

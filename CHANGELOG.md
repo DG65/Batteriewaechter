@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.13.1] - 2026-10-11
+
+### Added
+- **Zelltyp „LTO-Akku (Lithium-Titanat, fest eingebaut, 2,4 V)“** (Forum, Tempest-Wetterstation): Die Kurve folgt den dokumentierten Schwellen eines solchen Geräts (voll etwa 2,8 V, Sparmodus ab 2,455 V, „niedrig“ bei 2,355 V). Sie ist deshalb absichtlich strenger als die allgemeine Entladekurve einer LTO-Zelle, damit sie rechtzeitig warnt. Eine Näherung, wie alle Kurven; der Wert steht „aus Spannung berechnet“.
+
+### Fixed
+- **„Battery“ mit einem Spannungsprofil ist eine Spannung** (Tempest: `Battery`, Float, Profil `Tempest.Volt.3`): Sie wurde als Prozentwert gelesen („2,64 %“, leer). Jetzt gilt sie als Spannung, der Zelltyp rechnet sie um.
+- **„Battery_Status“ mit eigener Aufzählung ist kein Prozentwert** (Tempest: `Tempest_battery_status`): Ein Statuscode wurde als „0 %“, leer gewertet. Variablen der Art `…Status` oder `…State` mit einem eigenen Profil (nicht `~…`) erkennt der Wächter nicht mehr als Prozent.
+
 ## [0.13.0] - 2026-10-11
 
 Anlass: ein Blick auf andere Systeme (Home Assistant mit „Battery Notes“, openHAB, ioBroker, Homey), was sie können und uns fehlte.

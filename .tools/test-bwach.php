@@ -1244,7 +1244,7 @@ check('Vorschlag bei 4,0 V nennt den RCR123A-Akku; bei 6,0 V auch 2× CR123A; Kn
 check('Einkaufsliste trennt CR123A-Batterien und RCR123A-Akkus', (function () { $r = BWACHPrognose::shopping([['name' => 'A', 'place' => '', 'cell' => 'cr123a', 'cells' => 2, 'status' => 'leer', 'days' => null], ['name' => 'B', 'place' => '', 'cell' => 'rcr123a', 'cells' => 1, 'status' => 'schwach', 'days' => null]], 30); sort($r['lines']); return $r['lines'] === ['1× RCR123A (Akku)', '2× CR123A']; })());
 check('Vorschlag bei unmöglicher Spannung (20 V)', BWACHZelle::suggest(20.0) === 'passt zu keinem bekannten Zelltyp');
 check('Einkaufsbezeichnungen: CR2032, AAA, AA (Akku)', BWACHZelle::shopLabel('cr2032') === 'CR2032' && BWACHZelle::shopLabel('aaa_alkali') === 'AAA' && BWACHZelle::shopLabel('aa_nimh') === 'AA (Akku)' && BWACHZelle::shopLabel('unbekannt') === null);
-check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 12);
+check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 13);
 
 $n = $NOW;
 $volt = ['voltage' => ['value' => 4.71, 'updated' => $n - 60]];
@@ -1941,6 +1941,17 @@ $dg3 = BWACHMeldung::decide($dg2['state'], $cs, 1000 + 700, ['confirmSec' => 600
 check('Bestätigungszeit: ein Ausreißer, der verschwand und zurückkehrt, beginnt von vorn', $dg3['events']['neu'] === []);
 $d00 = BWACHMeldung::decide([], $cs, 1000, ['confirmSec' => 0]);
 check('Ohne Bestätigungszeit (0) meldet der Wächter wie bisher sofort', $d00['events']['neu'] === ['k']);
+
+// Tempest (Forum): Spannung statt Prozent, Statuscode nicht als Prozent, LTO-Akku
+$tp1 = BWACHLogik::detectSignal(['ident' => 'Battery', 'name' => 'Battery', 'type' => 2, 'profile' => 'Tempest.Volt.3']);
+check('Tempest: „Battery“ (Float) mit Spannungsprofil ist eine Spannung', $tp1 !== null && $tp1['kind'] === 'voltage');
+check('„Battery“ (Float) ohne Spannungsprofil bleibt Prozent', BWACHLogik::detectSignal(['ident' => 'Battery', 'name' => 'Battery', 'type' => 2, 'profile' => ''])['kind'] === 'percent');
+check('Tempest: „Battery_Status“ mit eigener Aufzählung ist kein Prozentwert', BWACHLogik::detectSignal(['ident' => 'Battery_Status', 'name' => 'Battery Status', 'type' => 1, 'profile' => 'Tempest_battery_status']) === null);
+check('„BatteryStatus“ ohne Profil bleibt wie bisher Prozent', BWACHLogik::detectSignal(['ident' => 'BatteryStatus', 'name' => 'x', 'type' => 1, 'profile' => ''])['kind'] === 'percent');
+$lt = BWACHZelle::percentFromVoltage('lto', 1, 2.64);
+check('LTO-Akku: 2,64 V sind etwa drei Viertel, 2,80 V voll, 2,355 V fast leer, 2,25 V leer', $lt > 70 && $lt < 80 && BWACHZelle::percentFromVoltage('lto', 1, 2.80) === 100.0 && BWACHZelle::percentFromVoltage('lto', 1, 2.355) < 10 && BWACHZelle::percentFromVoltage('lto', 1, 2.25) === 0.0, (string)$lt);
+check('LTO-Akku: 3,7 V passt nicht zum Typ', BWACHZelle::percentFromVoltage('lto', 1, 3.7) === null);
+check('LTO-Akku steht in der Auswahl und in der Einkaufsbezeichnung', BWACHZelle::label('lto') !== 'unbekannt' && BWACHZelle::shopLabel('lto') === 'LTO-Akku (fest eingebaut)');
 
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
