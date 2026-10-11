@@ -88,7 +88,7 @@ Spannungswerte werden angezeigt, aber noch nicht in Prozent umgerechnet (die Aus
 
 ## Skripte
 
-`BWACH_Search`, `BWACH_Check`, `BWACH_Preview`, `BWACH_SendTest`, `BWACH_UnretireAll`, `BWACH_ShoppingText` (Einkaufsliste und Tauschrunde als Text), `BWACH_SendShopping`, `BWACH_DeviceListCsv`, `BWACH_Diagnosis` (je `<InstanzID>`), `BWACH_AcknowledgePlace(<InstanzID>, '<Ort>')`, `BWACH_AddReplacement(<InstanzID>, '<Schlüssel>', 'TT.MM.JJJJ')`, `BWACH_Acknowledge(<InstanzID>, '<Schlüssel>', 'getauscht'|'zurueckgestellt'|'ausser_betrieb')`, `BWACH_Unretire(<InstanzID>, '<Schlüssel>')` — alle liefern einen Text. Die Schlüssel der Geräte nennt „📋 Was würde gefunden?“; einfacher ist die Auswahl im Formular.
+`BWACH_Search`, `BWACH_Check`, `BWACH_Preview`, `BWACH_SendTest`, `BWACH_UnretireAll`, `BWACH_ShoppingText` (Einkaufsliste und Tauschrunde als Text), `BWACH_SendShopping`, `BWACH_DeviceListCsv`, `BWACH_Diagnosis` (je `<InstanzID>`), `BWACH_AcknowledgePlace(<InstanzID>, '<Ort>')`, `BWACH_AddReplacement(<InstanzID>, '<Schlüssel>', 'TT.MM.JJJJ')`, `BWACH_Acknowledge(<InstanzID>, '<Schlüssel>', 'getauscht'|'zurueckgestellt'|'ausser_betrieb')`, `BWACH_Unretire(<InstanzID>, '<Schlüssel>')`, `BWACH_UndoAcknowledge` (letzte Quittierung rückgängig) — alle liefern einen Text. Die Schlüssel der Geräte nennt „📋 Was würde gefunden?“; einfacher ist die Auswahl im Formular.
 
 ## Prüfstand
 
