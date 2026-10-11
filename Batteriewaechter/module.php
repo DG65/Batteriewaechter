@@ -91,6 +91,8 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyString('FormLayout', '[]');
         $this->RegisterPropertyBoolean('NameSearch', false);
         $this->RegisterPropertyString('ManualVariables', '[]');
+        $this->RegisterPropertyString('IgnoredVariables', '[]');
+        $this->RegisterPropertyInteger('ConfirmMinutes', 0);
         $this->RegisterPropertyString('DeviceSettings', '[]');
         $this->RegisterPropertyString('GroupRules', '[]');
         $this->RegisterPropertyString('ShopLink', '');
@@ -227,6 +229,7 @@ class Batteriewaechter extends IPSModule
             'excludedModules' => $this->excludedModules(),
             'nameSearch'      => $this->ReadPropertyBoolean('NameSearch'),
             'manual'          => $this->manualVariables(),
+            'ignored'         => $this->ignoredVariables(),
         ]);
         $this->WriteAttributeString('Found', json_encode($result));
         $this->WriteAttributeInteger('LastDiscoveryTs', $this->now());
@@ -904,6 +907,7 @@ class Batteriewaechter extends IPSModule
             'excludedModules' => $this->excludedModules(),
             'nameSearch'      => $this->ReadPropertyBoolean('NameSearch'),
             'manual'          => $this->manualVariables(),
+            'ignored'         => $this->ignoredVariables(),
         ]);
         $kernel = function_exists('IPS_GetKernelVersion') ? (string)IPS_GetKernelVersion() : '?';
         return BWACHLogik::diagnosis($vars, $result, $this->installedVersion(), $kernel, $this->excludedModules());
@@ -1146,6 +1150,7 @@ class Batteriewaechter extends IPSModule
             'clearHours'  => 24,
             'quiet'       => BWACHMeldung::isQuiet($now, $this->ReadPropertyBoolean('QuietEnabled'), $this->ReadPropertyInteger('QuietFromHour'), $this->ReadPropertyInteger('QuietToHour')),
             'ignoreQuiet' => $this->ReadPropertyBoolean('CriticalIgnoresQuiet'),
+            'confirmSec'  => max(0, $this->ReadPropertyInteger('ConfirmMinutes')) * 60,
         ]);
         $state = $res['state'];
 
@@ -1563,12 +1568,29 @@ class Batteriewaechter extends IPSModule
             foreach ($rows as $r) {
                 $vid = (int)($r['Variable'] ?? 0);
                 $kind = (string)($r['Kind'] ?? '');
+                $text = trim((string)($r['Text'] ?? ''));
                 if ($vid > 0 && in_array($kind, [BWACHLogik::KIND_PERCENT, BWACHLogik::KIND_FLAG, BWACHLogik::KIND_FLAG_REV, BWACHLogik::KIND_VOLTAGE], true)) {
                     $out[] = ['vid' => $vid, 'kind' => $kind];
+                } elseif ($vid > 0 && $kind === BWACHLogik::KIND_TEXT && $text !== '') {
+                    $out[] = ['vid' => $vid, 'kind' => $kind, 'text' => $text];   // ohne Text gibt es nichts zu prüfen
                 }
             }
         }
         return $out;
+    }
+
+    /** Variablen, die der Nutzer von der Erkennung ausgenommen hat (Liste „Variablen ignorieren“). */
+    private function ignoredVariables(): array
+    {
+        $rows = json_decode((string)$this->ReadPropertyString('IgnoredVariables'), true);
+        $out  = [];
+        foreach (is_array($rows) ? $rows : [] as $r) {
+            $vid = (int)($r['Variable'] ?? 0);
+            if ($vid > 0) {
+                $out[] = $vid;
+            }
+        }
+        return array_values(array_unique($out));
     }
 
     /** Gruppen-Regeln aus der Instanzkonfiguration, von oben nach unten. */
@@ -1902,6 +1924,10 @@ class Batteriewaechter extends IPSModule
                         $sig['percent'] = ['value' => (float)$val, 'updated' => $upd, 'scale' => (float)$s['scale']];
                     }
                 } elseif ($kind === BWACHLogik::KIND_FLAG || $kind === BWACHLogik::KIND_FLAG_REV) {
+                    if (isset($s['text']) && (string)$s['text'] !== '') {
+                        // Text-Zustand: „schwach“, wenn der Text eines der Muster enthält
+                        $val = BWACHLogik::textMatches((string)$val, (string)$s['text']);
+                    }
                     $rev = $kind === BWACHLogik::KIND_FLAG_REV;
                     $low = $rev ? !(bool)$val : (bool)$val;
                     if (!isset($sig['flag']) || ($low && !$this->flagIsLow($sig['flag']))) {
@@ -2324,6 +2350,8 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Button', 'caption' => '📨 Testmeldung senden', 'onClick' => 'echo BWACH_SendTest($id);'],
                 ['type' => 'Label', 'name' => 'ImportStatus', 'caption' => $this->importLine()],
                 ['type' => 'Button', 'caption' => '📥 Aus BY_BatterieMonitor übernehmen', 'onClick' => 'echo BWACH_ImportOld($id);'],
+                ['type' => 'NumberSpinner', 'name' => 'ConfirmMinutes', 'caption' => 'Erste Meldung erst, wenn der Befund so lange anliegt (0 = sofort)', 'suffix' => ' Minuten', 'minimum' => 0, 'maximum' => 1440],
+                ['type' => 'Label', 'caption' => 'ℹ️ Filtert einzelne Ausreißer eines Geräts (ein schlechter Wert, dann wieder gut). Kritische Geräte melden immer sofort. Erinnerungen und Eskalation sind davon nicht betroffen.'],
                 ['type' => 'NumberSpinner', 'name' => 'ReminderDays', 'caption' => 'Erinnerung, solange der Befund bleibt, alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
                 ['type' => 'NumberSpinner', 'name' => 'CriticalReminderDays', 'caption' => 'Erinnerung bei kritischen Geräten alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 30],
                 ['type' => 'NumberSpinner', 'name' => 'SnoozeDays', 'caption' => '„Erinnere mich später“ verschiebt um', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
@@ -2927,9 +2955,19 @@ class Batteriewaechter extends IPSModule
                             ['caption' => 'Flag: schwach', 'value' => BWACHLogik::KIND_FLAG],
                             ['caption' => 'Flag: in Ordnung', 'value' => BWACHLogik::KIND_FLAG_REV],
                             ['caption' => 'Spannung', 'value' => BWACHLogik::KIND_VOLTAGE],
+                            ['caption' => 'Text: schwach, wenn er enthält …', 'value' => BWACHLogik::KIND_TEXT],
                         ]]],
+                        ['caption' => 'Text (Komma = oder)', 'name' => 'Text', 'width' => '220px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],
                 ],
+                ['type' => 'Label', 'caption' => '„Text“ ist für Variablen, die einen Zustand als Wort melden (z. B. „ok“, „low“, „critical“): Steht eines der Wörter im Wert, gilt die Batterie als schwach. Ohne eingetragenes Wort wird die Zeile nicht verwendet. Groß- und Kleinschreibung ist egal.'],
+                [
+                    'type' => 'List', 'name' => 'IgnoredVariables', 'caption' => 'Variablen ignorieren', 'rowCount' => 3, 'add' => true, 'delete' => true,
+                    'columns' => [
+                        ['caption' => 'Variable', 'name' => 'Variable', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                    ],
+                ],
+                ['type' => 'Label', 'caption' => '„Variablen ignorieren“ nimmt einzelne Variablen aus der Erkennung, ohne das ganze Gerät auszunehmen (z. B. die Last einer USV, wenn daneben der Ladezustand steht). Sie stehen danach im Trockenlauf unter „Ausgeschlossen“.'],
             ],
         ];
     }

@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.13.0] - 2026-10-11
+
+Anlass: ein Blick auf andere Systeme (Home Assistant mit „Battery Notes“, openHAB, ioBroker, Homey), was sie können und uns fehlte.
+
+### Added
+- **„Variablen ignorieren“** (Panel „Weitere Variablen“): Einzelne Variablen lassen sich aus der Erkennung nehmen, ohne das ganze Gerät auszunehmen. Anlass: eine USV, bei der der Wächter die Last statt des Ladezustands nahm. Die ignorierten stehen im Trockenlauf unter „Ausgeschlossen“. Ein Haken sitzt nach „Übernehmen“ (neue Suche).
+- **Text-Zustand als Batterie** (Panel „Weitere Variablen“, Art „Text: schwach, wenn er enthält …“ mit Spalte „Text“): Für Variablen, die den Zustand als Wort melden („ok“, „low“, „critical“). Steht eines der eingetragenen Wörter (Komma = oder) im Wert, gilt die Batterie als schwach. Nur von Hand, der Wächter errät keine Texte.
+- **„Erste Meldung erst, wenn der Befund so lange anliegt“** (Panel „Meldungen“, Minuten, Standard 0 = sofort wie bisher): Filtert einzelne Ausreißer. Kritische Geräte melden immer sofort, Erinnerungen und Eskalation sind nicht betroffen. Ein Befund, der verschwand und wieder auftaucht, beginnt von vorn.
+
+### Changed
+- **Last in Prozent ist kein Ladezustand:** Eine Variable, die nur über das Profil `~Battery.100` erkannt wurde und deren Ident mit `Load`, `Last`, `Auslastung` oder `Usage` beginnt (USV: `Load`, `LoadPct`), zählt nicht als Batterie und steht unter „Ausgeschlossen“. Eine von Hand zugeordnete Variable bleibt immer.
+- Neue Einstellungen: `IgnoredVariables`, `ConfirmMinutes`.
+
 ## [0.12.11] - 2026-10-11
 
 ### Changed

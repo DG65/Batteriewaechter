@@ -893,6 +893,39 @@ $mQ->props['DeviceSettings'] = json_encode($allInst);
 $mQ->Check();
 check('Eigene Funkstille-Schwelle am Gerät wirkt im Modul (vorher ' . $silBefore . ' Geräte in Funkstille, danach keines)', $silBefore > 0 && $mQ->GetValue('Silent') === 0, $silBefore . ' → ' . $mQ->GetValue('Silent'));
 
+// Modul: Text-Zustand und ignorierte Variable
+$mT = freshModule(['NotificationsActive' => false]);
+mkinst(8801, 'USV Keller', 'APC Device');
+mkvar(8802, 8801, 'BatteryStatus', 'Batteriestatus', 3, 'critical', $GLOBALS['CLOCK'] - 60);
+$mT->props['ManualVariables'] = json_encode([['Variable' => 8802, 'Kind' => 'text', 'Text' => 'low, critical']]);
+$mT->Search(); $mT->Check();
+$mT->RequestAction('refresh', '');
+$tp = json_decode(end($mT->visUpdates), true);
+$usv = null; foreach ($tp['devices'] as $dv) { if ($dv['name'] === 'USV Keller') { $usv = $dv; } }
+check('Modul: Text „critical“ macht die Batterie „schwach“', $usv !== null && $usv['status'] === 'schwach', json_encode($usv, JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][8802]['var']['value'] = 'ok';
+$mT->Check(); $mT->RequestAction('refresh', '');
+$tp = json_decode(end($mT->visUpdates), true);
+$usv2 = null; foreach ($tp['devices'] as $dv) { if ($dv['name'] === 'USV Keller') { $usv2 = $dv; } }
+check('Modul: Text „ok“ gilt als in Ordnung', $usv2 !== null && $usv2['status'] === 'ok', json_encode($usv2, JSON_UNESCAPED_UNICODE));
+$totBefore = $mT->GetValue('Total');
+$mT->props['IgnoredVariables'] = json_encode([['Variable' => 8802]]);
+$mT->Search(); $mT->Check();
+check('Modul: Eine ignorierte Variable lässt ihr Gerät aus der Zählung fallen', $mT->GetValue('Total') === $totBefore - 1, $totBefore . ' → ' . $mT->GetValue('Total'));
+$mT->props['ConfirmMinutes'] = 30;
+check('Modul: Formular nennt „Variablen ignorieren“ und die Bestätigungszeit', (function () use ($mT) { $j = json_encode(json_decode($mT->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE); return strpos($j, '"name":"IgnoredVariables"') !== false && strpos($j, '"name":"ConfirmMinutes"') !== false; })());
+
+// Modul: Bestätigungszeit hält die erste Meldung zurück
+$m0 = freshModule(['NotificationsActive' => true, 'NotifyPush' => true, 'ConfirmMinutes' => 0]);
+$m0->Check();
+$sentNow = count($GLOBALS['SENT']);
+$m60 = freshModule(['NotificationsActive' => true, 'NotifyPush' => true, 'ConfirmMinutes' => 60]);
+$m60->Check();
+$sent60 = count($GLOBALS['SENT']);
+check('Modul: Mit Bestätigungszeit (60 Minuten) geht beim ersten Lauf nichts raus, ohne sie schon', $sentNow > 0 && $sent60 === 0, $sentNow . ' / ' . $sent60);
+shiftWorld(3700); $m60->Check();
+check('Modul: Nach Ablauf der Bestätigungszeit kommt die Meldung', count($GLOBALS['SENT']) > 0);
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
@@ -1881,6 +1914,33 @@ $sr = ['Active' => true, 'Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 
 check('Regel setzt die Funkstille-Schwelle', BWACHLogik::applyRules($rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [$sr])['stillDays'] === 300);
 check('Eigene Funkstille-Schwelle am Gerät geht der Regel vor', BWACHLogik::applyRules(['stillDays' => 45] + $rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [$sr])['stillDays'] === 45);
 check('Ohne Wert in der Regel bleibt es beim Standard (0)', (BWACHLogik::applyRules($rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [['StillDays' => 0] + $sr])['stillDays'] ?? 0) === 0);
+
+// Text-Zustand, Variablen ignorieren, Last statt Ladezustand, Bestätigungszeit (Vergleich mit anderen Systemen)
+check('textMatches: Muster mit Komma, ohne Groß-/Kleinschreibung, Teiltreffer', BWACHLogik::textMatches('Battery CRITICAL', 'low, critical') && BWACHLogik::textMatches('low', 'LOW') && !BWACHLogik::textMatches('ok', 'low, critical') && !BWACHLogik::textMatches('anything', ' , '));
+$tv = function (int $vid, string $ident, int $type, string $profile, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => $ident, 'type' => $type, 'profile' => $profile, 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'EnergyDev', 'instanceName' => 'USV' . $inst, 'updated' => 1790000000]; };
+$tvars = [$tv(1, 'Charged', 1, '~Battery.100', 60), $tv(2, 'LoadPct', 1, '~Battery.100', 60), $tv(3, 'Load', 1, '~Battery.100', 61), $tv(4, 'BatteryStatus', 3, '', 62)];
+$tf = BWACHLogik::classify($tvars, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+check('Last in Prozent („LoadPct“, „Load“) gilt nicht als Ladezustand, „Charged“ bleibt', count($tf['devices'][60]['signals']['percent']) === 1 && $tf['devices'][60]['signals']['percent'][0]['vid'] === 1 && !isset($tf['devices'][61]) && strpos(json_encode($tf['excluded'], JSON_UNESCAPED_UNICODE), 'Last in Prozent') !== false);
+$tm = BWACHLogik::classify($tvars, ['excludedModules' => [], 'nameSearch' => false, 'manual' => [['vid' => 2, 'kind' => 'percent']]]);
+check('Von Hand zugeordnete Last-Variable bleibt (der Nutzer weiß es besser)', isset($tm['devices']['60-2']) && $tm['devices']['60-2']['signals']['percent'][0]['vid'] === 2);
+$ti = BWACHLogik::classify($tvars, ['excludedModules' => [], 'nameSearch' => false, 'manual' => [], 'ignored' => [1]]);
+check('Ignorierte Variable steht unter „Ausgeschlossen“ und zählt nicht, die andere am Gerät bleibt', !isset($ti['devices'][60]) && strpos(json_encode($ti['excluded'], JSON_UNESCAPED_UNICODE), 'von dir ignoriert') !== false);
+$tt = BWACHLogik::classify($tvars, ['excludedModules' => [], 'nameSearch' => false, 'manual' => [['vid' => 4, 'kind' => 'text', 'text' => 'low,critical']]]);
+check('Text-Zustand wird als „schwach“-Flag mit dem Text geführt', isset($tt['devices'][62]['signals']['flag'][0]) && $tt['devices'][62]['signals']['flag'][0]['text'] === 'low,critical');
+$cs = ['k' => ['probs' => ['schwach'], 'critical' => false]];
+$d0 = BWACHMeldung::decide([], $cs, 1000, ['confirmSec' => 600]);
+check('Bestätigungszeit: neuer Befund wird noch nicht gemeldet', $d0['events']['neu'] === []);
+$d1 = BWACHMeldung::decide($d0['state'], $cs, 1000 + 599, ['confirmSec' => 600]);
+$d2 = BWACHMeldung::decide($d1['state'], $cs, 1000 + 600, ['confirmSec' => 600]);
+check('Bestätigungszeit: kurz davor nichts, nach Ablauf die erste Meldung', $d1['events']['neu'] === [] && $d2['events']['neu'] === ['k']);
+$dc = BWACHMeldung::decide([], ['k' => ['probs' => ['leer'], 'critical' => true]], 1000, ['confirmSec' => 600]);
+check('Bestätigungszeit: kritische Geräte melden sofort', $dc['events']['neu'] === ['k']);
+$dg1 = BWACHMeldung::decide([], $cs, 1000, ['confirmSec' => 600]);
+$dg2 = BWACHMeldung::decide($dg1['state'], [], 1000 + 300, ['confirmSec' => 600]);   // Befund war weg
+$dg3 = BWACHMeldung::decide($dg2['state'], $cs, 1000 + 700, ['confirmSec' => 600]);  // kommt zurück: beginnt von vorn
+check('Bestätigungszeit: ein Ausreißer, der verschwand und zurückkehrt, beginnt von vorn', $dg3['events']['neu'] === []);
+$d00 = BWACHMeldung::decide([], $cs, 1000, ['confirmSec' => 0]);
+check('Ohne Bestätigungszeit (0) meldet der Wächter wie bisher sofort', $d00['events']['neu'] === ['k']);
 
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };

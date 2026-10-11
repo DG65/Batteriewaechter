@@ -28,6 +28,7 @@ final class BWACHLogik
     public const KIND_PERCENT  = 'percent';        // Ladezustand in Prozent
     public const KIND_FLAG     = 'flag';           // Bool, true = Batterie schwach (Symcon ~Battery, HomeMatic LOWBAT)
     public const KIND_FLAG_REV = 'flag_reversed';  // Bool, true = Batterie in Ordnung (~Battery.Reversed)
+    public const KIND_TEXT     = 'text';           // nur in „Weitere Variablen“: Text-Zustand, wird zum „schwach“-Flag
     public const KIND_VOLTAGE  = 'voltage';        // Spannung in Volt (Zelltyp-Auswertung folgt in Stufe 2)
 
     // Herkunft der Erkennung: je weiter hinten, desto unsicherer
@@ -80,6 +81,18 @@ final class BWACHLogik
     public static function isMainsVoltage(float $v): bool
     {
         return $v > 30 && $v < 400;
+    }
+
+    /** Text-Zustand (z. B. „low“, „critical“): trifft, wenn der Wert eines der Muster (Komma = oder) enthält, ohne Groß-/Kleinschreibung. */
+    public static function textMatches(string $value, string $patterns): bool
+    {
+        foreach (explode(',', $patterns) as $p) {
+            $p = trim($p);
+            if ($p !== '' && mb_stripos($value, $p) !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static function detectSignal(array $v): ?array
@@ -467,9 +480,16 @@ final class BWACHLogik
         $excludedModules = array_map('mb_strtolower', (array)($opt['excludedModules'] ?? self::DEFAULT_EXCLUDED_MODULES));
         $nameSearch      = (bool)($opt['nameSearch'] ?? false);
         $manual          = [];
+        $manualText      = [];
         foreach ((array)($opt['manual'] ?? []) as $m) {
-            $manual[(int)$m['vid']] = (string)$m['kind'];
+            $kind = (string)$m['kind'];
+            if ($kind === self::KIND_TEXT) {
+                $manualText[(int)$m['vid']] = (string)($m['text'] ?? '');
+                $kind = self::KIND_FLAG;   // Text-Zustand wird zum „schwach“-Flag
+            }
+            $manual[(int)$m['vid']] = $kind;
         }
+        $ignored = array_flip(array_map('intval', (array)($opt['ignored'] ?? [])));
 
         $devices     = [];
         $excluded    = [];
@@ -487,6 +507,16 @@ final class BWACHLogik
                 continue;
             }
             $name = (string)$v['name'];
+            if (isset($ignored[$vid])) {
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'von dir ignoriert (Liste „Variablen ignorieren“)'];
+                continue;
+            }
+            // Eine Last in Prozent (USV: „Load“, „LoadPct“) ist kein Ladezustand, auch wenn sie ein Batterie-Profil trägt.
+            if ($s['kind'] === self::KIND_PERCENT && $s['basis'] === self::BASIS_PROFILE
+                && preg_match('/^(load|last|auslastung|usage)/i', (string)($v['ident'] ?? ''))) {
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'sieht nach einer Last in Prozent aus („' . (string)$v['ident'] . '“), nicht nach einem Ladezustand'];
+                continue;
+            }
             // HomeMatic: Eine Batterie-Variable, die noch nie einen Wert erhalten hat („Nie“), gehört zu einem
             // Gerät ohne Batterie (Netzteil): ein Batteriegerät setzt sie mit seinem ersten Telegramm. Das gilt nur
             // hier; bei Z-Wave und Matter ist „noch nie gemeldet“ gerade der Fall, den die Abfrage klären soll.
@@ -536,7 +566,11 @@ final class BWACHLogik
                 }
             }
             $kind = $s['kind'];
-            $devices[$key]['signals'][$kind][] = ['vid' => $vid, 'basis' => $s['basis'], 'scale' => $s['scale'], 'unverified' => $s['unverified'], 'label' => $name];
+            $entry = ['vid' => $vid, 'basis' => $s['basis'], 'scale' => $s['scale'], 'unverified' => $s['unverified'], 'label' => $name];
+            if (isset($manualText[$vid]) && $kind === self::KIND_FLAG) {
+                $entry['text'] = $manualText[$vid];   // Text-Zustand: „schwach“, wenn der Text eines der Muster enthält
+            }
+            $devices[$key]['signals'][$kind][] = $entry;
         }
 
         // Eine Instanz, die selbst einen Sammelwert liefert (Raum, Gruppe), ist ein Sammelgerät:

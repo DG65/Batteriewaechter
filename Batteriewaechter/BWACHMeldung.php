@@ -91,6 +91,7 @@ final class BWACHMeldung
         $clearHours = (int)($p['clearHours'] ?? 24);
         $quietNow   = (bool)($p['quiet'] ?? false);
         $ignoreQuiet = (bool)($p['ignoreQuiet'] ?? true);
+        $confirmSec  = max(0, (int)($p['confirmSec'] ?? 0));
 
         foreach ($current as $key => $c) {
             $key  = (string)$key;
@@ -98,6 +99,10 @@ final class BWACHMeldung
             $probs = array_values($c['probs']);
             sort($probs);
             $isNew = count(array_diff($probs, $s['probs'])) > 0;
+            // Ein Befund, der verschwunden war und vor der ersten Meldung zurückkehrt, beginnt von vorn
+            if ((int)$s['gone'] > 0 && (int)$s['notified'] === 0) {
+                $s['since'] = $now;
+            }
             $s['gone'] = 0;
             if ($isNew) {
                 // Ein neuer Befund (z. B. von „schwach“ auf „leer“) ist eine neue Meldung.
@@ -110,9 +115,12 @@ final class BWACHMeldung
             $quiet = $quietNow && !($ignoreQuiet && !empty($c['critical']));
             if ($now >= (int)$s['snooze'] && !$quiet) {
                 if ($s['notified'] === 0) {
-                    $events['neu'][] = $key;
-                    $s['notified'] = $now;
-                    $s['cnt'] = 1;
+                    // Einzelne Ausreißer: Der Befund muss so lange anliegen; kritische Geräte melden sofort
+                    if (!empty($c['critical']) || $now - (int)$s['since'] >= $confirmSec) {
+                        $events['neu'][] = $key;
+                        $s['notified'] = $now;
+                        $s['cnt'] = 1;
+                    }
                 } else {
                     $interval = (!empty($c['critical']) ? $critRem : $remDays) * 86400;
                     if ($now - $s['notified'] >= $interval) {
