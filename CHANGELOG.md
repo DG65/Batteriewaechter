@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.11] - 2026-10-11
+
+### Changed
+- **HomeMatic: Geräte ohne Batterie (Netzteil) werden bei der Erkennung ausgeschlossen** (Forum, mehrere Nutzer): Eine `LOWBAT`- oder `OPERATING_VOLTAGE`-Variable, die „Nie“ einen Wert erhalten hat, ignoriert der Wächter. Bleibt an einem Gerät kein Signal übrig (z. B. ein 4fach-Schalter am Netzteil, eine Dose mit HmIP), erscheint es nicht mehr, und der Trockenlauf nennt den Grund unter „Ausgeschlossen“. Ein Batteriegerät behält sein `LOWBAT` am Funktionskanal; ein „Nie“ am Wartungskanal stört dort nicht. Bewusst nur für HomeMatic: Bei Z-Wave und Matter ist „noch nie gemeldet“ der Fall, den die Abfrage klären soll. Ein frisch angelerntes Batteriegerät erscheint nach dem ersten Telegramm und „Jetzt neu suchen“. Von Hand zugeordnete Variablen bleiben immer.
+
+### Added
+- **Funkstille-Schwelle je Gerät und je Gruppen-Regel** (Forum): Neue Spalte „Funkstille nach (Tage)“ in „Geräte-Einstellungen“ und in den Gruppen-Regeln. 0 oder leer heißt Standard. Der Wert gilt für das Gerät vor den allgemeinen Schwellen für Standard und Ereignismelder und vor der gelernten Schwelle; eine eigene Einstellung am Gerät geht der Regel vor. „Gilt“ nennt ihn („Funkstille nach 300 Tagen“), der Grund bei einer Funkstille sagt „für dieses Gerät eingestellt“. Anlass: Selten sendende Sensoren ließen sich nur durch eine globale Schwelle aus „Handlungsbedarf“ nehmen.
+- **Nuki:** `BatteryCritical`, `DoorSensorBatteryCritical` und `KeypadBatteryCritical` (True = kritisch) gelten als „schwach“-Flag, `BatteryChargeState` (MQTT) als Prozentwert.
+
 ## [0.12.10] - 2026-10-11
 
 ### Fixed

@@ -118,6 +118,10 @@ final class BWACHLogik
                 }
             }
             // Matter, Cluster Stromversorgung (Power Source): das Gerät meldet selbst „Batterie ersetzen“
+            // Nuki u. a.: „BatteryCritical“, „DoorSensorBatteryCritical“, „KeypadBatteryCritical“ (True = kritisch)
+            if (preg_match('/battery_?critical$/i', $ident)) {
+                return self::sig(self::KIND_FLAG, self::BASIS_IDENT);
+            }
             if (preg_match('/(^|_)batreplacementneeded$/i', $ident)) {
                 return self::sig(self::KIND_FLAG, self::BASIS_IDENT);
             }
@@ -130,7 +134,9 @@ final class BWACHLogik
             if (preg_match('/^(battery|bat|batt)(_?(percent(age)?|level|variable|status))?$/i', $ident)
                 || preg_match('/battery_?percent(age)?$/i', $ident)
                 // USV über NUT (DP_battery_charge): Ladezustand in Prozent
-                || preg_match('/^(dp_)?battery_?charge$/i', $ident)) {
+                || preg_match('/^(dp_)?battery_?charge$/i', $ident)
+                // Nuki (MQTT): Ladezustand der Batterie in Prozent
+                || preg_match('/^battery_?charge_?state$/i', $ident)) {
                 return self::sig(self::KIND_PERCENT, self::BASIS_IDENT);
             }
             if (preg_match('/(battery_?v(olt(age)?)?|operating_?voltage|bat_?volt(age)?)$/i', $ident)) {
@@ -283,6 +289,9 @@ final class BWACHLogik
         }
         if (!$own['critical'] && !empty($r['Critical'])) {
             $own['critical'] = true;
+        }
+        if ((int)($own['stillDays'] ?? 0) === 0 && (int)($r['StillDays'] ?? 0) > 0) {
+            $own['stillDays'] = max(1, min(3650, (int)$r['StillDays']));
         }
         if (empty($own['ignoreAge']) && !empty($r['IgnoreAge'])) {
             $own['ignoreAge'] = true;
@@ -478,6 +487,14 @@ final class BWACHLogik
                 continue;
             }
             $name = (string)$v['name'];
+            // HomeMatic: Eine Batterie-Variable, die noch nie einen Wert erhalten hat („Nie“), gehört zu einem
+            // Gerät ohne Batterie (Netzteil): ein Batteriegerät setzt sie mit seinem ersten Telegramm. Das gilt nur
+            // hier; bei Z-Wave und Matter ist „noch nie gemeldet“ gerade der Fall, den die Abfrage klären soll.
+            if ($s['basis'] !== self::BASIS_MANUAL && in_array($s['kind'], [self::KIND_FLAG, self::KIND_FLAG_REV, self::KIND_VOLTAGE], true)
+                && isset($v['updated']) && (int)$v['updated'] === 0 && stripos((string)($v['moduleName'] ?? ''), 'homematic') === 0) {
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'HomeMatic: Variable hat noch nie einen Wert erhalten, vermutlich ein Gerät ohne Batterie (Netzteil)'];
+                continue;
+            }
             if ($s['kind'] === self::KIND_VOLTAGE && $s['basis'] !== self::BASIS_MANUAL && isset($v['value']) && self::isMainsVoltage((float)$v['value'])) {
                 $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'Spannung ' . self::num((float)$v['value']) . ' V ist Netzspannung, keine Batteriespannung'];
                 continue;
@@ -725,13 +742,18 @@ final class BWACHLogik
         $group     = (string)($p['group'] ?? self::GROUP_STANDARD);
         $stillDays = (int)($group === self::GROUP_EVENT ? ($p['stillDaysEvent'] ?? 30) : ($p['stillDays'] ?? 7));
         $stillSec  = isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? (int)$p['stillSec'] : $stillDays * 86400;   // gelernte Schwelle, wenn vorhanden
+        // Eine für das Gerät oder die Gruppen-Regel eingestellte Schwelle (Tage) geht allem vor
+        $stillOver = (int)($p['stillOverrideDays'] ?? 0);
+        if ($stillOver > 0) {
+            $stillSec = $stillOver * 86400;
+        }
         $lifeAge   = $life > 0 ? max(0, $now - $life) : null;
         $orphan    = false;
         if ($lifeAge === null) {
             $funk = 'unbekannt';
         } elseif ($lifeAge > $stillSec) {
             $funk = 'still';
-            $reasons[] = 'Funkstille: seit ' . self::daysDat($lifeAge) . ' kein Lebenszeichen (Schwelle ' . self::days($stillSec) . (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? ', aus dem Meldeverhalten gelernt' : '') . ')';
+            $reasons[] = 'Funkstille: seit ' . self::daysDat($lifeAge) . ' kein Lebenszeichen (Schwelle ' . self::days($stillSec) . ($stillOver > 0 ? ', für dieses Gerät eingestellt' : (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? ', aus dem Meldeverhalten gelernt' : '')) . ')';
             $orphanDays = (int)($p['orphanDays'] ?? 60);
             if ($orphanDays > 0 && $lifeAge > $orphanDays * 86400) {
                 $orphan = true;

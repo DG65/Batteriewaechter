@@ -1378,6 +1378,7 @@ class Batteriewaechter extends IPSModule
                 'node'             => $inst['node'] ?? '',
                 'group'            => $inst['group'] ?? '',
                 'chan'             => $inst['chan'] ?? '',
+                'updated'          => (int)($var['VariableUpdated'] ?? 0),
                 // Nur für Spannungen nötig: damit Netzspannung (232 V) nicht als Batterie gilt
                 'value'            => $this->voltValue($vid, $obj, $var),
             ];
@@ -1589,6 +1590,7 @@ class Batteriewaechter extends IPSModule
                     'IgnoreAge' => (bool)($r['IgnoreAge'] ?? false),
                     'Excluded' => (bool)($r['Excluded'] ?? false),
                     'Poll'     => (bool)($r['Poll'] ?? false),
+                    'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                 ];
             }
         }
@@ -1648,6 +1650,7 @@ class Batteriewaechter extends IPSModule
                         'cell'      => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
                         'cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                         'poll'      => (bool)($r['Poll'] ?? false),
+                        'stillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                         'alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                     ];
                 }
@@ -1723,6 +1726,7 @@ class Batteriewaechter extends IPSModule
                 'emptyPct'       => $this->ReadPropertyInteger('EmptyPercent'),
                 'critLowPct'     => $this->ReadPropertyInteger('CriticalLowPercent'),
                 'valueOldDays'   => $this->ReadPropertyInteger('ValueOldDays'),
+                'stillOverrideDays' => (int)($st['stillDays'] ?? 0),
                 'stillDays'      => $this->ReadPropertyInteger('StillDays'),
                 'stillDaysEvent' => $this->ReadPropertyInteger('StillDaysEvent'),
             ]);
@@ -2606,11 +2610,13 @@ class Batteriewaechter extends IPSModule
         $eff   = BWACHLogik::applyRules([
             'group' => (string)$own['Group'], 'critical' => (bool)$own['Critical'], 'ignoreAge' => (bool)$own['IgnoreAge'],
             'excluded' => (bool)$own['Excluded'], 'cell' => (string)$own['Cell'], 'cells' => (int)$own['Cells'], 'poll' => (bool)$own['Poll'],
+            'stillDays' => (int)($own['StillDays'] ?? 0),
         ], $label, $rules);
         $parts = [BWACHZelle::isKnown($eff['cell']) ? ($eff['cells'] > 1 ? $eff['cells'] . '× ' : '') . (string)BWACHZelle::shopLabel($eff['cell']) : 'Zelltyp offen'];
         if ($eff['group'] === BWACHLogik::GROUP_EVENT) { $parts[] = 'Ereignismelder'; }
         if ($eff['critical']) { $parts[] = 'kritisch'; }
         if ($eff['ignoreAge']) { $parts[] = 'ohne Altersprüfung'; }
+        if ((int)($eff['stillDays'] ?? 0) > 0) { $parts[] = 'Funkstille nach ' . (int)$eff['stillDays'] . ' Tagen'; }
         if ($eff['excluded']) { $parts[] = 'ausgenommen'; }
         if ($eff['rule'] !== null) {
             $rl = $rules[$eff['rule']];
@@ -2724,6 +2730,7 @@ class Batteriewaechter extends IPSModule
                     'Cell'      => $cell,
                     'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     'Poll'      => (bool)($r['Poll'] ?? false),
+                    'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                     'Alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                 ];
                 $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
@@ -2742,7 +2749,7 @@ class Batteriewaechter extends IPSModule
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'Alias' => ''];
+                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => ''];
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
                     if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
                     unset($info['effectiveCell'], $info['effectiveExcluded']);
@@ -2824,6 +2831,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Ohne Altersprüfung', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Abfragen', 'name' => 'Poll', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Funkstille nach (Tage)', 'name' => 'StillDays', 'width' => '160px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
                         ['caption' => 'Treffer', 'name' => 'Hits', 'width' => '70px', 'add' => 0],
                     ],
                 ],
@@ -2896,6 +2904,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Zellen (eigen)', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
                         ['caption' => 'Anzeigename', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Funkstille nach (Tage, 0 = Standard)', 'name' => 'StillDays', 'width' => '230px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
                     ],
                 ],
             ],

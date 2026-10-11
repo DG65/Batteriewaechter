@@ -878,6 +878,21 @@ $r = $m->ResetFormLayout();
 check('Auf Standard zurücksetzen füllt die Liste neu', strpos($r, 'Übernehmen') !== false && count(array_filter($m->fieldUpdates, function ($u) { return $u[0] === 'FormLayout' && $u[1] === 'values'; })) === 1);
 check('Formular-Aufbau: Liste hat eine gespeicherte Schlüsselspalte', strpos(json_encode(json_decode($m->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '"name":"Key","width":"0px","visible":false,"add":"","save":true') !== false);
 
+$mS = freshModule(['NotificationsActive' => false]);
+$mS->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'alle', 'Kind' => 'name', 'Pattern' => 'Sensor', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Poll' => false, 'StillDays' => 300]]);
+$sJson = json_encode(json_decode($mS->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+check('Formular: Spalte „Funkstille nach (Tage)“ bei Geräten und bei Regeln (dazu die globale Schwelle), „Gilt“ nennt den Wert', substr_count($sJson, '"name":"StillDays"') === 3 && strpos($sJson, 'Funkstille nach 300 Tagen') !== false, substr_count($sJson, '"name":"StillDays"') . ' / ' . (strpos($sJson, 'Funkstille nach 300') !== false ? 'gilt' : 'kein gilt'));
+
+// Eigene Funkstille-Schwelle wirkt im Modul (alle Instanzen auf 3650 Tage gestellt: keine Funkstille mehr)
+$mQ = freshModule(['NotificationsActive' => false]);
+$mQ->Check();
+$silBefore = $mQ->GetValue('Silent');
+$allInst = [];
+foreach ($GLOBALS['OBJ'] as $oid => $ox) { if ($ox['type'] === 1) { $allInst[] = ['Instance' => $oid, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false, 'StillDays' => 3650]; } }
+$mQ->props['DeviceSettings'] = json_encode($allInst);
+$mQ->Check();
+check('Eigene Funkstille-Schwelle am Gerät wirkt im Modul (vorher ' . $silBefore . ' Geräte in Funkstille, danach keines)', $silBefore > 0 && $mQ->GetValue('Silent') === 0, $silBefore . ' → ' . $mQ->GetValue('Silent'));
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
@@ -1826,6 +1841,47 @@ check('Erste Schritte: alles erledigt, Einzahl, kein Matter-Hinweis', array_colu
 $fsPanel = function (BWTest $m) { foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $p) { if (($p['caption'] ?? '') === '🚀  Erste Schritte') { return $p; } } return null; };
 $pnl = $fsPanel($mdl);
 check('Panel „Erste Schritte“ im Formular: aufgeklappt, solange etwas offen ist, mit Häkchen-Zeichen', $pnl !== null && $pnl['expanded'] === true && strpos(json_encode($pnl, JSON_UNESCAPED_UNICODE), '✅') !== false && strpos(json_encode($pnl, JSON_UNESCAPED_UNICODE), '⬜') !== false);
+// HomeMatic: nie aktualisierte Batterie-Variable = Gerät ohne Batterie (Forum: Rainer, Michael)
+$hv = function (int $vid, string $ident, int $type, int $inst, int $updated, string $module = 'HomeMatic CCU Device') { return ['vid' => $vid, 'ident' => $ident, 'name' => $ident, 'type' => $type, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => $module, 'instanceName' => 'G' . $inst, 'updated' => $updated]; };
+$hh = [
+    $hv(1, 'LOWBAT', 0, 80, 0),                  // Netzgerät: nur Wartungskanal, Nie
+    $hv(2, 'LOWBAT', 0, 81, 0),                  // Batteriegerät: Wartungskanal Nie ...
+    $hv(3, 'LOWBAT', 0, 82, 1790000000),         // ... Funktionskanal mit Zeit
+    $hv(4, 'OPERATING_VOLTAGE', 2, 83, 0),       // HmIP-Netzgerät: Spannung nie
+    $hv(5, 'LOWBAT', 0, 84, 0, 'Z-Wave Module'), // anderes System: bleibt
+];
+$hf = BWACHLogik::classify($hh, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+check('HomeMatic: nie aktualisiertes LOWBAT ohne weiteres Signal gibt kein Gerät', !isset($hf['devices'][80]) && !isset($hf['devices'][83]));
+check('HomeMatic: Grund steht bei „Ausgeschlossen“', strpos(json_encode($hf['excluded'], JSON_UNESCAPED_UNICODE), 'noch nie einen Wert erhalten') !== false);
+check('HomeMatic: das Batteriegerät mit LOWBAT am Funktionskanal bleibt', isset($hf['devices'][82]) && !isset($hf['devices'][81]));
+check('Andere Systeme (Z-Wave): „noch nie gemeldet“ bleibt Gerät, die Abfrage klärt es', isset($hf['devices'][84]));
+$hm = BWACHLogik::classify($hh, ['excludedModules' => [], 'nameSearch' => false, 'manual' => [['vid' => 1, 'kind' => 'flag']]]);
+check('HomeMatic: von Hand zugeordnete Variable bleibt, auch bei „Nie“', isset($hm['devices'][80]));
+$nk = function (string $ident, int $type) { return ['vid' => 90, 'ident' => $ident, 'name' => $ident, 'type' => $type, 'profile' => '', 'parentId' => 91, 'parentIsInstance' => true, 'moduleName' => 'Nuki Smart Lock MQTT API', 'instanceName' => 'Tür', 'updated' => 1790000000]; };
+$d1 = BWACHLogik::detectSignal($nk('BatteryCritical', 0));
+$d2 = BWACHLogik::detectSignal($nk('DoorSensorBatteryCritical', 0));
+$d3 = BWACHLogik::detectSignal($nk('KeypadBatteryCritical', 0));
+$d4 = BWACHLogik::detectSignal($nk('BatteryChargeState', 1));
+check('Nuki: …BatteryCritical ist ein „schwach“-Flag (True = kritisch)', $d1['kind'] === 'flag' && $d2['kind'] === 'flag' && $d3['kind'] === 'flag');
+check('Nuki: BatteryChargeState ist Prozent', $d4['kind'] === 'percent');
+check('Nuki: BatteryCharging (Boolean) ist keine Batterie-Aussage', BWACHLogik::detectSignal($nk('BatteryCharging', 0)) === null);
+
+// Funkstille-Schwelle je Gerät oder Gruppen-Regel (Forum: Lutz)
+$o100 = 100 * 86400;
+$rS = BWACHLogik::evaluate(['percent' => ['value' => 80, 'updated' => $NOW - 3600, 'scale' => 1.0]], $NOW - $o100, $NOW, array_merge($P, ['group' => 'ereignis']));
+check('Ereignismelder ohne eigene Schwelle: 100 Tage ohne Lebenszeichen sind Funkstille (Schwelle 30)', $rS['funk'] === 'still');
+$rO = BWACHLogik::evaluate(['percent' => ['value' => 80, 'updated' => $NOW - 3600, 'scale' => 1.0]], $NOW - $o100, $NOW, array_merge($P, ['group' => 'ereignis', 'stillOverrideDays' => 300]));
+check('Eigene Schwelle von 300 Tagen: dasselbe Gerät ist nicht in Funkstille', $rO['funk'] === 'aktiv' && $rO['urgency'] === 0, json_encode($rO['reasons'], JSON_UNESCAPED_UNICODE));
+$rO2 = BWACHLogik::evaluate(['percent' => ['value' => 80, 'updated' => $NOW - 3600, 'scale' => 1.0]], $NOW - 400 * 86400, $NOW, array_merge($P, ['stillOverrideDays' => 300]));
+check('Nach 400 Tagen greift auch die eigene Schwelle, der Grund nennt sie', $rO2['funk'] === 'still' && strpos(implode(' ', $rO2['reasons']), 'für dieses Gerät eingestellt') !== false, json_encode($rO2['reasons'], JSON_UNESCAPED_UNICODE));
+$rO3 = BWACHLogik::evaluate(['percent' => ['value' => 80, 'updated' => $NOW - 3600, 'scale' => 1.0]], $NOW - 20 * 86400, $NOW, array_merge($P, ['stillOverrideDays' => 10]));
+check('Eigene Schwelle kann auch kürzer sein als der Standard', $rO3['funk'] === 'still');
+$rb = ['group' => 'standard', 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => 'unbekannt', 'cells' => 1, 'poll' => false];
+$sr = ['Active' => true, 'Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'StillDays' => 300];
+check('Regel setzt die Funkstille-Schwelle', BWACHLogik::applyRules($rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [$sr])['stillDays'] === 300);
+check('Eigene Funkstille-Schwelle am Gerät geht der Regel vor', BWACHLogik::applyRules(['stillDays' => 45] + $rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [$sr])['stillDays'] === 45);
+check('Ohne Wert in der Regel bleibt es beim Standard (0)', (BWACHLogik::applyRules($rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [['StillDays' => 0] + $sr])['stillDays'] ?? 0) === 0);
+
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
 $mv = [$mk(1, 'OPERATING_VOLTAGE', 232.2, 70), $mk(2, 'OPERATING_VOLTAGE', 3.0, 71), $mk(3, 'OPERATING_VOLTAGE', 3000.0, 72), $mk(4, 'OPERATING_VOLTAGE', 30.0, 73), $mk(5, 'OPERATING_VOLTAGE', 31.0, 74), $mk(6, 'OPERATING_VOLTAGE', 400.0, 75)];
