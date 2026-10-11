@@ -976,6 +976,9 @@ class Batteriewaechter extends IPSModule
     /** Nimmt ein Gerät, das außer Betrieb gesetzt war, wieder auf. */
     public function Unretire(string $key): string
     {
+        if ($key === '') {
+            return 'ℹ️ Bitte zuerst ein Gerät aus der Liste „Gerät außer Betrieb“ wählen.';
+        }
         $retired = $this->loadJson('Retired');
         if (!isset($retired[$key])) {
             return 'ℹ️ Gerät „' . $key . '“ stand nicht auf der Liste „Außer Betrieb“.';
@@ -983,6 +986,9 @@ class Batteriewaechter extends IPSModule
         unset($retired[$key]);
         $this->saveJson('Retired', $retired);
         $this->Check();
+        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($this->found()));
+        $this->UpdateFormField('RetiredPick', 'options', json_encode($this->retiredOptions($this->found())));
+        $this->UpdateFormField('RetiredPick', 'value', '');
         return '✅ Gerät wieder aufgenommen.';
     }
 
@@ -995,6 +1001,7 @@ class Batteriewaechter extends IPSModule
         $msg = $n === 0 ? 'ℹ️ Es war kein Gerät außer Betrieb.' : '✅ ' . $n . ($n === 1 ? ' Gerät wieder aufgenommen.' : ' Geräte wieder aufgenommen.');
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($this->found()));
+        $this->UpdateFormField('RetiredPick', 'options', json_encode($this->retiredOptions($this->found())));
         return $msg;
     }
 
@@ -2396,6 +2403,16 @@ class Batteriewaechter extends IPSModule
         return $parts ? ' (' . implode(', ', $parts) . ')' : '';
     }
 
+    /** Auswahl der Geräte, die außer Betrieb gesetzt sind (zum einzelnen Wiederaufnehmen). */
+    private function retiredOptions(?array $found): array
+    {
+        $opts = [['caption' => '— Gerät wählen —', 'value' => '']];
+        foreach (array_keys($this->loadJson('Retired')) as $k) {
+            $opts[] = ['caption' => $found !== null && isset($found['devices'][$k]) ? (string)$found['devices'][$k]['name'] : (string)$k, 'value' => (string)$k];
+        }
+        return $opts;
+    }
+
     private function retiredLine(?array $found): string
     {
         $retired = $this->loadJson('Retired');
@@ -2459,7 +2476,15 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'name' => 'AckStatus', 'caption' => 'ℹ️ Noch nichts quittiert.'],
                 ['type' => 'Button', 'caption' => '↩️ Letzte Quittierung rückgängig', 'onClick' => 'echo BWACH_UndoAcknowledge($id);'],
                 ['type' => 'Label', 'name' => 'RetiredLine', 'caption' => $this->retiredLine($found)],
-                ['type' => 'Button', 'caption' => '↩️ Außer-Betrieb-Geräte aufnehmen', 'onClick' => 'echo BWACH_UnretireAll($id);'],
+                ['type' => 'Select', 'name' => 'RetiredPick', 'caption' => 'Gerät außer Betrieb', 'width' => '320px', 'options' => $this->retiredOptions($found)],
+                ['type' => 'Button', 'caption' => '↩️ Dieses Gerät wieder aufnehmen', 'onClick' => 'echo BWACH_Unretire($id, $RetiredPick);'],
+                ['type' => 'PopupButton', 'caption' => 'Alle außer Betrieb wieder aufnehmen …', 'width' => '320px', 'popup' => [
+                    'caption' => 'Alle wieder aufnehmen?',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => '⚠️ Das nimmt ALLE Geräte der Liste „Außer Betrieb“ wieder in die Überwachung. Wer sie bewusst herausgenommen hat, muss sie danach einzeln wieder außer Betrieb setzen. Für ein einzelnes Gerät die Auswahl darüber nehmen.'],
+                        ['type' => 'Button', 'caption' => '↩️ Ja, alle wieder aufnehmen', 'onClick' => 'echo BWACH_UnretireAll($id);'],
+                    ],
+                ]],
                 ['type' => 'Label', 'name' => 'DiaryLine', 'caption' => $this->diaryLine()],
                 ['type' => 'NumberSpinner', 'name' => 'ReplaceJumpPercent', 'caption' => 'Wechsel erkennen, wenn der Prozentwert um mindestens so viel steigt', 'suffix' => ' Prozentpunkte', 'minimum' => 5, 'maximum' => 90],
             ],
@@ -2483,7 +2508,7 @@ class Batteriewaechter extends IPSModule
                 ]],
                 ['type' => 'List', 'name' => 'Stock', 'caption' => 'Vorrat zu Hause (wird von der Einkaufsliste abgezogen)', 'rowCount' => 4, 'add' => true, 'delete' => true,
                     'columns' => [
-                        ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => 'auto', 'add' => 'aaa_alkali', 'edit' => ['type' => 'Select', 'options' => array_values(array_filter(BWACHZelle::options(), function ($o) { return $o['value'] !== BWACHZelle::UNKNOWN; }))]],
+                        ['caption' => 'Zelltyp (eigen)', 'name' => 'Cell', 'width' => 'auto', 'add' => 'aaa_alkali', 'edit' => ['type' => 'Select', 'options' => array_values(array_filter(BWACHZelle::options(), function ($o) { return $o['value'] !== BWACHZelle::UNKNOWN; }))]],
                         ['caption' => 'Stück da', 'name' => 'Count', 'width' => '110px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 9999]],
                     ]],
                 ['type' => 'NumberSpinner', 'name' => 'PreventiveMonths', 'caption' => 'Kritische Geräte vorsorglich tauschen alle (0 = aus)', 'suffix' => ' Monate', 'minimum' => 0, 'maximum' => 60],
@@ -2803,6 +2828,7 @@ class Batteriewaechter extends IPSModule
             . "Ohne Altersprüfung: normal gilt ein Batteriewert, der älter als $old Tage ist, als „veraltet“. Mit diesem Haken entfällt das, für Geräte, die ihren Batteriewert nur sehr selten melden. Die Funkstille-Prüfung bleibt davon unberührt.\n\n"
             . "Ausnehmen: das Gerät wird gar nicht überwacht (keine Meldung, nicht in Kachel und Zahlen). Die Zeile bleibt stehen, damit die Einstellung erhalten bleibt. Etwas anderes als „Außer Betrieb“ in der Kachel.\n\n"
             . "Anzeigename: ein eigener Name für das Gerät in Kachel, Tabellen, Meldungen und Tagebuch (leer = Name der Instanz). Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz.\n\n"
+            . "Zelltyp (eigen) und Zellen (eigen): das sind die Einstellungen dieses einen Geräts. Gilt für das Gerät eine Gruppen-Regel, zeigt die Spalte „Gilt“ den Wert, der am Ende zählt; die beiden Spalten bleiben, wie sie sind, solange das Gerät keinen eigenen Wert hat.\n\n"
             . "Zelltyp und Anzahl Zellen: damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen. Meldet ein Matter-Gerät seinen Zelltyp selbst, steht er schon drin.\n\n"
             . "Abfragen: bei Z-Wave und Matter. Ist der Batteriewert älter als $pAfter Tage, schickt der Wächter dem Gerät höchstens alle $pEvery Tage eine Statusanfrage und zeigt, ob es antwortet. Ein schlafendes Z-Wave-Gerät antwortet erst beim nächsten Aufwachen, ob das den Batteriewert früher liefert, ist dort nicht belegt. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Bei anderen Systemen tut der Haken nichts.";
     }
@@ -2846,7 +2872,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Ohne Altersprüfung', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
-                        ['caption' => 'Anzahl Zellen', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
+                        ['caption' => 'Zellen (eigen)', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
                         ['caption' => 'Anzeigename', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                     ],

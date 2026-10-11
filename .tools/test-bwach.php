@@ -829,6 +829,17 @@ $m->RequestAction('undo', '');
 $pl = json_decode(end($m->visUpdates), true);
 check('Rückgängig aus der Kachel: Rückmeldung, danach kein Rückgängig-Text mehr', strpos($pl['message'], '↩️') === 0 && $pl['undoText'] === '', json_encode($pl['message'], JSON_UNESCAPED_UNICODE));
 
+// Einzeln wieder aufnehmen, „alle“ nur mit Rückfrage
+$m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+$m->Acknowledge('103', 'ausser_betrieb'); $m->Acknowledge('105-1051', 'ausser_betrieb');
+check('Wieder aufnehmen ohne Auswahl nimmt NICHTS auf', strpos($m->Unretire(''), 'Bitte zuerst') !== false && count(json_decode($m->GetValue('Retired'), true)) === 2);
+$formJson = json_encode(json_decode($m->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+check('Formular bietet die Geräte außer Betrieb einzeln zur Auswahl', strpos($formJson, '"name":"RetiredPick"') !== false && strpos($formJson, '"value":"103"') !== false && strpos($formJson, '"value":"105-1051"') !== false);
+check('„Alle aufnehmen“ steht nur noch hinter einer Rückfrage (Popup)', (bool)preg_match('/"type":"PopupButton","caption":"Alle außer Betrieb wieder aufnehmen[^"]*".*?BWACH_UnretireAll/u', $formJson) && substr_count($formJson, 'BWACH_UnretireAll') === 1);
+$m->fieldUpdates = [];
+$m->Unretire('103');
+check('Einzeln aufnehmen lässt das andere Gerät außer Betrieb', array_keys(json_decode($m->GetValue('Retired'), true)) === ['105-1051']);
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %

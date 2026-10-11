@@ -299,6 +299,7 @@ $mutations = [
     ['BWACHLogik.php', "|| preg_match('/^(dp_)?battery_?charge\$/i', \$ident)) {", "|| false) {", 'USV-Ladung (NUT) wird erkannt'],
     ['module.php', "if (\$it['diaryT'] !== null) {", "if (false) {", 'Rückgängig entfernt den Tagebucheintrag'],
     ['module.php', "if (\$it['retired'] === null) {\n                unset(\$retired[\$k]);", "if (false) {\n                unset(\$retired[\$k]);", 'Rückgängig nimmt Außer Betrieb zurück'],
+    ['module.php', "if (\$key === '') {\n            return 'ℹ️ Bitte zuerst ein Gerät aus der Liste", "if (false) {\n            return 'ℹ️ Bitte zuerst ein Gerät aus der Liste", 'Wieder aufnehmen ohne Auswahl tut nichts'],
     ['module.php', "\$sig['voltage'] = ['value' => \$volt > 100 ? \$volt / 1000 : \$volt, 'updated' => \$upd];", "\$sig['voltage'] = ['value' => \$volt, 'updated' => \$upd];", 'Millivolt werden als Volt gelesen'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],

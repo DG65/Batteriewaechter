@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.5] - 2026-10-11
+
+### Changed
+- **„Außer Betrieb“ lässt sich einzeln zurücknehmen** (Hinweis aus dem Forum: „Alle aufnehmen“ kann viel Arbeit zunichtemachen). Neu: Auswahl „Gerät außer Betrieb“ mit „Dieses Gerät wieder aufnehmen“. „Alle … wieder aufnehmen“ steht nur noch hinter einer Rückfrage.
+- Die Spalten heißen „Zelltyp (eigen)“ und „Zellen (eigen)“: Sie zeigen die Einstellung des Geräts selbst, was am Ende zählt (auch aus einer Gruppen-Regel), steht in „Gilt“. Der Hilfetext sagt es jetzt.
+
 ## [0.12.4] - 2026-10-11
 
 ### Added
