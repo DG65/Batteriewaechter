@@ -2946,8 +2946,8 @@ class Batteriewaechter extends IPSModule
         $dr = $this->deviceRows();
         $elements = array_values(array_filter([
             $this->PurposeIntro(), $this->NewsBanner(), $this->DocPanel(), $this->FirstStepsPanel($dr),
-            $this->DiscoveryPanel(), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ForecastPanel(), $this->ThresholdPanel(),
-            $this->RulesPanel($dr), $this->DevicesPanel($dr), $this->ManualPanel(),
+            $this->DiscoveryPanel(), $this->DevicesPanel($dr), $this->StatusPanel(), $this->NotifyPanel(), $this->AckPanel(), $this->ForecastPanel(), $this->ThresholdPanel(),
+            $this->RulesPanel($dr), $this->ManualPanel(),
             $this->ForumHint(), $this->LicenseHint(),
         ]));
 

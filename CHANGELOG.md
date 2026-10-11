@@ -6,6 +6,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 ## [0.12.5] - 2026-10-11
 
 ### Changed
+- **„Geräte-Einstellungen“ steht jetzt gleich nach „Gefundene Geräte“** (Rückmeldung aus dem Forum: das meistbenutzte Panel musste bei jedem Öffnen gesucht werden; Symcon merkt sich nicht, was aufgeklappt war).
 - **„Außer Betrieb“ lässt sich einzeln zurücknehmen** (Hinweis aus dem Forum: „Alle aufnehmen“ kann viel Arbeit zunichtemachen). Neu: Auswahl „Gerät außer Betrieb“ mit „Dieses Gerät wieder aufnehmen“. „Alle … wieder aufnehmen“ steht nur noch hinter einer Rückfrage.
 - Die Spalten heißen „Zelltyp (eigen)“ und „Zellen (eigen)“: Sie zeigen die Einstellung des Geräts selbst, was am Ende zählt (auch aus einer Gruppen-Regel), steht in „Gilt“. Der Hilfetext sagt es jetzt.
 
