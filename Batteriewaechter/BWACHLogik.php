@@ -119,7 +119,9 @@ final class BWACHLogik
                 return self::sig(self::KIND_PERCENT, self::BASIS_IDENT, 0.5);
             }
             if (preg_match('/^(battery|bat|batt)(_?(percent(age)?|level|variable|status))?$/i', $ident)
-                || preg_match('/battery_?percent(age)?$/i', $ident)) {
+                || preg_match('/battery_?percent(age)?$/i', $ident)
+                // USV über NUT (DP_battery_charge): Ladezustand in Prozent
+                || preg_match('/^(dp_)?battery_?charge$/i', $ident)) {
                 return self::sig(self::KIND_PERCENT, self::BASIS_IDENT);
             }
             if (preg_match('/(battery_?v(olt(age)?)?|operating_?voltage|bat_?volt(age)?)$/i', $ident)) {

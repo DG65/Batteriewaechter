@@ -1886,6 +1886,12 @@ check('„Dokumentation & Hilfe“ hat immer die Schaltfläche „Forum-Thread�
 $mOld->AckForumHint();
 check('…und sie bleibt, auch wenn der Hinweis weggeklickt ist', !$hasForumHint($mOld) && strpos(json_encode(json_decode($mOld->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '💬 Forum-Thread') !== false);
 
+// USV über NUT: Ladezustand wird als Prozent erkannt (Forum, Diagnose von Björn)
+$nutC = det('DP_battery_charge', 'Battery Charge', 2, 'NUTC.Percent');
+check('NUT DP_battery_charge ist Prozent per Ident', $nutC !== null && $nutC['kind'] === 'percent' && $nutC['basis'] === 'ident');
+check('NUT DP_battery_runtime (Sekunden) wird nicht als Batterie gewertet', det('DP_battery_runtime', 'Battery Runtime', 1, 'NUTC.sec') === null);
+check('NUT DP_battery_temperature wird nicht als Batterie gewertet', det('DP_battery_temperature', 'Battery Temperature', 2, 'NUTC.Temperature') === null);
+
 // Name mit Bindestrich und ehrlicher Sortier-Hinweis
 $modJson = json_decode(file_get_contents($MODDIR . '/module.json'), true);
 check('module.json: genau ein Alias „DG65-Toolkit Batteriewächter“ (keine Mehrfach-Zeilen im Dialog)', $modJson['aliases'] === ['DG65-Toolkit Batteriewächter']);

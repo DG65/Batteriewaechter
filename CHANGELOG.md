@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.4] - 2026-10-11
+
+### Added
+- **USV-Ladung über NUT wird erkannt** (Ident `battery_charge`/`DP_battery_charge`, Prozent). Die Spannung der USV wurde schon erkannt, die Ladung nicht (Diagnose aus dem Forum).
+
 ## [0.12.3] - 2026-10-11
 
 ### Changed
