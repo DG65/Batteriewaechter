@@ -295,6 +295,7 @@ $mutations = [
     ['module.php', "\$life = max(\$life, \$this->lifeSign(\$sb, true, []));", "\$life = \$life;", 'Matter: Lebenszeichen des Kontakts wird nicht berücksichtigt'],
     ['module.php', "\$name = BWACHLogik::matterDeviceName(IPS_GetName(\$id), array_map('IPS_GetName', \$sibs));", "\$name = IPS_GetName(\$id);", 'Matter: Name der Stromversorgung statt des Geräts'],
     ['module.php', "if (\$st['cell'] === BWACHZelle::UNKNOWN && \$cellHint !== '') {", "if (\$cellHint !== '') {", 'Gerätebeschreibung überschreibt den gewählten Zelltyp'],
+    ['BWACHLogik.php', "\$raw < 0 || \$raw > 120", "\$raw < 0 || \$raw > 130", 'Obergrenze 120 % gilt'],
     ['module.php', "\$sig['voltage'] = ['value' => \$volt > 100 ? \$volt / 1000 : \$volt, 'updated' => \$upd];", "\$sig['voltage'] = ['value' => \$volt, 'updated' => \$upd];", 'Millivolt werden als Volt gelesen'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],

@@ -5,11 +5,7 @@
   "type": 3,
   "vendor": "",
   "aliases": [
-    "Batteriewächter",
-    "DG65-Toolkit Batteriewächter",
-    "DG65 Toolkit Batteriewächter",
-    "Batteriemonitor",
-    "Batterie"
+    "DG65-Toolkit Batteriewächter"
   ],
   "url": "https://github.com/DG65/Batteriewaechter",
   "parentRequirements": [],

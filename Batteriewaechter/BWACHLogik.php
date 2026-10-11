@@ -610,7 +610,10 @@ final class BWACHLogik
         if (!empty($sig['percent'])) {
             $raw = (float)$sig['percent']['value'] * (float)($sig['percent']['scale'] ?? 1.0);
             $pctUpdated = (int)$sig['percent']['updated'];
-            if ($raw < 0 || $raw > 100) {
+            if ($raw > 100 && $raw <= 120) {
+                // Messtoleranz (z. B. frische Batterie meldet 120 %): gilt als voll
+                $pct = 100.0;
+            } elseif ($raw < 0 || $raw > 120) {
                 $quality[] = 'unplausibel';
                 $reasons[] = 'Prozentwert außerhalb von 0–100 % (' . self::num($raw) . ' %), wird nicht bewertet';
             } else {

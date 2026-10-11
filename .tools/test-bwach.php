@@ -312,6 +312,9 @@ check('Umgekehrtes Flag: true = ok, false = schwach', ev(flagSig(true, $n, true)
 $r = ev(pctSig(-20, $n - $d), $n - 60);
 check('−20 %: unplausibel, Status unbekannt, Grund genannt', $r['status'] === 'unbekannt' && in_array('unplausibel', $r['quality'], true) && strpos(implode(' ', $r['reasons']), '-20') !== false, S(implode(' | ', $r['reasons'])));
 check('130 % ebenfalls unplausibel', in_array('unplausibel', ev(pctSig(130, $n), $n)['quality'], true));
+$r120 = ev(pctSig(120, $n), $n);
+check('120 % (Messtoleranz) gilt als voll, nicht unplausibel', $r120['status'] === 'ok' && !in_array('unplausibel', $r120['quality'], true));
+check('121 % ist unplausibel', in_array('unplausibel', ev(pctSig(121, $n), $n)['quality'], true));
 $r = ev(pctSig(82, ts('2024-01-07 07:22')), $n - 60);
 check('Drei Jahre alter Wert: Status ok, aber „veraltet“ (Dringlichkeit 300)', $r['status'] === 'ok' && in_array('veraltet', $r['quality'], true) && $r['urgency'] === 300);
 check('Ohne Altersprüfung: nicht veraltet', !in_array('veraltet', ev(pctSig(82, ts('2024-01-07 07:22')), $n - 60, ['ignoreAge' => true])['quality'], true));
@@ -1885,7 +1888,7 @@ check('…und sie bleibt, auch wenn der Hinweis weggeklickt ist', !$hasForumHint
 
 // Name mit Bindestrich und ehrlicher Sortier-Hinweis
 $modJson = json_decode(file_get_contents($MODDIR . '/module.json'), true);
-check('module.json: Alias „DG65-Toolkit Batteriewächter“ (Bindestrich), der alte Name bleibt Alias', in_array('DG65-Toolkit Batteriewächter', $modJson['aliases'], true) && in_array('DG65 Toolkit Batteriewächter', $modJson['aliases'], true));
+check('module.json: genau ein Alias „DG65-Toolkit Batteriewächter“ (keine Mehrfach-Zeilen im Dialog)', $modJson['aliases'] === ['DG65-Toolkit Batteriewächter']);
 check('README beginnt mit „# DG65-Toolkit Batteriewächter“', strpos(file_get_contents($ROOT . '/README.md'), '# DG65-Toolkit Batteriewächter') === 0);
 check('Kein Auswahlfeld „Sortieren nach“ mehr: Die Liste sortiert per Klick auf den Spaltenkopf und startet nach Name', strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), '"name":"DeviceSortBy"') === false && strpos(json_encode(json_decode($mdl->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE), 'Klick auf einen Spaltenkopf') !== false);
 check('Kachel hat eigene Farben und Hintergrund statt Host-Variablen (lesbar auf hellem wie dunklem Untergrund)', strpos(file_get_contents($MODDIR . '/module.html'), 'var(--ui') === false && strpos(file_get_contents($MODDIR . '/module.html'), '--bw-bg: #2b2d31') !== false && strpos(file_get_contents($MODDIR . '/module.html'), '.bw-wrap.bw-light') !== false);

@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.12.3] - 2026-10-11
+
+### Changed
+- **Nur noch ein Eintrag in „Instanz hinzufügen“:** Das Modul war unter fünf Alias-Namen aufgelistet, die alle dasselbe Modul meinten und einen neuen Nutzer ratlos machten. Es bleibt „DG65-Toolkit Batteriewächter“; die Suche nach „Batterie“ findet es weiterhin.
+- **Prozentwerte bis 120 % gelten als voll** (Rückmeldung aus dem Forum: Froggit meldet frisch 120 %). Erst darüber ist der Wert „unplausibel“.
+
 ## [0.12.2] - 2026-10-11
 
 ### Fixed
