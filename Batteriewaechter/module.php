@@ -156,7 +156,7 @@ class Batteriewaechter extends IPSModule
         $this->MaintainVariable('TableStats', 'Lebensdauer und Entladung', VARIABLETYPE_STRING, '~HTMLBox', 120, true);
         // Zustandsspeicher als versteckte Variablen (wie Schein): Attribute gehen beim Neu-Registrieren des
         // Moduls verloren (SUITE.md Stolperstein 5), Variablen bleiben.
-        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges', 'History' => 'Verlauf', 'LifeObs' => 'Meldeverhalten', 'Poll' => 'Abfragen', 'FcLog' => 'Prognose-Protokoll'] as $ident => $name) {
+        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges', 'History' => 'Verlauf', 'LifeObs' => 'Meldeverhalten', 'Poll' => 'Abfragen', 'FcLog' => 'Prognose-Protokoll', 'Undo' => 'Rückgängig-Speicher'] as $ident => $name) {
             $existed = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             $this->MaintainVariable($ident, $name, VARIABLETYPE_STRING, '', 200, true);
             if ($existed === false) {
@@ -606,6 +606,9 @@ class Batteriewaechter extends IPSModule
             }
             $meta['ack'] = ['m' => $msg, 't' => $now];
             $this->saveJson('Meta', $meta);
+        } elseif ($Ident === 'undo') {
+            $meta['ack'] = ['m' => $this->ReadPropertyBoolean('TileAllowAck') ? $this->UndoAcknowledge() : '⛔ Das Quittieren aus der Kachel ist in den Einstellungen ausgeschaltet.', 't' => $now];
+            $this->saveJson('Meta', $meta);
         } elseif ($Ident === 'shop_send') {
             $meta['ack'] = ['m' => $this->SendShopping(), 't' => $now];
             $this->saveJson('Meta', $meta);
@@ -687,6 +690,7 @@ class Batteriewaechter extends IPSModule
             'shopping' => $this->tileShopping($views),
             'asOf'     => date('H:i', $now) . ' Uhr',
             'message'  => $message,
+            'undoText' => $this->undoLabel(),
         ], JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
     }
 
@@ -721,7 +725,9 @@ class Batteriewaechter extends IPSModule
         if ($name === null) {
             return '⛔ Gerät „' . $key . '“ nicht gefunden (vielleicht schon außer Betrieb oder ausgenommen).';
         }
-        $msg = $this->ackApply((string)$key, $action, $name);
+        $undo = [];
+        $msg  = $this->ackApply((string)$key, $action, $name, $undo);
+        $this->undoStore($undo, ($action === BWACHMeldung::ACK_REPLACED ? 'Batteriewechsel' : ($action === BWACHMeldung::ACK_SNOOZE ? 'Zurückgestellt' : 'Außer Betrieb')) . ' bei „' . $name . '“');
         $this->Check();
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
@@ -730,12 +736,17 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Führt eine Quittierung aus (Tagebuch, Außer-Betrieb-Liste, Meldezustand), ohne neu zu bewerten. */
-    private function ackApply(string $key, string $action, string $name): string
+    private function ackApply(string $key, string $action, string $name, ?array &$undo = null): string
     {
         $now   = $this->now();
         $state = $this->loadJson('NotifyState');
+        $item  = ['key' => $key, 'name' => $name, 'action' => $action, 'state' => $state[$key] ?? null, 'retired' => $this->loadJson('Retired')[$key] ?? null, 'diaryT' => null];
         if ($action === BWACHMeldung::ACK_REPLACED) {
-            $diary = BWACHMeldung::diaryAdd($this->loadJson('Diary'), ['t' => $now, 'key' => $key, 'name' => $name, 'type' => 'manuell', 'note' => 'von Hand eingetragen']);
+            $before = $this->loadJson('Diary');
+            $diary  = BWACHMeldung::diaryAdd($before, ['t' => $now, 'key' => $key, 'name' => $name, 'type' => 'manuell', 'note' => 'von Hand eingetragen']);
+            if (count($diary) > count($before)) {
+                $item['diaryT'] = $now;
+            }
             $this->saveJson('Diary', $diary);
             $msg = '✅ Batteriewechsel bei „' . $name . '“ eingetragen. Der Wächter wartet ' . BWACHMeldung::REPLACE_GRACE_DAYS . ' Tage, bis das Gerät den neuen Stand meldet.';
         } elseif ($action === BWACHMeldung::ACK_SNOOZE) {
@@ -748,6 +759,67 @@ class Batteriewaechter extends IPSModule
             $msg = '✅ „' . $name . '“ ist außer Betrieb und wird nicht mehr überwacht. Wieder aufnehmen: „Außer Betrieb“-Liste unter „Quittieren“.';
         }
         $this->saveJson('NotifyState', BWACHMeldung::acknowledge($state, $key, $action, $now, $this->ReadPropertyInteger('SnoozeDays')));
+        if ($undo !== null) {
+            $undo[] = $item;
+        }
+        return $msg;
+    }
+
+    /** Merkt sich die letzte Quittierung (oder Tauschrunde eines Ortes), damit sie sich zurücknehmen lässt. */
+    private function undoStore(array $items, string $label): void
+    {
+        $this->saveJson('Undo', $items ? ['t' => $this->now(), 'label' => $label, 'items' => $items] : []);
+    }
+
+    /** Text für die Schaltfläche „Rückgängig“ (leer, wenn es nichts zurückzunehmen gibt). */
+    private function undoLabel(): string
+    {
+        $u = $this->loadJson('Undo');
+        return (!empty($u['items']) && $this->now() - (int)$u['t'] <= 7 * 86400) ? (string)$u['label'] : '';
+    }
+
+    /**
+     * Nimmt die letzte Quittierung zurück: Meldezustand und „Außer Betrieb“ werden auf den Stand davor gesetzt,
+     * ein dabei angelegter Tagebucheintrag wird entfernt. Nur die jeweils letzte Quittierung (eine Tauschrunde
+     * zählt als eine), bis zu 7 Tage lang.
+     */
+    public function UndoAcknowledge(): string
+    {
+        $u = $this->loadJson('Undo');
+        if (empty($u['items']) || $this->now() - (int)$u['t'] > 7 * 86400) {
+            return 'ℹ️ Es gibt nichts zurückzunehmen.';
+        }
+        $state   = $this->loadJson('NotifyState');
+        $retired = $this->loadJson('Retired');
+        $diary   = $this->loadJson('Diary');
+        foreach ($u['items'] as $it) {
+            $k = (string)$it['key'];
+            if ($it['state'] === null) {
+                unset($state[$k]);
+            } else {
+                $state[$k] = $it['state'];
+            }
+            if ($it['retired'] === null) {
+                unset($retired[$k]);
+            } else {
+                $retired[$k] = $it['retired'];
+            }
+            if ($it['diaryT'] !== null) {
+                $diary = array_values(array_filter($diary, function ($e) use ($k, $it) {
+                    return !((string)$e['key'] === $k && (int)$e['t'] === (int)$it['diaryT'] && (string)$e['type'] === 'manuell');
+                }));
+            }
+        }
+        $this->saveJson('NotifyState', $state);
+        $this->saveJson('Retired', $retired);
+        $this->saveJson('Diary', $diary);
+        $this->saveJson('Undo', []);
+        $n   = count($u['items']);
+        $this->Check();
+        $msg = '↩️ Zurückgenommen: ' . $u['label'] . ($n > 1 ? ' (' . $n . ' Geräte)' : '') . '.';
+        $this->UpdateFormField('AckStatus', 'caption', $msg);
+        $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
+        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($this->found()));
         return $msg;
     }
 
@@ -769,10 +841,12 @@ class Batteriewaechter extends IPSModule
             return 'ℹ️ In der Tauschrunde steht für „' . $place . '“ nichts.';
         }
         $n = 0;
+        $undo = [];
         foreach ($devs as $d) {
-            $this->ackApply((string)$d['id'], BWACHMeldung::ACK_REPLACED, (string)$d['name']);
+            $this->ackApply((string)$d['id'], BWACHMeldung::ACK_REPLACED, (string)$d['name'], $undo);
             $n++;
         }
+        $this->undoStore($undo, 'Alles getauscht in „' . $place . '“');
         $this->Check();
         $msg = '✅ ' . $n . ($n === 1 ? ' Gerät' : ' Geräte') . ' in „' . $place . '“ als getauscht eingetragen. Der Wächter wartet ' . BWACHMeldung::REPLACE_GRACE_DAYS . ' Tage, bis die Geräte den neuen Stand melden.';
         $this->UpdateFormField('AckStatus', 'caption', $msg);
@@ -2383,6 +2457,7 @@ class Batteriewaechter extends IPSModule
                     ['type' => 'Button', 'caption' => '✔️ Alle dort getauscht', 'onClick' => 'echo BWACH_AcknowledgePlace($id, $AckPlace);'],
                 ]],
                 ['type' => 'Label', 'name' => 'AckStatus', 'caption' => 'ℹ️ Noch nichts quittiert.'],
+                ['type' => 'Button', 'caption' => '↩️ Letzte Quittierung rückgängig', 'onClick' => 'echo BWACH_UndoAcknowledge($id);'],
                 ['type' => 'Label', 'name' => 'RetiredLine', 'caption' => $this->retiredLine($found)],
                 ['type' => 'Button', 'caption' => '↩️ Außer-Betrieb-Geräte aufnehmen', 'onClick' => 'echo BWACH_UnretireAll($id);'],
                 ['type' => 'Label', 'name' => 'DiaryLine', 'caption' => $this->diaryLine()],

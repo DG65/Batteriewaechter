@@ -6,6 +6,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 ## [0.12.4] - 2026-10-11
 
 ### Added
+- **„Rückgängig“ für die letzte Quittierung** (Wunsch aus dem Forum, versehentlich gedrückt): In der Kachel erscheint unten „↩️ Rückgängig: …“ mit dem Namen der letzten Quittierung, im Formular unter „Quittieren“ die Schaltfläche „Letzte Quittierung rückgängig“, für Skripte `BWACH_UndoAcknowledge`. Es nimmt „Habe ich getauscht“ (inklusive Tagebucheintrag), „Erinnere mich später“ und „Außer Betrieb“ zurück. „Alles getauscht“ eines Ortes zählt als eine Quittierung. Es gilt nur für die jeweils letzte, bis zu 7 Tage lang. Das Rückgängig braucht die Quittier-Berechtigung der Kachel.
 - **USV-Ladung über NUT wird erkannt** (Ident `battery_charge`/`DP_battery_charge`, Prozent). Die Spannung der USV wurde schon erkannt, die Ladung nicht (Diagnose aus dem Forum).
 
 ## [0.12.3] - 2026-10-11

@@ -799,6 +799,36 @@ check('Wieder aufnehmen eines nicht ausgesetzten Geräts: ehrlicher Hinweis', st
 $m->Acknowledge('103', 'ausser_betrieb'); $m->Acknowledge('105-1051', 'ausser_betrieb');
 check('Alle wieder aufnehmen nennt die Zahl', strpos($m->UnretireAll(), '2 Geräte wieder aufgenommen') !== false && $m->GetValue('Total') === $tot);
 
+// Rückgängig
+$m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+$tot = $m->GetValue('Total');
+check('Rückgängig ohne Quittierung: ehrlicher Hinweis', strpos($m->UndoAcknowledge(), 'nichts zurückzunehmen') !== false);
+$stateBefore = $m->GetValue('NotifyState');
+$m->Acknowledge('103', 'ausser_betrieb');
+check('Außer Betrieb: Gerät weg', $m->GetValue('Total') === $tot - 1);
+$r = $m->UndoAcknowledge();
+check('Rückgängig nimmt „Außer Betrieb“ zurück', strpos($r, '↩️') === 0 && $m->GetValue('Total') === $tot, $r);
+check('Rückgängig stellt den Meldezustand des Geräts wieder her', (json_decode($m->GetValue('NotifyState'), true)['103'] ?? null) === (json_decode($stateBefore, true)['103'] ?? null));
+check('Rückgängig lässt keinen leeren Außer-Betrieb-Schlüssel zurück', !array_key_exists('103', json_decode($m->GetValue('Retired'), true) ?: []));
+$diaryBefore = $m->GetValue('Diary');
+$m->Acknowledge('114', 'getauscht');
+check('Getauscht schreibt ins Tagebuch', count(json_decode($m->GetValue('Diary'), true)) === count(json_decode($diaryBefore, true)) + 1);
+$m->UndoAcknowledge();
+check('Rückgängig entfernt den Tagebucheintrag wieder', json_decode($m->GetValue('Diary'), true) === json_decode($diaryBefore, true));
+check('Zweites Rückgängig hat nichts mehr zu tun', strpos($m->UndoAcknowledge(), 'nichts zurückzunehmen') !== false);
+// Tauschrunde eines Ortes zählt als eine Quittierung
+$retiredBefore = $m->GetValue('Retired');
+$m->Acknowledge('114', 'getauscht'); $m->Acknowledge('103', 'ausser_betrieb');
+$m->UndoAcknowledge();
+check('Rückgängig nimmt nur die letzte Quittierung zurück', $m->GetValue('Total') === $tot && strpos($m->GetValue('Diary'), 'Rauchmelder Heizung') !== false);
+// Kachel
+$m->RequestAction('ack', json_encode(['key' => '114', 'action' => 'zurueckgestellt']));
+$pl = json_decode(end($m->visUpdates), true);
+check('Kachel nennt die letzte Quittierung für „Rückgängig“', isset($pl['undoText']) && strpos($pl['undoText'], 'Zurückgestellt') === 0, json_encode($pl['undoText'] ?? null, JSON_UNESCAPED_UNICODE));
+$m->RequestAction('undo', '');
+$pl = json_decode(end($m->visUpdates), true);
+check('Rückgängig aus der Kachel: Rückmeldung, danach kein Rückgängig-Text mehr', strpos($pl['message'], '↩️') === 0 && $pl['undoText'] === '', json_encode($pl['message'], JSON_UNESCAPED_UNICODE));
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %

@@ -563,6 +563,11 @@
         }
         var shownMsg = bwLocalMsg || BW.message;
         if (shownMsg) { root.appendChild(bwEl('div', 'bw-msg', shownMsg)); }
+        if (BW.allowAck && BW.undoText) {
+            var ub = bwEl('button', 'bw-chip', '↩️ Rückgängig: ' + BW.undoText); ub.type = 'button';
+            ub.onclick = function () { requestAction('undo', ''); };
+            root.appendChild(ub);
+        }
         root.appendChild(bwEl('div', 'bw-foot', BW.summary.total + ' Geräte überwacht · Stand ' + BW.asOf));
     }
 
