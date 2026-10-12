@@ -92,7 +92,7 @@ $mutations = [
     ['module.php', "restore_error_handler();", "", 'Fehler-Handler bleibt hängen'],
     ['module.php', "\$warnings[] = (string)\$str;", "", 'Warnungen des SMTP-Moduls werden nicht gesammelt'],
     ['module.php', "'⚠️ nicht gesendet — ' . \$this->lastMailError", "'⚠️ nicht gesendet'", 'Testmeldung ohne Ursache'],
-    ['module.php', "IPS_LogMessage('Batteriewächter', 'E-Mail-Versand fehlgeschlagen: ' . \$this->lastMailError);", "", 'Ursache nicht im Meldungslog'],
+    ['module.php', "\$this->LogMessage('E-Mail-Versand fehlgeschlagen: ' . \$this->lastMailError, KL_WARNING);", "", 'Ursache nicht im Meldungslog'],
     ['module.php', "\$this->UpdateFormField('NotifyStatus', 'caption', \$out);", "", 'Testmeldung frischt die Statuszeile nicht auf'],
     // --- 0.4.0: Zelltypen, Prognose, Einkauf, Statistik
     ['BWACHZelle.php', 'if ($v > $top * 1.12 || $v < $low * 0.6) {', 'if (false) {', 'Spannung, die nicht zum Zelltyp passt, wird umgerechnet'],
