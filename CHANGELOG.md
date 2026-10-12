@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.15.1] - 2026-10-12
+
+### Changed
+- **Logging über `$this->LogMessage`** statt `IPS_LogMessage` (Hinweis aus dem Review von Symcon). Gilt für die sechs Meldungen bei Zustellfehlern von Push und E-Mail und bei nicht angenommenen Abfragen; sie erscheinen jetzt mit der Instanz als Absender und der Art „Warnung“.
+
 ## [0.15.0] - 2026-10-12
 
 ### Added

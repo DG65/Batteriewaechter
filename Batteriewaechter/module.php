@@ -1258,7 +1258,7 @@ class Batteriewaechter extends IPSModule
             $ok++;
         }
         if ($ok === 0) {
-            IPS_LogMessage('Batteriewächter', 'Meldung „' . $title . '“ konnte über keinen Weg zugestellt werden (Push-Ziele und E-Mail unter „Meldungen“ prüfen).' . (!empty($channels['mail']) && $this->lastMailError !== '' ? ' E-Mail: ' . $this->lastMailError : ''));
+            $this->LogMessage('Meldung „' . $title . '“ konnte über keinen Weg zugestellt werden (Push-Ziele und E-Mail unter „Meldungen“ prüfen).' . (!empty($channels['mail']) && $this->lastMailError !== '' ? ' E-Mail: ' . $this->lastMailError : ''), KL_WARNING);
         }
         return $ok;
     }
@@ -1281,7 +1281,7 @@ class Batteriewaechter extends IPSModule
             if ($good) {
                 $ok++;
             } else {
-                IPS_LogMessage('Batteriewächter', 'Push an Instanz #' . $id . ' (' . $type . ') fehlgeschlagen.');
+                $this->LogMessage('Push an Instanz #' . $id . ' (' . $type . ') fehlgeschlagen.', KL_WARNING);
             }
         }
         return ['targets' => count($targets), 'ok' => $ok];
@@ -1343,7 +1343,7 @@ class Batteriewaechter extends IPSModule
                     if (SMTP_SendMailEx($inst, $addr, $title, $body)) {
                         $sent = true;
                     } else {
-                        IPS_LogMessage('Batteriewächter', 'E-Mail an „' . $addr . '“ fehlgeschlagen.');
+                        $this->LogMessage('E-Mail an „' . $addr . '“ fehlgeschlagen.', KL_WARNING);
                     }
                 }
             }
@@ -1356,7 +1356,7 @@ class Batteriewaechter extends IPSModule
             $this->lastMailError = BWACHMeldung::explainMailError($warnings, $exception);
         }
         if (!$sent) {
-            IPS_LogMessage('Batteriewächter', 'E-Mail-Versand fehlgeschlagen: ' . $this->lastMailError);
+            $this->LogMessage('E-Mail-Versand fehlgeschlagen: ' . $this->lastMailError, KL_WARNING);
         }
         return $sent;
     }
@@ -1927,7 +1927,7 @@ class Batteriewaechter extends IPSModule
                 $ok = (bool)$fn((int)$row['inst']);
             } catch (\Throwable $e) {
                 $ok = false;
-                IPS_LogMessage('Batteriewächter', 'Abfrage von „' . $row['name'] . '“ fehlgeschlagen: ' . $e->getMessage());
+                $this->LogMessage('Abfrage von „' . $row['name'] . '“ fehlgeschlagen: ' . $e->getMessage(), KL_WARNING);
             }
             if ($ok) {
                 // Ein unbeantworteter Stand bleibt sichtbar, auch wenn erneut angefragt wird
@@ -1938,7 +1938,7 @@ class Batteriewaechter extends IPSModule
                 }
                 $state[$key] = ['t' => $now, 'ans' => null, 'miss' => $miss, 'why' => $still && !$old ? 'still' : 'alt'];
             } else {
-                IPS_LogMessage('Batteriewächter', 'Abfrage von „' . $row['name'] . '“ wurde nicht angenommen.');
+                $this->LogMessage('Abfrage von „' . $row['name'] . '“ wurde nicht angenommen.', KL_WARNING);
             }
         }
         if ($state !== $s0) {

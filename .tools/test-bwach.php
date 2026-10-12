@@ -65,6 +65,7 @@ function IPS_GetLinkList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => 
 function IPS_GetLink(int $id): array { return ['TargetID' => $GLOBALS['OBJ'][$id]['target'] ?? 0]; }
 function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INSTS'][$g] ?? []; }
 function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
+if (!defined('KL_WARNING')) { define('KL_WARNING', 103); }
 function VISU_PostNotificationEx($id, $t, $x, $icon, $sound, $target) { $GLOBALS['SENT'][] = ['visu', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
 function WFC_PushNotification($id, $t, $x, $sound, $target) { $GLOBALS['SENT'][] = ['wfc', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
 function SMTP_SendMailEx($id, $to, $subj, $body) { if (!empty($GLOBALS['SMTP_WARN'])) { trigger_error($GLOBALS['SMTP_WARN'], E_USER_WARNING); } if (!empty($GLOBALS['SMTP_THROW'])) { throw new RuntimeException($GLOBALS['SMTP_THROW']); } $GLOBALS['SENT'][] = ['mailex', $id, $subj, $body, $to]; return $GLOBALS['SEND_OK']; }
@@ -90,6 +91,7 @@ class IPSModule
     public function ReadPropertyString(string $n): string { return $this->props[$n]; }
     public function ReadPropertyInteger(string $n): int { return $this->props[$n]; }
     public function ReadPropertyBoolean(string $n): bool { return $this->props[$n]; }
+    public function LogMessage(string $m, int $t): void { $GLOBALS['LOG'][] = "Batteriewächter: $m"; }
     public function RegisterAttributeString(string $n, string $d): void { $this->attrs[$n] ??= $d; }
     public function RegisterAttributeInteger(string $n, int $d): void { $this->attrs[$n] ??= $d; }
     public function RegisterAttributeBoolean(string $n, bool $d): void { $this->attrs[$n] ??= $d; }
@@ -532,6 +534,7 @@ $captions = [];
 array_walk_recursive($form, function ($v, $k) use (&$captions) { if ($k === 'caption' && is_string($v)) { $captions[] = $v; } });
 check('Keine vermeidbaren Anglizismen in sichtbaren Formulartexten (Warning, Alert, Notification, Dashboard)', !preg_match('/(Warning|Alert|Notification|Dashboard)/', implode(' ', $captions)));
 
+check('Logging über $this->LogMessage statt IPS_LogMessage (Store-Review)', strpos(file_get_contents($MODDIR . '/module.php'), 'IPS_LogMessage') === false && substr_count(file_get_contents($MODDIR . '/module.php'), '$this->LogMessage(') >= 6);
 // Dateien
 $files = array_merge(glob($ROOT . '/*.json'), glob($MODDIR . '/*.json'));
 $badEnc = [];
