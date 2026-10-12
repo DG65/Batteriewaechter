@@ -993,6 +993,20 @@ check('Verknüpfung auf etwas anderes zählt nicht', strpos($tileText($mK), 'noc
 $GLOBALS['INSTS']['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}'] = [];
 unset($GLOBALS['OBJ'][9001], $GLOBALS['OBJ'][9002], $GLOBALS['OBJ'][9003]);
 
+// Modul: eigener Zelltyp am Gerät, in der Einkaufsliste und in „Vorrat“
+$ownRows = [['Name' => 'LR9 Spezial', 'Shop' => 'LR9', 'VFull' => 1.6, 'VEmpty' => 0.9]];
+$mO = freshModule(['NotificationsActive' => false, 'OwnCells' => json_encode($ownRows), 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Cell' => 'own_lr9_spezial', 'Cells' => 2, 'Poll' => false]])]);
+$mO->Check();
+$oj = json_encode(json_decode($mO->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+check('Modul: Eigener Typ steht bei „Zelltyp“ zur Wahl und am Gerät in „Gilt“ (2× LR9)', strpos($oj, 'LR9 Spezial (eigener Typ)') !== false && strpos($oj, '2× LR9') !== false);
+$GLOBALS['OBJ'][1141]['var']['value'] = 8;   // Rauchmelder Heizung fast leer
+$mO->Check();
+check('Modul: Eigener Typ in der Einkaufsliste („2× LR9“)', strpos($mO->ShoppingText(), '2× LR9') !== false, $mO->ShoppingText());
+$mO->props['OwnCells'] = '[]';
+$oj2 = json_encode(json_decode($mO->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+check('Modul: Wird der eigene Typ gelöscht, fällt das Gerät auf „Zelltyp offen“ zurück (nichts bricht)', strpos($oj2, 'LR9 Spezial (eigener Typ)') === false && strpos($oj2, 'Zelltyp offen') !== false);
+check('Formular: „Zelltyp (eigen)“ gehört in die Geräteliste, „Vorrat“ heißt „Zelltyp“', (function () use ($oj2) { return substr_count($oj2, '"caption":"Zelltyp (eigen)"') === 1; })());
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
@@ -2055,6 +2069,15 @@ check('LR44: 1,55 V ist gut gefüllt, 1,0 V leer; Einkaufsbezeichnung „LR44“
 check('A23: 12,5 V voll, 9,5 V fast leer; 3 V passen nicht', BWACHZelle::percentFromVoltage('a23', 1, 12.5) === 100.0 && BWACHZelle::percentFromVoltage('a23', 1, 9.5) <= 10.0 && BWACHZelle::percentFromVoltage('a23', 1, 3.0) === null);
 check('Matter-Beschreibung „LR44“, „AG13“, „CR2025“, „23A“ werden erkannt', BWACHZelle::fromDescription('LR44') === 'lr44' && BWACHZelle::fromDescription('AG13') === 'lr44' && BWACHZelle::fromDescription('CR 2025') === 'cr2025' && BWACHZelle::fromDescription('23A') === 'a23');
 check('Vorschlag bei 1,55 V nennt LR44, bei 12 V die A23', strpos(BWACHZelle::suggest(1.55), 'LR44') !== false && strpos(BWACHZelle::suggest(12.0), 'A23') !== false);
+
+// Eigene Zelltypen (Forum: Michael, „fehlende Batterien selbst nachtragen“)
+BWACHZelle::setCustom([['Name' => 'LR9 Spezial', 'Shop' => 'LR9', 'VFull' => 1.6, 'VEmpty' => 0.9], ['Name' => 'Nur Einkauf', 'Shop' => '', 'VFull' => 0, 'VEmpty' => 0], ['Name' => 'CR2032', 'Shop' => 'X', 'VFull' => 3, 'VEmpty' => 2], ['Name' => 'LR9 Spezial', 'Shop' => 'Doppelt', 'VFull' => 2, 'VEmpty' => 1], ['Name' => '  ', 'Shop' => 'leer']]);
+check('Eigene Typen: Schlüssel own_…, wählbar, Einkaufsbezeichnung (leer = Name), Beschriftung mit „(eigener Typ)“', BWACHZelle::isKnown('own_lr9_spezial') && BWACHZelle::shopLabel('own_lr9_spezial') === 'LR9' && BWACHZelle::shopLabel('own_nur_einkauf') === 'Nur Einkauf' && strpos(BWACHZelle::label('own_lr9_spezial'), '(eigener Typ)') !== false && in_array('own_lr9_spezial', array_column(BWACHZelle::options(), 'value'), true));
+check('Eigene Typen: doppelter Name, leerer Name zählen nicht; ein eingebauter Typ bleibt unverändert', !BWACHZelle::isKnown('own_') && BWACHZelle::shopLabel('own_lr9_spezial') === 'LR9' && BWACHZelle::shopLabel('cr2032') === 'CR2032' && count(array_filter(array_column(BWACHZelle::options(), 'value'), function ($v) { return strpos($v, 'own_') === 0; })) === 3);
+check('Eigene Typen: mit voll und leer wird linear umgerechnet (1,25 V = 50 %), ohne Spannungen gibt es keine Umrechnung', abs(BWACHZelle::percentFromVoltage('own_lr9_spezial', 1, 1.25) - 46.4) < 6 && BWACHZelle::percentFromVoltage('own_lr9_spezial', 1, 1.6) === 100.0 && BWACHZelle::percentFromVoltage('own_nur_einkauf', 1, 3.0) === null);
+check('Eigene Typen ohne Kurve werden bei „passt zu“ nicht vorgeschlagen', strpos(BWACHZelle::suggest(1.25), 'Nur Einkauf') === false);
+BWACHZelle::setCustom([]);
+check('Eigene Typen: nach dem Zurücksetzen sind sie weg', !BWACHZelle::isKnown('own_lr9_spezial') && BWACHZelle::customKey('LR 9 / Spezial!') === 'own_lr_9_spezial');
 
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };

@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.15.0] - 2026-10-12
+
+### Added
+- **Eigene Zelltypen** (Forum: „kann man fehlende Batterien selbst nachtragen?“): Im Panel „Weitere Variablen“ trägt man in der Liste „Eigene Zelltypen“ einen Batterietyp ein, der in der Auswahl fehlt: Name, Einkaufsbezeichnung (leer = Name) und optional „Spannung voll“ und „Spannung leer“ je Zelle. Der Typ steht danach bei „Zelltyp“ in „Geräte-Einstellungen“, „Gruppen“ und „Vorrat“ zur Wahl (mit dem Zusatz „(eigener Typ)“) und kommt in die Einkaufsliste. Mit beiden Spannungen rechnet der Wächter linear dazwischen einen Ladezustand aus (eine grobe Näherung); ohne sie dient der Typ nur der Einkaufsliste. Ein eigener Typ überschreibt nie einen eingebauten. Wird ein Typ umbenannt oder gelöscht, fallen Geräte mit diesem Typ auf „unbekannt“ zurück („Zelltyp offen“). Neue Einstellung: `OwnCells`.
+
+### Fixed
+- **Spaltenüberschrift „Zelltyp (eigen)“ saß in der falschen Liste:** Seit 0.12.5 stand sie bei „Vorrat“ statt in „Geräte-Einstellungen“ (dort stand nur „Zellen (eigen)“). Jetzt gehört „Zelltyp (eigen)“ in die Geräteliste, „Vorrat“ heißt wieder „Zelltyp“.
+
 ## [0.14.3] - 2026-10-12
 
 ### Added

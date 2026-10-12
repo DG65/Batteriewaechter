@@ -82,11 +82,61 @@ final class BWACHZelle
         return $map[$t] ?? null;
     }
 
+    /** Vom Nutzer eingetragene Zelltypen (Schlüssel `own_…`), vom Modul bei jedem Einstieg gesetzt. */
+    private static array $custom = [];
+    private static string $customSig = '[]';
+
+    /** Eingebaute und eigene Typen; die Schlüssel der eigenen beginnen mit `own_`, sie überschreiben also nie einen eingebauten. */
+    private static function all(): array
+    {
+        return self::TYPES + self::$custom;
+    }
+
+    /**
+     * Setzt die eigenen Zelltypen. Eine Zeile: ['Name'=>string,'Shop'=>string (leer = Name),'VFull'=>float,'VEmpty'=>float].
+     * Sind „voll“ und „leer“ gesetzt und voll > leer > 0, rechnet der Typ linear zwischen beiden; sonst gibt es keine
+     * Umrechnung aus der Spannung (der Typ dient dann nur der Einkaufsliste).
+     */
+    public static function setCustom(array $rows): void
+    {
+        $sig = json_encode($rows);
+        if ($sig === self::$customSig) {
+            return;
+        }
+        self::$customSig = (string)$sig;
+        self::$custom    = [];
+        foreach ($rows as $r) {
+            $name = mb_substr(trim((string)($r['Name'] ?? '')), 0, 40);
+            if ($name === '') {
+                continue;
+            }
+            $key = self::customKey($name);
+            if (isset(self::$custom[$key])) {
+                continue;   // doppelter Name: die erste Zeile gilt
+            }
+            $shop = mb_substr(trim((string)($r['Shop'] ?? '')), 0, 40);
+            $full = (float)($r['VFull'] ?? 0);
+            $emp  = (float)($r['VEmpty'] ?? 0);
+            self::$custom[$key] = [
+                'label' => $name . ' (eigener Typ)',
+                'shop'  => $shop !== '' ? $shop : $name,
+                'curve' => ($full > $emp && $emp > 0) ? [[$full, 100], [$emp, 0]] : null,
+            ];
+        }
+    }
+
+    /** Schlüssel eines eigenen Typs aus dem Namen: `own_` + Kleinbuchstaben und Ziffern. */
+    public static function customKey(string $name): string
+    {
+        $slug = strtolower((string)preg_replace('/[^a-z0-9]+/i', '_', trim($name)));
+        return 'own_' . trim($slug, '_');
+    }
+
     /** Auswahlliste fürs Formular. */
     public static function options(): array
     {
         $o = [['caption' => 'unbekannt', 'value' => self::UNKNOWN]];
-        foreach (self::TYPES as $id => $t) {
+        foreach (self::all() as $id => $t) {
             $o[] = ['caption' => $t['label'], 'value' => $id];
         }
         return $o;
@@ -94,18 +144,18 @@ final class BWACHZelle
 
     public static function isKnown(string $type): bool
     {
-        return isset(self::TYPES[$type]);
+        return isset(self::all()[$type]);
     }
 
     public static function label(string $type): string
     {
-        return self::TYPES[$type]['label'] ?? 'unbekannt';
+        return self::all()[$type]['label'] ?? 'unbekannt';
     }
 
     /** Einkaufsbezeichnung („CR2032“, „AAA“), null bei unbekanntem Typ. */
     public static function shopLabel(string $type): ?string
     {
-        return self::TYPES[$type]['shop'] ?? null;
+        return self::all()[$type]['shop'] ?? null;
     }
 
     /**
@@ -116,10 +166,11 @@ final class BWACHZelle
      */
     public static function percentFromVoltage(string $type, int $cells, float $volt): ?float
     {
-        if (!isset(self::TYPES[$type]) || $cells < 1) {
-            return null;
+        $all = self::all();
+        if (!isset($all[$type]) || $cells < 1 || $all[$type]['curve'] === null) {
+            return null;   // unbekannter Typ oder ein Typ ohne Kurve (nur Einkaufsliste)
         }
-        $curve = self::TYPES[$type]['curve'];
+        $curve = $all[$type]['curve'];
         $v     = $volt / $cells;
         $top   = $curve[0][0];
         $low   = $curve[count($curve) - 1][0];
@@ -146,7 +197,10 @@ final class BWACHZelle
     public static function suggest(float $volt): string
     {
         $cand = [];
-        foreach (self::TYPES as $id => $t) {
+        foreach (self::all() as $id => $t) {
+            if ($t['curve'] === null) {
+                continue;
+            }
             foreach ([1, 2, 3, 4] as $n) {
                 // Knopfzellen, 9-V-Block und fest eingebaute Akkus kommen einzeln vor; CR123A/RCR123A auch zu zweit oder zu dritt
                 $maxCells = in_array($id, ['cr123a', 'rcr123a', 'cr2'], true) ? 3 : (in_array($id, ['cr2032', 'cr2450', 'cr2025', 'cr2016', 'cr1632', 'cr1220', 'cr2477', 'lr44', 'sr44', 'a23', 'block9v', 'liion', 'lto'], true) ? 1 : 4);

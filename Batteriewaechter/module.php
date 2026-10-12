@@ -92,6 +92,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyBoolean('NameSearch', false);
         $this->RegisterPropertyString('ManualVariables', '[]');
         $this->RegisterPropertyString('IgnoredVariables', '[]');
+        $this->RegisterPropertyString('OwnCells', '[]');
         $this->RegisterPropertyInteger('ConfirmMinutes', 0);
         $this->RegisterPropertyString('DeviceSettings', '[]');
         $this->RegisterPropertyString('GroupRules', '[]');
@@ -142,6 +143,7 @@ class Batteriewaechter extends IPSModule
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+        $this->initCells();
         $this->SetVisualizationType(1);
 
         $this->MaintainVariable('Total', 'Geräte überwacht', VARIABLETYPE_INTEGER, '', 10, true);
@@ -426,6 +428,7 @@ class Batteriewaechter extends IPSModule
     /** Vorrat zu Hause: Bezeichnung (z. B. „AAA“) => Stück, aus der Liste „Vorrat“. */
     private function stockByLabel(): array
     {
+        $this->initCells();
         $rows = json_decode((string)$this->ReadPropertyString('Stock'), true);
         $out  = [];
         if (is_array($rows)) {
@@ -452,6 +455,7 @@ class Batteriewaechter extends IPSModule
     /** Einkaufsliste, Tauschrunde und Lebensdauerstatistik aus den aktuellen Zeilen. */
     private function views(array $rows, int $now): array
     {
+        $this->initCells();
         $horizon = $this->ReadPropertyInteger('ForecastHorizonDays');
         $items   = [];
         $cellOf  = [];
@@ -672,6 +676,7 @@ class Batteriewaechter extends IPSModule
 
     private function tilePayload(array $rows, array $sum, int $now, array $notes, ?array $views = null): string
     {
+        $this->initCells();
         $devices = [];
         foreach ($rows as $row) {
             $r = $row['r'];
@@ -1607,6 +1612,13 @@ class Batteriewaechter extends IPSModule
         return $out;
     }
 
+    /** Macht die eigenen Zelltypen der Instanz in BWACHZelle bekannt (billig, bei jedem Einstieg aufrufbar). */
+    private function initCells(): void
+    {
+        $rows = json_decode((string)$this->ReadPropertyString('OwnCells'), true);
+        BWACHZelle::setCustom(is_array($rows) ? $rows : []);
+    }
+
     /** Variablen, die der Nutzer von der Erkennung ausgenommen hat (Liste „Variablen ignorieren“). */
     private function ignoredVariables(): array
     {
@@ -1624,6 +1636,7 @@ class Batteriewaechter extends IPSModule
     /** Gruppen-Regeln aus der Instanzkonfiguration, von oben nach unten. */
     private function groupRules(): array
     {
+        $this->initCells();
         $rows = json_decode((string)$this->ReadPropertyString('GroupRules'), true);
         $out  = [];
         if (is_array($rows)) {
@@ -1687,6 +1700,7 @@ class Batteriewaechter extends IPSModule
     /** Geräteeinstellungen nach Instanz-ID. */
     private function deviceSettings(): array
     {
+        $this->initCells();
         $rows = json_decode((string)$this->ReadPropertyString('DeviceSettings'), true);
         $out  = [];
         if (is_array($rows)) {
@@ -1718,6 +1732,7 @@ class Batteriewaechter extends IPSModule
     /** @return array Liste von ['id','name','place','module','r'=>Ergebnis], nach Dringlichkeit sortiert */
     private function evaluateAll(array $found): array
     {
+        $this->initCells();
         $now      = $this->now();
         $settings = $this->deviceSettings();
         $rules    = $this->groupRules();
@@ -2592,7 +2607,7 @@ class Batteriewaechter extends IPSModule
                 ]],
                 ['type' => 'List', 'name' => 'Stock', 'caption' => 'Vorrat zu Hause (wird von der Einkaufsliste abgezogen)', 'rowCount' => 4, 'add' => true, 'delete' => true,
                     'columns' => [
-                        ['caption' => 'Zelltyp (eigen)', 'name' => 'Cell', 'width' => 'auto', 'add' => 'aaa_alkali', 'edit' => ['type' => 'Select', 'options' => array_values(array_filter(BWACHZelle::options(), function ($o) { return $o['value'] !== BWACHZelle::UNKNOWN; }))]],
+                        ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => 'auto', 'add' => 'aaa_alkali', 'edit' => ['type' => 'Select', 'options' => array_values(array_filter(BWACHZelle::options(), function ($o) { return $o['value'] !== BWACHZelle::UNKNOWN; }))]],
                         ['caption' => 'Stück da', 'name' => 'Count', 'width' => '110px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 9999]],
                     ]],
                 ['type' => 'NumberSpinner', 'name' => 'PreventiveMonths', 'caption' => 'Kritische Geräte vorsorglich tauschen alle (0 = aus)', 'suffix' => ' Monate', 'minimum' => 0, 'maximum' => 60],
@@ -2774,6 +2789,7 @@ class Batteriewaechter extends IPSModule
 
     private function deviceRows(): array
     {
+        $this->initCells();
         $saved  = json_decode((string)$this->ReadPropertyString('DeviceSettings'), true);
         $rows   = [];
         $have   = [];
@@ -3026,7 +3042,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Ohne Altersprüfung', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ohne Funkstille-Prüfung', 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
+                        ['caption' => 'Zelltyp (eigen)', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
                         ['caption' => 'Zellen (eigen)', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
                         ['caption' => 'Anzeigename', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
@@ -3065,6 +3081,16 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Variable', 'name' => 'Variable', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                     ],
                 ],
+                [
+                    'type' => 'List', 'name' => 'OwnCells', 'caption' => 'Eigene Zelltypen', 'rowCount' => 3, 'add' => true, 'delete' => true,
+                    'columns' => [
+                        ['caption' => 'Name', 'name' => 'Name', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Einkaufsbezeichnung (leer = Name)', 'name' => 'Shop', 'width' => '230px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Spannung voll (V)', 'name' => 'VFull', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'digits' => 2, 'minimum' => 0, 'maximum' => 60]],
+                        ['caption' => 'Spannung leer (V)', 'name' => 'VEmpty', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'digits' => 2, 'minimum' => 0, 'maximum' => 60]],
+                    ],
+                ],
+                ['type' => 'Label', 'caption' => '„Eigene Zelltypen“: Fehlt ein Batterietyp in der Auswahl, trägst du ihn hier ein. Er erscheint danach bei „Zelltyp“ in „Geräte-Einstellungen“, „Gruppen“ und „Vorrat“ und kommt in die Einkaufsliste. Sind „Spannung voll“ und „Spannung leer“ (je Zelle) ausgefüllt, rechnet der Wächter dazwischen linear einen Ladezustand aus der Spannung (eine grobe Näherung); sonst dient der Typ nur der Einkaufsliste. Wer einen Namen ändert oder die Zeile löscht, setzt die Geräte mit diesem Typ auf „unbekannt“. Nach „Übernehmen“ stehen die Typen zur Verfügung.'],
                 ['type' => 'Label', 'caption' => '„Variablen ignorieren“ nimmt einzelne Variablen aus der Erkennung, ohne das ganze Gerät auszunehmen (z. B. die Last einer USV, wenn daneben der Ladezustand steht). Sie stehen danach im Trockenlauf unter „Ausgeschlossen“.'],
             ],
         ];
@@ -3192,6 +3218,7 @@ class Batteriewaechter extends IPSModule
 
     public function GetConfigurationForm()
     {
+        $this->initCells();
         $base   = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
         $status = $base['status'] ?? [];
 
