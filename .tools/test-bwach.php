@@ -1311,7 +1311,7 @@ check('Vorschlag bei 4,0 V nennt den RCR123A-Akku; bei 6,0 V auch 2× CR123A; Kn
 check('Einkaufsliste trennt CR123A-Batterien und RCR123A-Akkus', (function () { $r = BWACHPrognose::shopping([['name' => 'A', 'place' => '', 'cell' => 'cr123a', 'cells' => 2, 'status' => 'leer', 'days' => null], ['name' => 'B', 'place' => '', 'cell' => 'rcr123a', 'cells' => 1, 'status' => 'schwach', 'days' => null]], 30); sort($r['lines']); return $r['lines'] === ['1× RCR123A (Akku)', '2× CR123A']; })());
 check('Vorschlag bei unmöglicher Spannung (20 V)', BWACHZelle::suggest(20.0) === 'passt zu keinem bekannten Zelltyp');
 check('Einkaufsbezeichnungen: CR2032, AAA, AA (Akku)', BWACHZelle::shopLabel('cr2032') === 'CR2032' && BWACHZelle::shopLabel('aaa_alkali') === 'AAA' && BWACHZelle::shopLabel('aa_nimh') === 'AA (Akku)' && BWACHZelle::shopLabel('unbekannt') === null);
-check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 13);
+check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 22);
 
 $n = $NOW;
 $volt = ['voltage' => ['value' => 4.71, 'updated' => $n - 60]];
@@ -2048,6 +2048,13 @@ check('Gewechselte Batterien: 12 Monate = 4× AAA und 1× CR2032, nach Menge sor
 check('Gewechselte Batterien: Wechsel ohne Zelltyp oder ohne Gerät zählen als unbekannt, nicht geraten', $cstat[2]['unknown'] === 2 && $cstat[1]['unknown'] === 0 && $cstat[2]['devices'] === 4);
 check('Gewechselte Batterien: Text nennt Wechsel, Geräte, Zelltypen und Unbekannte; ohne Wechsel „kein Wechsel“', strpos(BWACHPrognose::changeStatsText($cstat[2]), '5 Wechsel an 4 Geräten: 4× AAA, 1× CR2032 (bei 2 Wechseln ist der Zelltyp unbekannt)') === 0 && BWACHPrognose::changeStatsText(['changes' => 0, 'devices' => 0, 'byLabel' => [], 'unknown' => 0]) === 'kein Wechsel');
 check('Gewechselte Batterien: ohne Tagebuch leer', BWACHPrognose::changeStats([], [], $cn) === []);
+
+// Weitere Zelltypen (Forum: Michael sucht LR44)
+check('Neue Zelltypen: LR44, SR44, CR2025, CR2016, CR1632, CR1220, CR2477, CR2, A23 sind wählbar', (function () { foreach (['lr44', 'sr44', 'cr2025', 'cr2016', 'cr1632', 'cr1220', 'cr2477', 'cr2', 'a23'] as $t) { if (!BWACHZelle::isKnown($t) || BWACHZelle::shopLabel($t) === null) { return false; } } return true; })());
+check('LR44: 1,55 V ist gut gefüllt, 1,0 V leer; Einkaufsbezeichnung „LR44“', BWACHZelle::percentFromVoltage('lr44', 1, 1.55) > 70 && BWACHZelle::percentFromVoltage('lr44', 1, 1.0) === 0.0 && BWACHZelle::shopLabel('lr44') === 'LR44');
+check('A23: 12,5 V voll, 9,5 V fast leer; 3 V passen nicht', BWACHZelle::percentFromVoltage('a23', 1, 12.5) === 100.0 && BWACHZelle::percentFromVoltage('a23', 1, 9.5) <= 10.0 && BWACHZelle::percentFromVoltage('a23', 1, 3.0) === null);
+check('Matter-Beschreibung „LR44“, „AG13“, „CR2025“, „23A“ werden erkannt', BWACHZelle::fromDescription('LR44') === 'lr44' && BWACHZelle::fromDescription('AG13') === 'lr44' && BWACHZelle::fromDescription('CR 2025') === 'cr2025' && BWACHZelle::fromDescription('23A') === 'a23');
+check('Vorschlag bei 1,55 V nennt LR44, bei 12 V die A23', strpos(BWACHZelle::suggest(1.55), 'LR44') !== false && strpos(BWACHZelle::suggest(12.0), 'A23') !== false);
 
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };

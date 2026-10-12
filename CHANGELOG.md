@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.14.3] - 2026-10-12
+
+### Added
+- **Weitere Zelltypen** (Forum: „Ich suche LR44“): LR44 / AG13 (Alkali-Knopfzelle), SR44 (Silberoxid), CR2025, CR2016, CR1632, CR1220, CR2477, CR2 und A23 (12-V-Batterie). Wählbar in „Geräte-Einstellungen“ und „Gruppen“, in der Einkaufsliste mit ihrer Bezeichnung, und Matter-Geräte, die einen dieser Typen als Ersatz nennen, werden erkannt. Die Kurven für die Umrechnung aus der Spannung sind Näherungen wie bei den übrigen Typen; bei SR44 ist die Umrechnung besonders grob, weil Silberoxid die Spannung lange flach hält.
+
 ## [0.14.2] - 2026-10-12
 
 ### Changed

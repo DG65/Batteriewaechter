@@ -160,7 +160,7 @@ $mutations = [
     ['module.php', "'Cell'      => \$cell,\n                    'Cells'     => max(1, min(12, (int)(\$r['Cells'] ?? 1))),\n                    'Poll'      => (bool)(\$r['Poll'] ?? false),\n                    'StillDays' => max(0, min(3650, (int)(\$r['StillDays'] ?? 0))),\n                    'Alias'     => \$this->cleanAlias((string)(\$r['Alias'] ?? '')),\n                ];", "'Cell'      => BWACHZelle::UNKNOWN,\n                    'Cells'     => 1,\n                    'Poll'      => false,\n                    'StillDays' => max(0, min(3650, (int)(\$r['StillDays'] ?? 0))),\n                    'Alias'     => '',\n                ];", 'Gespeicherter Zelltyp geht beim Öffnen verloren'],
     ['module.php', "'where'   => 'Instanz „' . IPS_GetName(\$this->InstanceID) . '“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“',", "'where'   => '',", 'Hinweis nennt den Ort nicht'],
     // --- 0.5.2: CR123A-Batterie und RCR123A-Akku
-    ['BWACHZelle.php', "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 3 :", "in_array(\$id, ['cr123a', 'rcr123a'], true) ? 1 :", 'Vorschlag nennt keine CR123A in Reihe'],
+    ['BWACHZelle.php', "in_array(\$id, ['cr123a', 'rcr123a', 'cr2'], true) ? 3 :", "in_array(\$id, ['cr123a', 'rcr123a', 'cr2'], true) ? 1 :", 'Vorschlag nennt keine CR123A in Reihe'],
     ['BWACHZelle.php', "'shop' => 'RCR123A (Akku)',", "'shop' => 'CR123A',", 'RCR123A-Akku wird als CR123A eingekauft'],
     ['BWACHLogik.php', "if (count(\$functionNames) === 1) {", "if (count(\$functionNames) >= 1) {", 'Matter-Name: bei mehreren Funktionsinstanzen zufällig die erste'],
     ['BWACHLogik.php', "'/\\s*Stromversorgung\\s*\$/iu'", "'/\\s*XStromversorgung\\s*\$/iu'", 'Matter-Name: Zusatz „Stromversorgung“ bleibt stehen'],
@@ -349,6 +349,9 @@ $mutations = [
     ['BWACHLogik.php', "' Gerät gibt es' : ' Geräten gibt es'", "' Geräten gibt es' : ' Geräten gibt es'", 'Matter-Hinweis: Einzahl'],
     ['module.php', "if (is_array(\$l) && (int)(\$l['TargetID'] ?? 0) === \$this->InstanceID) {", "if (is_array(\$l)) {", 'Kachel: nur Verknüpfungen auf diese Instanz'],
     ['module.php', "if (\$p === \$base) {", "if (false) {", 'Kachel: Startobjekt wird gefunden'],
+    ['BWACHZelle.php', "'LR44' => 'lr44', 'AG13' => 'lr44',", "'AG13' => 'lr44',", 'Matter: LR44 wird erkannt'],
+    ['BWACHZelle.php', "[[12.50, 100], [11.50, 75], [10.50, 40], [9.50, 10], [8.00, 0]]", "[[12.50, 100], [11.50, 75], [10.50, 40], [9.50, 10], [3.00, 0]]", 'A23-Kurve endet bei 8 V'],
+    ['BWACHZelle.php', "'cr2025', 'cr2016', 'cr1632', 'cr1220', 'cr2477', 'lr44', 'sr44', 'a23', 'block9v', 'liion', 'lto'], true) ? 1 : 4);", "'cr2025', 'cr2016', 'cr1632', 'cr1220', 'cr2477', 'block9v', 'liion', 'lto'], true) ? 1 : 4);", 'Knopfzellen kommen einzeln vor'],
     ['module.php', "\$sig['voltage'] = ['value' => \$volt >= 400 ? \$volt / 1000 : \$volt, 'updated' => \$upd];", "\$sig['voltage'] = ['value' => \$volt, 'updated' => \$upd];", 'Millivolt werden als Volt gelesen'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],

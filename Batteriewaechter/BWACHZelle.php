@@ -28,6 +28,11 @@ final class BWACHZelle
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
         'cr2450' => ['label' => 'CR2450 (Knopfzelle, 3 V)', 'shop' => 'CR2450',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr2025' => ['label' => 'CR2025 (Knopfzelle, 3 V)', 'shop' => 'CR2025', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr2016' => ['label' => 'CR2016 (Knopfzelle, 3 V)', 'shop' => 'CR2016', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr1632' => ['label' => 'CR1632 (Knopfzelle, 3 V)', 'shop' => 'CR1632', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr1220' => ['label' => 'CR1220 (Knopfzelle, 3 V)', 'shop' => 'CR1220', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr2477' => ['label' => 'CR2477 (Knopfzelle, 3 V)', 'shop' => 'CR2477', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
         'cr123a' => ['label' => 'CR123A Batterie (Lithium, 3 V, nicht wiederaufladbar)', 'shop' => 'CR123A',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
         'rcr123a' => ['label' => 'RCR123A / 16340 Akku (Li-Ion, 3,7 V)', 'shop' => 'RCR123A (Akku)',
@@ -36,6 +41,15 @@ final class BWACHZelle
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
         'aaa_alkali' => ['label' => 'AAA Alkali (1,5 V)', 'shop' => 'AAA',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+        'lr44' => ['label' => 'LR44 / AG13 (Alkali-Knopfzelle, 1,5 V)', 'shop' => 'LR44',
+            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+        // Silberoxid hält die Spannung lange flach und fällt zum Ende steil: aus der Spannung nur eine grobe Näherung
+        'sr44' => ['label' => 'SR44 (Silberoxid-Knopfzelle, 1,55 V)', 'shop' => 'SR44',
+            'curve' => [[1.62, 100], [1.55, 90], [1.50, 60], [1.40, 20], [1.30, 5], [1.20, 0]]],
+        'cr2' => ['label' => 'CR2 (Lithium, 3 V)', 'shop' => 'CR2',
+            'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'a23' => ['label' => 'A23 / 23A (12-V-Batterie)', 'shop' => 'A23',
+            'curve' => [[12.50, 100], [11.50, 75], [10.50, 40], [9.50, 10], [8.00, 0]]],
         'aa_nimh' => ['label' => 'AA Akku NiMH (1,2 V)', 'shop' => 'AA (Akku)',
             'curve' => [[1.40, 100], [1.30, 90], [1.25, 60], [1.20, 40], [1.15, 15], [1.10, 5], [1.00, 0]]],
         'aaa_nimh' => ['label' => 'AAA Akku NiMH (1,2 V)', 'shop' => 'AAA (Akku)',
@@ -62,7 +76,9 @@ final class BWACHZelle
     {
         $t = strtoupper((string)preg_replace('/[\s\-_.]+/', '', $text));
         $map = ['CR2032' => 'cr2032', 'CR2450' => 'cr2450', 'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a', '16340' => 'rcr123a',
-            'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali', '9V' => 'block9v', '6LR61' => 'block9v'];
+            'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali', '9V' => 'block9v', '6LR61' => 'block9v',
+            'CR2025' => 'cr2025', 'CR2016' => 'cr2016', 'CR1632' => 'cr1632', 'CR1220' => 'cr1220', 'CR2477' => 'cr2477',
+            'LR44' => 'lr44', 'AG13' => 'lr44', 'SR44' => 'sr44', 'CR2' => 'cr2', 'A23' => 'a23', '23A' => 'a23'];
         return $map[$t] ?? null;
     }
 
@@ -133,7 +149,7 @@ final class BWACHZelle
         foreach (self::TYPES as $id => $t) {
             foreach ([1, 2, 3, 4] as $n) {
                 // Knopfzellen, 9-V-Block und fest eingebaute Akkus kommen einzeln vor; CR123A/RCR123A auch zu zweit oder zu dritt
-                $maxCells = in_array($id, ['cr123a', 'rcr123a'], true) ? 3 : (in_array($id, ['cr2032', 'cr2450', 'block9v', 'liion', 'lto'], true) ? 1 : 4);
+                $maxCells = in_array($id, ['cr123a', 'rcr123a', 'cr2'], true) ? 3 : (in_array($id, ['cr2032', 'cr2450', 'cr2025', 'cr2016', 'cr1632', 'cr1220', 'cr2477', 'lr44', 'sr44', 'a23', 'block9v', 'liion', 'lto'], true) ? 1 : 4);
                 if ($n <= $maxCells && self::percentFromVoltage($id, $n, $volt) !== null) {
                     $cand[] = ($n > 1 ? $n . '× ' : '') . $t['shop'];
                 }
