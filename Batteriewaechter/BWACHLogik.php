@@ -311,6 +311,9 @@ final class BWACHLogik
         if (!$own['critical'] && !empty($r['Critical'])) {
             $own['critical'] = true;
         }
+        if (empty($own['noStill']) && !empty($r['NoStill'])) {
+            $own['noStill'] = true;
+        }
         if ((int)($own['stillDays'] ?? 0) === 0 && (int)($r['StillDays'] ?? 0) > 0) {
             $own['stillDays'] = max(1, min(3650, (int)$r['StillDays']));
         }
@@ -793,6 +796,8 @@ final class BWACHLogik
         $orphan    = false;
         if ($lifeAge === null) {
             $funk = 'unbekannt';
+        } elseif (!empty($p['noStill'])) {
+            $funk = 'aktiv';   // „Ohne Funkstille-Prüfung“: das Gerät darf beliebig lange schweigen, nur der Batteriestand zählt
         } elseif ($lifeAge > $stillSec) {
             $funk = 'still';
             $reasons[] = 'Funkstille: seit ' . self::daysDat($lifeAge) . ' kein Lebenszeichen (Schwelle ' . self::days($stillSec) . ($stillOver > 0 ? ', für dieses Gerät eingestellt' : (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? ', aus dem Meldeverhalten gelernt' : '')) . ')';

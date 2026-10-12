@@ -233,6 +233,26 @@ final class BWACHMeldung
     }
 
     /** Zeitstempel des jüngsten Wechsels eines Geräts im Tagebuch, null wenn keiner erfasst ist. */
+    /**
+     * Die beiden jüngsten erfassten Wechsel eines Geräts.
+     *
+     * @return array|null ['last'=>int,'prev'=>int|null,'count'=>int]; null ohne Eintrag
+     */
+    public static function changeInfo(array $diary, string $key): ?array
+    {
+        $ts = [];
+        foreach ($diary as $e) {
+            if ((string)$e['key'] === $key) {
+                $ts[] = (int)$e['t'];
+            }
+        }
+        if (!$ts) {
+            return null;
+        }
+        rsort($ts);
+        return ['last' => $ts[0], 'prev' => $ts[1] ?? null, 'count' => count($ts)];
+    }
+
     public static function lastReplacement(array $diary, string $key): ?int
     {
         $last = null;

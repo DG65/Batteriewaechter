@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.14.0] - 2026-10-12
+
+### Added
+- **„Ohne Funkstille-Prüfung“** je Gerät und je Gruppen-Regel (Forum: „nur melden, wenn die Batterie wirklich schwach ist“): Das Gerät darf beliebig lange schweigen, nur der Batteriestand und die Flags zählen. Zusammen mit „Ohne Altersprüfung“ bleibt für selten funkende Sensoren nur eine Meldung bei schwacher oder leerer Batterie. „Gilt“ nennt es. Ohne jedes Lebenszeichen bleibt die Funk-Spalte „unbekannt“.
+- **Letzter Wechsel am Gerät** (Forum: Stromfresser entlarven): Im aufgeklappten Gerät der Kachel steht „🔄 Letzter Wechsel: 12.10.2026 (vor 3 Tagen) · die Batterie davor hielt 14 Monate“, sobald das Tagebuch einen Wechsel kennt. Neue Sortierung „Zuletzt gewechselt“ in der Kachel und neue Anzeigespalte „Letzter Wechsel“ (sortierbar) in „Geräte-Einstellungen“.
+
+### Changed
+- „Gilt“ in „Geräte-Einstellungen“ nennt „außer Betrieb“ (und „ohne Funkstille-Prüfung“). Außer Betrieb gesetzte Geräte bleiben dort stehen, damit ihre Einstellungen nicht verloren gehen, waren aber nicht erkennbar.
+- Neue Einstellungen in den Listen: `NoStill`.
+
 ## [0.13.1] - 2026-10-11
 
 ### Added

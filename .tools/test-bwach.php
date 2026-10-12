@@ -523,7 +523,7 @@ check('News-Panel erscheint danach nicht mehr, aber bei einer neueren Version wi
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 13);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
-    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits', 'Panel'], true)) { return false; } } } } }
+    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits', 'Panel', 'Change', 'ChangeSort'], true)) { return false; } } } } }
     return true;
 })());
 $captions = [];
@@ -925,6 +925,36 @@ $sent60 = count($GLOBALS['SENT']);
 check('Modul: Mit Bestätigungszeit (60 Minuten) geht beim ersten Lauf nichts raus, ohne sie schon', $sentNow > 0 && $sent60 === 0, $sentNow . ' / ' . $sent60);
 shiftWorld(3700); $m60->Check();
 check('Modul: Nach Ablauf der Bestätigungszeit kommt die Meldung', count($GLOBALS['SENT']) > 0);
+
+// Modul: Letzter Wechsel, Ohne Funkstille-Prüfung, außer Betrieb in „Gilt“
+$mC = freshModule(['NotificationsActive' => false]);
+$mC->Acknowledge('114', 'getauscht');
+$mC->RequestAction('refresh', '');
+$cp = json_decode(end($mC->visUpdates), true);
+$d114 = null; foreach ($cp['devices'] as $dv) { if ($dv['id'] === '114') { $d114 = $dv; } }
+check('Kachel: „Letzter Wechsel“ mit Datum und Alter am Gerät', $d114 !== null && strpos($d114['changeText'], 'Letzter Wechsel: ' . date('d.m.Y', $GLOBALS['CLOCK'])) === 0 && $d114['changeAgeSec'] === 0, json_encode($d114['changeText'] ?? null, JSON_UNESCAPED_UNICODE));
+$d103 = null; foreach ($cp['devices'] as $dv) { if ($dv['id'] === '103') { $d103 = $dv; } }
+check('Kachel: Gerät ohne erfassten Wechsel hat keinen Text', $d103 !== null && $d103['changeText'] === '' && $d103['changeAgeSec'] === null);
+$GLOBALS['CLOCK'] += 20 * 86400;
+$mC->Acknowledge('114', 'getauscht');
+$mC->RequestAction('refresh', '');
+$cp2 = json_decode(end($mC->visUpdates), true);
+$d114b = null; foreach ($cp2['devices'] as $dv) { if ($dv['id'] === '114') { $d114b = $dv; } }
+check('Kachel: bei einem zweiten Wechsel steht, wie lange die Batterie davor hielt', strpos($d114b['changeText'], 'die Batterie davor hielt') !== false, json_encode($d114b['changeText'] ?? null, JSON_UNESCAPED_UNICODE));
+$mC->Acknowledge('103', 'ausser_betrieb');
+$cj = json_encode(json_decode($mC->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+$effect103 = null;
+foreach (json_decode($mC->GetConfigurationForm(), true)['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { foreach ($it['values'] as $vr) { if ((int)$vr['Instance'] === 103) { $effect103 = $vr['Effect']; } } } } }
+check('Geräte-Einstellungen: „Gilt“ nennt „außer Betrieb“ für das Gerät', $effect103 !== null && strpos($effect103, 'außer Betrieb') !== false, (string)$effect103);
+check('Geräte-Einstellungen haben die Spalten „Letzter Wechsel“ und „Ohne Funkstille-Prüfung“', strpos($cj, '"name":"Change"') !== false && strpos($cj, '"name":"NoStill"') !== false);
+$mNs = freshModule(['NotificationsActive' => false]);
+$mNs->Check();
+$silB = $mNs->GetValue('Silent');
+$allN = [];
+foreach ($GLOBALS['OBJ'] as $oid => $ox) { if ($ox['type'] === 1) { $allN[] = ['Instance' => $oid, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => true, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false, 'StillDays' => 0]; } }
+$mNs->props['DeviceSettings'] = json_encode($allN);
+$mNs->Check();
+check('Modul: „Ohne Funkstille-Prüfung“ an allen Geräten (vorher ' . $silB . ' in Funkstille, danach keines)', $silB > 0 && $mNs->GetValue('Silent') === 0, $silB . ' → ' . $mNs->GetValue('Silent'));
 
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
@@ -1953,6 +1983,19 @@ check('LTO-Akku: 2,64 V sind etwa drei Viertel, 2,80 V voll, 2,355 V fast leer, 
 check('LTO-Akku: 3,7 V passt nicht zum Typ', BWACHZelle::percentFromVoltage('lto', 1, 3.7) === null);
 check('LTO-Akku steht in der Auswahl und in der Einkaufsbezeichnung', BWACHZelle::label('lto') !== 'unbekannt' && BWACHZelle::shopLabel('lto') === 'LTO-Akku (fest eingebaut)');
 
+// Ohne Funkstille-Prüfung, Letzter Wechsel am Gerät (Forum: Lutz)
+$nsSig = ['percent' => ['value' => 80, 'updated' => $NOW - 3600, 'scale' => 1.0]];
+$rNs0 = BWACHLogik::evaluate($nsSig, $NOW - 400 * 86400, $NOW, $P);
+$rNs1 = BWACHLogik::evaluate($nsSig, $NOW - 400 * 86400, $NOW, array_merge($P, ['noStill' => true]));
+check('Ohne Funkstille-Prüfung: 400 Tage Schweigen sind keine Funkstille, keine Dringlichkeit, kein Grund', $rNs0['funk'] === 'still' && $rNs1['funk'] === 'aktiv' && $rNs1['urgency'] === 0 && $rNs1['reasons'] === []);
+$rNs2 = BWACHLogik::evaluate(['percent' => ['value' => 3, 'updated' => $NOW - 3600, 'scale' => 1.0]], $NOW - 400 * 86400, $NOW, array_merge($P, ['noStill' => true]));
+check('Ohne Funkstille-Prüfung meldet eine leere Batterie trotzdem', $rNs2['status'] === 'leer' && $rNs2['urgency'] > 0);
+check('Ohne Lebenszeichen bleibt es „unbekannt“, auch ohne Funkstille-Prüfung', BWACHLogik::evaluate($nsSig, 0, $NOW, array_merge($P, ['noStill' => true]))['funk'] === 'unbekannt');
+$nsR = ['Active' => true, 'Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'NoStill' => true];
+check('Regel setzt „Ohne Funkstille-Prüfung“, eine eigene Einstellung bleibt', BWACHLogik::applyRules($rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [$nsR])['noStill'] === true && BWACHLogik::applyRules(['noStill' => true] + $rb, ['name' => 'X', 'place' => '', 'module' => ''], [$nsR])['noStill'] === true && empty(BWACHLogik::applyRules($rb, ['name' => 'X', 'place' => '', 'module' => ''], [$nsR])['noStill']));
+$ci = BWACHMeldung::changeInfo([['t' => 100, 'key' => 'a'], ['t' => 300, 'key' => 'a'], ['t' => 200, 'key' => 'b']], 'a');
+check('changeInfo: jüngster und vorheriger Wechsel, Anzahl; ohne Eintrag null', $ci === ['last' => 300, 'prev' => 100, 'count' => 2] && BWACHMeldung::changeInfo([], 'a') === null && BWACHMeldung::changeInfo([['t' => 5, 'key' => 'b']], 'a') === null);
+
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
 $mv = [$mk(1, 'OPERATING_VOLTAGE', 232.2, 70), $mk(2, 'OPERATING_VOLTAGE', 3.0, 71), $mk(3, 'OPERATING_VOLTAGE', 3000.0, 72), $mk(4, 'OPERATING_VOLTAGE', 30.0, 73), $mk(5, 'OPERATING_VOLTAGE', 31.0, 74), $mk(6, 'OPERATING_VOLTAGE', 400.0, 75)];
@@ -2319,7 +2362,7 @@ $ids = array_column($el['values'], 'Instance');
 check('Liste enthält jede erkannte Geräteinstanz genau einmal (Instanzen 101–107, 111, 112, 114; 105 trotz zweier Sensoren nur einmal)', count($ids) === count(array_unique($ids)) && count($ids) === 10 && in_array(105, $ids, true) && in_array(101, $ids, true), json_encode($ids));
 check('Die bereits gespeicherte Zeile bleibt unverändert vorn (kritisch, CR2032, 2 Zellen)', $el['values'][0]['Instance'] === 114 && $el['values'][0]['Critical'] === true && $el['values'][0]['Cell'] === 'cr2032' && $el['values'][0]['Cells'] === 2);
 check('Neue Zeilen tragen neutrale Standardwerte (Standard, nicht kritisch, Zelltyp unbekannt, 1 Zelle, keine Abfrage)', (function () use ($el) { foreach (array_slice($el['values'], 1) as $r) { if ($r['Group'] !== 'standard' || $r['Critical'] || $r['IgnoreAge'] || $r['Excluded'] || $r['Cell'] !== 'unbekannt' || $r['Cells'] !== 1 || $r['Poll']) { return false; } } return true; })());
-check('Jede Zeile hat alle Spalten (nichts geht beim Speichern verloren)', (function () use ($el) { foreach ($el['values'] as $r) { if (array_slice(array_keys($r), 0, 8) !== ['Instance', 'Group', 'Critical', 'IgnoreAge', 'Excluded', 'Cell', 'Cells', 'Poll'] || array_diff(['Name', 'Place', 'Module', 'Percent', 'PercentSort'], array_keys($r))) { return false; } } return true; })());
+check('Jede Zeile hat alle Spalten (nichts geht beim Speichern verloren)', (function () use ($el) { foreach ($el['values'] as $r) { if (array_slice(array_keys($r), 0, 8) !== ['Instance', 'Group', 'Critical', 'IgnoreAge', 'NoStill', 'Excluded', 'Cell', 'Cells'] || array_diff(['Poll', 'Name', 'Place', 'Module', 'Percent', 'PercentSort', 'Change', 'ChangeSort'], array_keys($r))) { return false; } } return true; })());
 check('Neue Zeilen nach Instanzname sortiert', (function () use ($el) { $names = array_map(function ($r) { return IPS_GetName($r['Instance']); }, array_slice($el['values'], 1)); $s = $names; usort($s, 'strcasecmp'); return $names === $s; })());
 check('Liste liest nicht aus der Konfiguration, sondern aus den eingesetzten Werten (loadValuesFromConfiguration=false)', $el['loadValuesFromConfiguration'] === false);
 check('Panel ist aufgeklappt, solange es neue Zeilen gibt; Hinweis nennt Zahl und „noch nicht gespeichert“', $panel['expanded'] === true && strpos(json_encode($panel, JSON_UNESCAPED_UNICODE), '9 neu, noch nicht gespeichert') !== false, '');

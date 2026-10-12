@@ -182,6 +182,7 @@
         { id: 'percent',  label: 'Batteriestand',  num: true,  dir: 'asc',  get: function (d) { return d.percent; } },
         { id: 'valueAge', label: 'Alter des Werts', num: true, dir: 'desc', get: function (d) { return d.valueAgeSec; } },
         { id: 'life',     label: 'Lebenszeichen',  num: true,  dir: 'desc', get: function (d) { return d.lifeAgeSec; } },
+        { id: 'change',   label: 'Zuletzt gewechselt', num: true, dir: 'asc', get: function (d) { return d.changeAgeSec; } },
         { id: 'cell',     label: 'Zelltyp',        num: false, dir: 'asc',  get: function (d) { return d.cellKey; } },
         { id: 'module',   label: 'System',         num: false, dir: 'asc',  get: function (d) { return d.module; } }
     ];
@@ -286,6 +287,7 @@
             if (d.forecastText) { det.appendChild(bwEl('div', 'facts', '📈 ' + d.forecastText)); }
             if (d.signalText) { det.appendChild(bwEl('div', 'facts', '📶 ' + d.signalText)); }
             if (d.pollText) { det.appendChild(bwEl('div', 'facts', '🔔 ' + d.pollText)); }
+            if (d.changeText) { det.appendChild(bwEl('div', 'facts', '🔄 ' + d.changeText)); }
             if (d.idText) { det.appendChild(bwEl('div', 'facts', '🆔 ' + d.idText)); }
             if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · Ladezustand aus der Spannung berechnet (Näherung)' : ''))); }
             if (BW.allowAck) {

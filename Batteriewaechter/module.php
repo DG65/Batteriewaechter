@@ -644,6 +644,19 @@ class Batteriewaechter extends IPSModule
         return $text . ' — laut Gerät („' . $row['cellHint'] . '“)' . ($form ? ', nur die Bauform: ob Alkali oder Akku, ist unbekannt' : '');
     }
 
+    /** „Letzter Wechsel: 12.10.2026 (vor 3 Tagen), die Batterie davor hielt 14 Monate“ aus den Tagebucheinträgen; leer ohne Eintrag. */
+    private function changeText(?array $c, int $now): string
+    {
+        if ($c === null) {
+            return '';
+        }
+        $text = 'Letzter Wechsel: ' . date('d.m.Y', (int)$c['last']) . ' (vor ' . BWACHLogik::daysDat(max(0, $now - (int)$c['last'])) . ')';
+        if ($c['prev'] !== null && (int)$c['last'] > (int)$c['prev']) {
+            $text .= ' · die Batterie davor hielt ' . BWACHLogik::daysDat((int)$c['last'] - (int)$c['prev']);
+        }
+        return $text;
+    }
+
     private function tilePayload(array $rows, array $sum, int $now, array $notes, ?array $views = null): string
     {
         $devices = [];
@@ -678,6 +691,8 @@ class Batteriewaechter extends IPSModule
                 'signalText'   => $row['signal']['text'] ?? '',
                 'pollText'     => $row['poll'],
                 'idText'       => $this->idText($row),
+                'changeText'   => $this->changeText($row['change'] ?? null, $now),
+                'changeAgeSec' => isset($row['change']['last']) ? max(0, $now - (int)$row['change']['last']) : null,
             ];
         }
         $diary = [];
@@ -1610,6 +1625,7 @@ class Batteriewaechter extends IPSModule
                     'Group'    => (string)($r['Group'] ?? ''),
                     'Critical' => (bool)($r['Critical'] ?? false),
                     'IgnoreAge' => (bool)($r['IgnoreAge'] ?? false),
+                    'NoStill'  => (bool)($r['NoStill'] ?? false),
                     'Excluded' => (bool)($r['Excluded'] ?? false),
                     'Poll'     => (bool)($r['Poll'] ?? false),
                     'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
@@ -1668,6 +1684,7 @@ class Batteriewaechter extends IPSModule
                         'group'     => (string)($r['Group'] ?? BWACHLogik::GROUP_STANDARD),
                         'critical'  => (bool)($r['Critical'] ?? false),
                         'ignoreAge' => (bool)($r['IgnoreAge'] ?? false),
+                        'noStill'   => (bool)($r['NoStill'] ?? false),
                         'excluded'  => (bool)($r['Excluded'] ?? false),
                         'cell'      => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
                         'cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
@@ -1708,7 +1725,7 @@ class Batteriewaechter extends IPSModule
             $sibs  = ($isInstance && isset($d['node'])) ? $this->matterSiblings($id) : [];
             $label = $this->deviceLabel($d, $id, $isInstance, $sibs);
             // Eigene Einstellung, dann die erste passende Gruppen-Regel
-            $st = BWACHLogik::applyRules($settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false], $label, $rules);
+            $st = BWACHLogik::applyRules($settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false, 'noStill' => false], $label, $rules);
             if ($st['excluded'] || isset($retired[(string)$key])) {
                 continue;
             }
@@ -1744,6 +1761,7 @@ class Batteriewaechter extends IPSModule
                 'critical'       => $st['critical'],
                 'group'          => $st['group'],
                 'ignoreAge'      => $st['ignoreAge'],
+                'noStill'        => !empty($st['noStill']),
                 'lowPct'         => $this->ReadPropertyInteger('LowPercent'),
                 'emptyPct'       => $this->ReadPropertyInteger('EmptyPercent'),
                 'critLowPct'     => $this->ReadPropertyInteger('CriticalLowPercent'),
@@ -1801,6 +1819,7 @@ class Batteriewaechter extends IPSModule
                 'forecast' => $f, 'cell' => $st['cell'], 'cells' => $st['cells'], 'life' => $life, 'inst' => $id, 'poll' => $pollText,
                 'members' => array_values(array_map('intval', $d['members'] ?? [])), 'sigIds' => array_map(function ($list) { return array_values(array_map(function ($s) { return (int)$s['vid']; }, $list)); }, $d['signals']),
                 'cellHint' => $cellHint, 'cellAuto' => $cellAuto,
+                'change' => BWACHMeldung::changeInfo($diaryAll, (string)$key),
                 'signal' => $isInstance ? $this->signalInfo($id) : null, 'pollOn' => $st['poll']];
         }
         $this->applyPeers($rows);
@@ -2628,22 +2647,36 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Eigenschaften je Gerät, die nur zum Anzeigen und Sortieren in der Liste dienen (nichts davon ist eine Einstellung). */
-    private function deviceInfo(int $id, array $pcts, array $own, array $labels, array $rules): array
+    private function deviceInfo(int $id, array $pcts, array $own, array $labels, array $rules, array $diary = [], array $retired = []): array
     {
         if ($id <= 0 || !IPS_InstanceExists($id)) {
-            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
+            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'Change' => '', 'ChangeSort' => 0, 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
         }
         $label = $labels[$id] ?? ['name' => IPS_GetName($id), 'place' => '', 'module' => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? '')];
         $p     = $pcts[$id] ?? null;
+        $chg   = null;   // jüngster erfasster Wechsel über alle Einträge dieser Instanz (auch geteilte „id-n“)
+        foreach ($diary as $de) {
+            $dk = (string)$de['key'];
+            if (($dk === (string)$id || strpos($dk, $id . '-') === 0) && ($chg === null || (int)$de['t'] > $chg)) {
+                $chg = (int)$de['t'];
+            }
+        }
         $eff   = BWACHLogik::applyRules([
             'group' => (string)$own['Group'], 'critical' => (bool)$own['Critical'], 'ignoreAge' => (bool)$own['IgnoreAge'],
             'excluded' => (bool)$own['Excluded'], 'cell' => (string)$own['Cell'], 'cells' => (int)$own['Cells'], 'poll' => (bool)$own['Poll'],
-            'stillDays' => (int)($own['StillDays'] ?? 0),
+            'stillDays' => (int)($own['StillDays'] ?? 0), 'noStill' => (bool)($own['NoStill'] ?? false),
         ], $label, $rules);
         $parts = [BWACHZelle::isKnown($eff['cell']) ? ($eff['cells'] > 1 ? $eff['cells'] . '× ' : '') . (string)BWACHZelle::shopLabel($eff['cell']) : 'Zelltyp offen'];
         if ($eff['group'] === BWACHLogik::GROUP_EVENT) { $parts[] = 'Ereignismelder'; }
         if ($eff['critical']) { $parts[] = 'kritisch'; }
         if ($eff['ignoreAge']) { $parts[] = 'ohne Altersprüfung'; }
+        if (!empty($eff['noStill'])) { $parts[] = 'ohne Funkstille-Prüfung'; }
+        foreach (array_keys($retired) as $rk) {
+            if ((string)$rk === (string)$id || strpos((string)$rk, $id . '-') === 0) {
+                $parts[] = 'außer Betrieb';
+                break;
+            }
+        }
         if ((int)($eff['stillDays'] ?? 0) > 0) { $parts[] = 'Funkstille nach ' . (int)$eff['stillDays'] . ' Tagen'; }
         if ($eff['excluded']) { $parts[] = 'ausgenommen'; }
         if ($eff['rule'] !== null) {
@@ -2657,6 +2690,8 @@ class Batteriewaechter extends IPSModule
             'Percent'       => $p === null ? '—' : BWACHLogik::num($p) . ' %',
             'PercentSort'   => $p === null ? 1000.0 : round($p, 1),   // Geräte ohne Wert landen bei „aufsteigend“ hinten
             'Effect'        => implode(' · ', $parts),
+            'Change'        => $chg === null ? '—' : date('d.m.Y', $chg),
+            'ChangeSort'    => $chg === null ? 0 : $chg,
             'effectiveCell' => $eff['cell'],
             'effectiveExcluded' => (bool)$eff['excluded'],
         ];
@@ -2733,6 +2768,8 @@ class Batteriewaechter extends IPSModule
         $pcts   = $this->currentPercents($found0);
         $labels = $this->deviceLabels($found0);
         $rules  = $this->groupRules();
+        $diaryD = $this->loadJson('Diary');
+        $retD   = $this->loadJson('Retired');
         $open   = [];
         if (is_array($saved)) {
             foreach ($saved as $r) {
@@ -2754,6 +2791,7 @@ class Batteriewaechter extends IPSModule
                     'Group'     => (string)($r['Group'] ?? BWACHLogik::GROUP_STANDARD),
                     'Critical'  => (bool)($r['Critical'] ?? false),
                     'IgnoreAge' => (bool)($r['IgnoreAge'] ?? false),
+                    'NoStill'   => (bool)($r['NoStill'] ?? false),
                     'Excluded'  => (bool)($r['Excluded'] ?? false),
                     'Cell'      => $cell,
                     'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
@@ -2761,7 +2799,7 @@ class Batteriewaechter extends IPSModule
                     'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                     'Alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                 ];
-                $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
+                $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD);
                 if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded'] && $id > 0 && IPS_InstanceExists($id)) { $open[] = $info['Name']; }
                 unset($info['effectiveCell'], $info['effectiveExcluded']);
                 $rows[] = $row + $info;
@@ -2777,8 +2815,8 @@ class Batteriewaechter extends IPSModule
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => ''];
-                    $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules);
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => ''];
+                    $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD);
                     if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
                     unset($info['effectiveCell'], $info['effectiveExcluded']);
                     $new[$id] = $row + $info;
@@ -2857,6 +2895,7 @@ class Batteriewaechter extends IPSModule
                         ]]],
                         ['caption' => 'Kritisch', 'name' => 'Critical', 'width' => '70px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ohne Altersprüfung', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Ohne Funkstille-Prüfung', 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Abfragen', 'name' => 'Poll', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Funkstille nach (Tage)', 'name' => 'StillDays', 'width' => '160px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
@@ -2919,6 +2958,8 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'System', 'name' => 'Module', 'width' => '120px', 'add' => ''],
                         ['caption' => 'Batteriestand', 'name' => 'Percent', 'width' => '110px', 'add' => '—', 'sortColumn' => 'PercentSort'],
                         ['caption' => 'Gilt', 'name' => 'Effect', 'width' => '260px', 'add' => ''],
+                        ['caption' => 'Letzter Wechsel', 'name' => 'Change', 'width' => '120px', 'add' => '—', 'sortColumn' => 'ChangeSort'],
+                        ['caption' => 'Sortierwert Wechsel', 'name' => 'ChangeSort', 'width' => '0px', 'visible' => false, 'add' => 0],
                         ['caption' => 'Name', 'name' => 'Name', 'width' => '0px', 'visible' => false, 'add' => ''],
                         ['caption' => 'Sortierwert Batteriestand', 'name' => 'PercentSort', 'width' => '0px', 'visible' => false, 'add' => 1000],
                         ['caption' => 'Gruppe', 'name' => 'Group', 'width' => '170px', 'add' => BWACHLogik::GROUP_STANDARD, 'edit' => ['type' => 'Select', 'options' => [
@@ -2927,6 +2968,7 @@ class Batteriewaechter extends IPSModule
                         ]]],
                         ['caption' => 'Kritisch', 'name' => 'Critical', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ohne Altersprüfung', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Ohne Funkstille-Prüfung', 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
                         ['caption' => 'Zellen (eigen)', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
