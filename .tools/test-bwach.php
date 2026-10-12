@@ -61,6 +61,8 @@ $GLOBALS['ZW'] = []; $GLOBALS['ZW_OK'] = true;
 function ZW_RequestStatus(int $id) { $GLOBALS['ZW'][] = $id; return $GLOBALS['ZW_OK']; }
 function MATTER_RequestStatus(int $id) { $GLOBALS['MT'][] = $id; return $GLOBALS['ZW_OK']; }
 function IPS_SetHidden(int $id, bool $h): bool { $GLOBALS['OBJ'][$id]['hidden'] = $h; return true; }
+function IPS_GetLinkList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 6) { $o[] = $id; } } return $o; }
+function IPS_GetLink(int $id): array { return ['TargetID' => $GLOBALS['OBJ'][$id]['target'] ?? 0]; }
 function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INSTS'][$g] ?? []; }
 function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
 function VISU_PostNotificationEx($id, $t, $x, $icon, $sound, $target) { $GLOBALS['SENT'][] = ['visu', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
@@ -963,6 +965,33 @@ $mG->RequestAction('refresh', '');
 $gp = json_decode(end($mG->visUpdates), true);
 check('Kachel: Statistik „Gewechselte Batterien“ nennt 2× AA', !empty($gp['shopping']['changes']) && strpos($gp['shopping']['changes'][1]['text'], '2× AA') !== false, json_encode($gp['shopping']['changes'] ?? null, JSON_UNESCAPED_UNICODE));
 check('Tabelle „Lebensdauer und Entladung“ hat den Abschnitt „Gewechselte Batterien“', strpos($mG->GetValue('TableStats'), 'Gewechselte Batterien') !== false && strpos($mG->GetValue('TableStats'), '2× AA') !== false);
+
+// Erste Schritte: Kachel eingebunden? (Forum/Dietmar: sollte prüfbar sein)
+$fsBase = ['found' => true, 'devices' => 1, 'open' => 0, 'notify' => true, 'channel' => true, 'matterNoEp0' => 0];
+$ft = BWACHLogik::firstSteps($fsBase + ['tile' => true]);
+$ff = BWACHLogik::firstSteps($fsBase + ['tile' => false]);
+$fn = BWACHLogik::firstSteps($fsBase + ['tile' => null]);
+check('Erste Schritte: Kachel eingebunden ist erledigt (✅), nicht eingebunden und keine Visualisierung sind nur Hinweise', end($ft)['done'] === true && end($ff)['done'] === null && end($fn)['done'] === null && strpos(end($ff)['text'], 'noch nicht') !== false);
+check('Erste Schritte: Matter-Hinweis in der Einzahl („bei 1 Gerät gibt es“) und Mehrzahl', strpos(BWACHLogik::firstSteps(array_merge($fsBase, ['matterNoEp0' => 1]))[4]['text'], 'bei 1 Gerät gibt es') !== false && strpos(BWACHLogik::firstSteps(array_merge($fsBase, ['matterNoEp0' => 3]))[4]['text'], 'bei 3 Geräten gibt es') !== false);
+// Modul: Kachel-Visualisierung mit Startobjekt, Instanz darunter oder per Verknüpfung
+$mK = freshModule(['NotificationsActive' => false]);
+$tileText = function ($mm) { foreach (json_decode($mm->GetConfigurationForm(), true)['elements'] as $pe) { if (($pe['caption'] ?? '') === '🚀  Erste Schritte') { return json_encode($pe, JSON_UNESCAPED_UNICODE); } } return ''; };
+$GLOBALS['INSTS']['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}'] = [];
+check('Ohne Kachel-Visualisierung: Hinweis, nicht eingebunden zu prüfen', strpos($tileText($mK), 'in der Kachel-Visualisierung kann die Instanz als Kachel erscheinen') !== false);
+$GLOBALS['OBJ'][9001] = ['type' => 0, 'parent' => 0, 'ident' => '', 'name' => 'Visu-Start'];
+$GLOBALS['OBJ'][9002] = ['type' => 1, 'parent' => 0, 'ident' => '', 'name' => 'Visu', 'module' => 'Tile Visualization', 'config' => ['BaseID' => 9001]];
+$GLOBALS['INSTS']['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}'] = [9002];
+check('Kachel-Visualisierung da, Instanz nicht darunter: „noch nicht in der Kachel-Visualisierung“', strpos($tileText($mK), 'noch nicht in der Kachel-Visualisierung') !== false);
+$GLOBALS['OBJ'][9003] = ['type' => 6, 'parent' => 9001, 'ident' => '', 'name' => 'Link', 'target' => 12345];
+check('Verknüpfung auf die Instanz unter dem Startobjekt: eingebunden (✅)', strpos($tileText($mK), '✅ Die Kachel ist in der Kachel-Visualisierung eingebunden') !== false);
+unset($GLOBALS['OBJ'][9003]);
+$GLOBALS['OBJ'][12345]['parent'] = 9001;
+check('Instanz selbst unter dem Startobjekt: eingebunden', strpos($tileText($mK), 'ist in der Kachel-Visualisierung eingebunden') !== false);
+$GLOBALS['OBJ'][12345]['parent'] = 0;
+$GLOBALS['OBJ'][9003] = ['type' => 6, 'parent' => 9001, 'ident' => '', 'name' => 'Fremd', 'target' => 55555];
+check('Verknüpfung auf etwas anderes zählt nicht', strpos($tileText($mK), 'noch nicht in der Kachel-Visualisierung') !== false);
+$GLOBALS['INSTS']['{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}'] = [];
+unset($GLOBALS['OBJ'][9001], $GLOBALS['OBJ'][9002], $GLOBALS['OBJ'][9003]);
 
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);

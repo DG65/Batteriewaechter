@@ -2848,6 +2848,47 @@ class Batteriewaechter extends IPSModule
         return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new), 'filled' => $filled, 'open' => $open, 'hits' => $hits, 'labels' => $labels];
     }
 
+    /**
+     * Liegt die Instanz (oder eine Verknüpfung darauf) unter dem Startobjekt einer Kachel-Visualisierung?
+     * true/false; null, wenn es keine Kachel-Visualisierung gibt oder die Prüfung nicht möglich ist.
+     */
+    private function tileLinked(): ?bool
+    {
+        $visus = (array)IPS_GetInstanceListByModuleID(self::KACHEL_GUID);
+        if (!$visus) {
+            return null;
+        }
+        $cands = [$this->InstanceID];   // die Instanz selbst und Verknüpfungen auf sie
+        if (function_exists('IPS_GetLinkList') && function_exists('IPS_GetLink')) {
+            foreach ((array)IPS_GetLinkList() as $lid) {
+                $l = IPS_GetLink((int)$lid);
+                if (is_array($l) && (int)($l['TargetID'] ?? 0) === $this->InstanceID) {
+                    $cands[] = (int)$lid;
+                }
+            }
+        }
+        foreach ($visus as $v) {
+            $cfg = json_decode((string)IPS_GetConfiguration((int)$v), true);
+            if (!is_array($cfg) || !array_key_exists('BaseID', $cfg)) {
+                continue;
+            }
+            $base = (int)$cfg['BaseID'];
+            if ($base === 0) {
+                return true;   // Wurzel des Objektbaums: alles liegt darunter
+            }
+            foreach ($cands as $c) {
+                $p = (int)$c;
+                for ($n = 0; $p > 0 && $n < 64; $n++) {
+                    if ($p === $base) {
+                        return true;
+                    }
+                    $p = (int)IPS_GetParent($p);
+                }
+            }
+        }
+        return false;
+    }
+
     private function FirstStepsPanel(array $dr): array
     {
         $found = $this->found();
@@ -2856,6 +2897,7 @@ class Batteriewaechter extends IPSModule
             'notify' => $this->ReadPropertyBoolean('NotificationsActive'),
             'channel' => $this->ReadPropertyBoolean('NotifyPush') || $this->ReadPropertyBoolean('NotifyMail'),
             'matterNoEp0' => count($this->matterWithoutPower()),
+            'tile' => $this->tileLinked(),
         ]);
         $allDone = count(array_filter($steps, function ($s) { return $s['done'] === false; })) === 0;
         $items = [];

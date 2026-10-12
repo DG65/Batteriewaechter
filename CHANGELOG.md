@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.14.2] - 2026-10-12
+
+### Changed
+- **„Erste Schritte“ prüft jetzt, ob die Kachel eingebunden ist:** Das Modul liest das Startobjekt der Kachel-Visualisierung (Einstellung `BaseID`) und sucht die Instanz oder eine Verknüpfung darauf darunter. Gefunden: ✅ „Die Kachel ist in der Kachel-Visualisierung eingebunden“. Nicht gefunden: nur ein Hinweis (die Kachel ist optional, der Punkt wird nie „offen“). Gibt es keine Kachel-Visualisierung, steht ein neutraler Hinweis. Vorher stand dort immer ein Hinweis ohne Haken, weil ich es nicht prüfen konnte; das ging aber doch.
+- Der Matter-Hinweis in „Erste Schritte“ sagt „bei 1 Gerät gibt es“ statt „bei 1 Geräten“.
+
 ## [0.14.1] - 2026-10-12
 
 ### Added

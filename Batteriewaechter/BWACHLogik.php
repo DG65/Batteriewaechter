@@ -348,9 +348,19 @@ final class BWACHLogik
         $notified = !empty($s['notify']) && !empty($s['channel']);
         $out[] = ['done' => $notified,
             'text' => $notified ? 'Meldungen sind eingeschaltet' : (!empty($s['notify']) ? 'Meldungen sind an, aber weder Push noch E-Mail gewählt: unter „Meldungen“ einen Weg ankreuzen' : 'Meldungen einschalten: unter „Meldungen“ „Meldungen aktiv“ ankreuzen und Push oder E-Mail wählen')];
-        $out[] = ['done' => null, 'text' => 'Kachel (optional): die Instanz in der Kachel-Visualisierung als Kachel hinzufügen'];
-        if ((int)($s['matterNoEp0'] ?? 0) > 0) {
-            $out[] = ['done' => null, 'text' => 'Matter: bei ' . (int)$s['matterNoEp0'] . ' Geräten gibt es keine Instanz für die Stromversorgung (Endpunkt 0). Nur für Batteriegeräte nötig, Näheres unter „Gefundene Geräte“'];
+        // Kachel: optional, deshalb nie „offen“. true = eingebunden, false = Kachel-Visualisierung da, aber nicht eingebunden,
+        // null = es gibt keine Kachel-Visualisierung (oder die Prüfung war nicht möglich)
+        $tile = array_key_exists('tile', $s) ? $s['tile'] : null;
+        if ($tile === true) {
+            $out[] = ['done' => true, 'text' => 'Die Kachel ist in der Kachel-Visualisierung eingebunden'];
+        } elseif ($tile === false) {
+            $out[] = ['done' => null, 'text' => 'Kachel (optional): noch nicht in der Kachel-Visualisierung. Die Instanz oder eine Verknüpfung darauf unter das Startobjekt der Kachel-Visualisierung legen'];
+        } else {
+            $out[] = ['done' => null, 'text' => 'Kachel (optional): in der Kachel-Visualisierung kann die Instanz als Kachel erscheinen (es gibt dort noch keine Kachel-Visualisierung oder sie ließ sich nicht prüfen)'];
+        }
+        $mn = (int)($s['matterNoEp0'] ?? 0);
+        if ($mn > 0) {
+            $out[] = ['done' => null, 'text' => 'Matter: bei ' . $mn . ($mn === 1 ? ' Gerät gibt es' : ' Geräten gibt es') . ' keine Instanz für die Stromversorgung (Endpunkt 0). Nur für Batteriegeräte nötig, Näheres unter „Gefundene Geräte“'];
         }
         return $out;
     }
