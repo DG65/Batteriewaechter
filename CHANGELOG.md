@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.14.1] - 2026-10-12
+
+### Added
+- **Statistik „Gewechselte Batterien“** (Forum: „da werden manche erschrecken“): In der Kachel unter „Statistik“ und in der Tabelle „Lebensdauer und Entladung“ steht je Zeitraum (letzte 30 Tage, letzte 12 Monate, insgesamt), wie viele Wechsel an wie vielen Geräten stattfanden und wie viele Batterien welchen Typs das waren (eine Batterie je Zelle: 2× AAA bei zwei Zellen). Wechsel von Geräten ohne bekannten Zelltyp oder ohne Eintrag (nicht mehr überwacht) werden als „Zelltyp unbekannt“ gezählt, nicht geraten. Der Zelltyp ist der heutige des Geräts; das Tagebuch hält ihn nicht fest.
+
 ## [0.14.0] - 2026-10-12
 
 ### Added

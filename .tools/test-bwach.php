@@ -956,6 +956,14 @@ $mNs->props['DeviceSettings'] = json_encode($allN);
 $mNs->Check();
 check('Modul: „Ohne Funkstille-Prüfung“ an allen Geräten (vorher ' . $silB . ' in Funkstille, danach keines)', $silB > 0 && $mNs->GetValue('Silent') === 0, $silB . ' → ' . $mNs->GetValue('Silent'));
 
+// Modul: Statistik „Gewechselte Batterien“ in Kachel und Tabelle
+$mG = freshModule(['NotificationsActive' => false, 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Cell' => 'aa_alkali', 'Cells' => 2, 'Poll' => false]])]);
+$mG->Acknowledge('114', 'getauscht');
+$mG->RequestAction('refresh', '');
+$gp = json_decode(end($mG->visUpdates), true);
+check('Kachel: Statistik „Gewechselte Batterien“ nennt 2× AA', !empty($gp['shopping']['changes']) && strpos($gp['shopping']['changes'][1]['text'], '2× AA') !== false, json_encode($gp['shopping']['changes'] ?? null, JSON_UNESCAPED_UNICODE));
+check('Tabelle „Lebensdauer und Entladung“ hat den Abschnitt „Gewechselte Batterien“', strpos($mG->GetValue('TableStats'), 'Gewechselte Batterien') !== false && strpos($mG->GetValue('TableStats'), '2× AA') !== false);
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
@@ -1995,6 +2003,22 @@ $nsR = ['Active' => true, 'Kind' => 'name', 'Pattern' => 'Badfenster', 'Cell' =>
 check('Regel setzt „Ohne Funkstille-Prüfung“, eine eigene Einstellung bleibt', BWACHLogik::applyRules($rb, ['name' => 'Badfenster', 'place' => '', 'module' => ''], [$nsR])['noStill'] === true && BWACHLogik::applyRules(['noStill' => true] + $rb, ['name' => 'X', 'place' => '', 'module' => ''], [$nsR])['noStill'] === true && empty(BWACHLogik::applyRules($rb, ['name' => 'X', 'place' => '', 'module' => ''], [$nsR])['noStill']));
 $ci = BWACHMeldung::changeInfo([['t' => 100, 'key' => 'a'], ['t' => 300, 'key' => 'a'], ['t' => 200, 'key' => 'b']], 'a');
 check('changeInfo: jüngster und vorheriger Wechsel, Anzahl; ohne Eintrag null', $ci === ['last' => 300, 'prev' => 100, 'count' => 2] && BWACHMeldung::changeInfo([], 'a') === null && BWACHMeldung::changeInfo([['t' => 5, 'key' => 'b']], 'a') === null);
+
+// Gewechselte Batterien je Zeitraum und Zelltyp (Forum: Lutz)
+$cn = 1790000000;
+$cdiary = [
+    ['t' => $cn - 10 * 86400, 'key' => 'a', 'name' => 'A'],     // 2× AAA, letzte 30 Tage
+    ['t' => $cn - 100 * 86400, 'key' => 'a', 'name' => 'A'],    // 2× AAA, letzte 12 Monate
+    ['t' => $cn - 200 * 86400, 'key' => 'b', 'name' => 'B'],    // 1× CR2032
+    ['t' => $cn - 400 * 86400, 'key' => 'c', 'name' => 'C'],    // Zelltyp unbekannt
+    ['t' => $cn - 500 * 86400, 'key' => 'gone', 'name' => 'G'], // Gerät nicht mehr überwacht
+];
+$cstat = BWACHPrognose::changeStats($cdiary, ['a' => ['label' => 'AAA', 'cells' => 2], 'b' => ['label' => 'CR2032', 'cells' => 1], 'c' => ['label' => '', 'cells' => 1]], $cn);
+check('Gewechselte Batterien: 30 Tage 1 Wechsel (2× AAA), 12 Monate 3 Wechsel, insgesamt 5', $cstat[0]['changes'] === 1 && $cstat[0]['byLabel'] === ['AAA' => 2] && $cstat[1]['changes'] === 3 && $cstat[2]['changes'] === 5);
+check('Gewechselte Batterien: 12 Monate = 4× AAA und 1× CR2032, nach Menge sortiert', array_keys($cstat[1]['byLabel']) === ['AAA', 'CR2032'] && $cstat[1]['byLabel']['AAA'] === 4 && $cstat[1]['byLabel']['CR2032'] === 1);
+check('Gewechselte Batterien: Wechsel ohne Zelltyp oder ohne Gerät zählen als unbekannt, nicht geraten', $cstat[2]['unknown'] === 2 && $cstat[1]['unknown'] === 0 && $cstat[2]['devices'] === 4);
+check('Gewechselte Batterien: Text nennt Wechsel, Geräte, Zelltypen und Unbekannte; ohne Wechsel „kein Wechsel“', strpos(BWACHPrognose::changeStatsText($cstat[2]), '5 Wechsel an 4 Geräten: 4× AAA, 1× CR2032 (bei 2 Wechseln ist der Zelltyp unbekannt)') === 0 && BWACHPrognose::changeStatsText(['changes' => 0, 'devices' => 0, 'byLabel' => [], 'unknown' => 0]) === 'kein Wechsel');
+check('Gewechselte Batterien: ohne Tagebuch leer', BWACHPrognose::changeStats([], [], $cn) === []);
 
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };

@@ -409,6 +409,15 @@
 
     function bwStats(root) {
         var rows = (BW.shopping && BW.shopping.stats) || [];
+        var chg = (BW.shopping && BW.shopping.changes) || [];
+        if (chg.length) {
+            var cbox = bwEl('div', 'bw-sec');
+            cbox.appendChild(bwEl('div', 'bw-h', '🔋 Gewechselte Batterien'));
+            var cg = bwEl('div', 'bw-dia');
+            chg.forEach(function (c) { cg.appendChild(bwEl('span', 'd', c.label)); cg.appendChild(bwEl('span', '', c.text)); });
+            cbox.appendChild(cg);
+            root.appendChild(cbox);
+        }
         var box = bwEl('div', 'bw-sec');
         box.appendChild(bwEl('div', 'bw-h', '⏱ Lebensdauer zwischen zwei Batteriewechseln'));
         if (rows.length === 0) {

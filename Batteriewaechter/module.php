@@ -456,6 +456,7 @@ class Batteriewaechter extends IPSModule
         $items   = [];
         $cellOf  = [];
         $modOf   = [];
+        $cellN   = [];
         foreach ($rows as $row) {
             $f = $row['forecast'];
             $items[] = [
@@ -471,6 +472,7 @@ class Batteriewaechter extends IPSModule
             ];
             $cellOf[$row['id']] = BWACHZelle::isKnown($row['cell']) ? BWACHZelle::shopLabel($row['cell']) : '';
             $modOf[$row['id']]  = $row['module'];
+            $cellN[$row['id']]  = ['label' => (string)$cellOf[$row['id']], 'cells' => (int)$row['cells']];
         }
         $life = BWACHPrognose::lifetimes($this->loadJson('Diary'));
         $peers = [];
@@ -489,6 +491,7 @@ class Batteriewaechter extends IPSModule
             'life'     => $life,
             'byCell'   => BWACHPrognose::lifetimeByGroup($life, $cellOf),
             'byModule' => BWACHPrognose::lifetimeByGroup($life, $modOf),
+            'changes'  => BWACHPrognose::changeStats($this->loadJson('Diary'), $cellN, $now),
             'items'    => $items,
             'peers'    => $peers,
             'cold'     => $cold,
@@ -547,6 +550,16 @@ class Batteriewaechter extends IPSModule
         }
         $out .= '<div style="padding:10px 2px 4px"><b>🎯 Genauigkeit der Prognose</b></div><div style="padding:4px 2px;opacity:.9">' . $e($this->accuracyText($v['accuracy'])) . '</div>';
         $out .= '<div style="padding:10px 2px 4px"><b>🌡 Kälteeinfluss</b></div><div style="padding:4px 2px;opacity:.9">' . $e($v['cold']) . '</div>';
+        $out .= '<div style="padding:10px 2px 4px"><b>🔋 Gewechselte Batterien</b></div>';
+        if (!$v['changes']) {
+            $out .= '<div style="padding:4px 2px;opacity:.85">ℹ️ Noch kein Batteriewechsel erfasst.</div>';
+        } else {
+            $body = '';
+            foreach ($v['changes'] as $c) {
+                $body .= '<tr><td>' . $e($c['label']) . '</td><td>' . $e(BWACHPrognose::changeStatsText($c)) . '</td></tr>';
+            }
+            $out .= '<table class="bw"><tr><th>Zeitraum</th><th>Gewechselt</th></tr>' . $body . '</table>';
+        }
         $out .= '<div style="padding:10px 2px 4px"><b>⏱ Lebensdauer (Zeit zwischen zwei Batteriewechseln)</b></div>';
         if (!$v['life']) {
             return $out . '<div style="padding:8px">ℹ️ Noch zu wenig Daten: je Gerät braucht es mindestens zwei erfasste Batteriewechsel.</div>';
@@ -2438,6 +2451,7 @@ class Batteriewaechter extends IPSModule
         return [
             'horizon' => $v['horizon'],
             'where'   => 'Instanz „' . IPS_GetName($this->InstanceID) . '“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“',
+            'changes' => array_map(function ($c) { return ['label' => $c['label'], 'text' => BWACHPrognose::changeStatsText($c)]; }, $v['changes']),
             'lines'   => $v['shopping']['lines'],
             'items'   => $items,
             'covered' => $v['shopping']['covered'],

@@ -388,6 +388,76 @@ final class BWACHPrognose
     }
 
     /**
+     * Gewechselte Batterien je Zeitraum und Zelltyp, aus dem Tagebuch.
+     * Eine Batterie pro Zelle: ein Wechsel an einem Gerät mit 2 Zellen AAA zählt 2× AAA. Der Zelltyp ist der heutige
+     * des Geräts (das Tagebuch hält ihn nicht fest); Wechsel von Geräten ohne bekannten Zelltyp oder ohne Eintrag
+     * (nicht mehr überwacht) werden als solche gezählt, nicht geraten.
+     *
+     * @param array $diary  Einträge ['t','key',…]
+     * @param array $cellOf key => ['label'=>string ('' = unbekannt),'cells'=>int]
+     * @return array Zeiträume: [['id','label','changes','devices','byLabel'=>[Label=>Anzahl],'unknown'=>int],…]; leer ohne Einträge
+     */
+    public static function changeStats(array $diary, array $cellOf, int $now): array
+    {
+        if (!$diary) {
+            return [];
+        }
+        $first = $now;
+        foreach ($diary as $e) {
+            $first = min($first, (int)$e['t']);
+        }
+        $periods = [
+            ['id' => '30',  'label' => 'Letzte 30 Tage',   'since' => $now - 30 * 86400],
+            ['id' => '365', 'label' => 'Letzte 12 Monate', 'since' => $now - 365 * 86400],
+            ['id' => 'all', 'label' => 'Insgesamt (seit ' . date('d.m.Y', $first) . ')', 'since' => 0],
+        ];
+        $out = [];
+        foreach ($periods as $p) {
+            $changes = 0;
+            $devs    = [];
+            $by      = [];
+            $unknown = 0;
+            foreach ($diary as $e) {
+                if ((int)$e['t'] < $p['since']) {
+                    continue;
+                }
+                $changes++;
+                $devs[(string)$e['key']] = true;
+                $c = $cellOf[(string)$e['key']] ?? null;
+                if ($c === null || (string)$c['label'] === '') {
+                    $unknown++;
+                    continue;
+                }
+                $by[(string)$c['label']] = ($by[(string)$c['label']] ?? 0) + max(1, (int)$c['cells']);
+            }
+            arsort($by);
+            $out[] = ['id' => $p['id'], 'label' => $p['label'], 'changes' => $changes, 'devices' => count($devs), 'byLabel' => $by, 'unknown' => $unknown];
+        }
+        return $out;
+    }
+
+    /** Eine Zeile je Zeitraum: „23 Wechsel an 11 Geräten: 14× AAA, 6× CR2032 (bei 3 Wechseln ist der Zelltyp unbekannt)“. */
+    public static function changeStatsText(array $period): string
+    {
+        $n = (int)$period['changes'];
+        if ($n === 0) {
+            return 'kein Wechsel';
+        }
+        $parts = [];
+        foreach ($period['byLabel'] as $label => $count) {
+            $parts[] = $count . '× ' . $label;
+        }
+        $text = $n . ' Wechsel an ' . $period['devices'] . ($period['devices'] === 1 ? ' Gerät' : ' Geräten');
+        if ($parts) {
+            $text .= ': ' . implode(', ', $parts);
+        }
+        if ((int)$period['unknown'] > 0) {
+            $text .= ' (bei ' . $period['unknown'] . ($period['unknown'] === 1 ? ' Wechsel' : ' Wechseln') . ' ist der Zelltyp unbekannt)';
+        }
+        return $text;
+    }
+
+    /**
      * Mittlere Lebensdauer je Gruppe (Zelltyp oder Modul).
      *
      * @param array $life  Ergebnis von lifetimes()
