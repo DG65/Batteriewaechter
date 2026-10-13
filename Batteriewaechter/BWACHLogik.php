@@ -83,6 +83,19 @@ final class BWACHLogik
         return $v > 30 && $v < 400;
     }
 
+    /**
+     * Hat die Variable eine Aktion (Schalter, Sollwert)? Die benutzerdefinierte Aktion hat Vorrang:
+     * 0 = Standardaktion der Variable, 1 = „keine Aktion“ (Symcon setzt sie z. B. bei Z-Wave-Sensorwerten),
+     * alles darüber ist die ID eines Skripts oder einer Instanz.
+     */
+    public static function hasAction(int $action, int $customAction): bool
+    {
+        if ($customAction === 1) {
+            return false;
+        }
+        return $customAction > 1 || $action > 0;
+    }
+
     /** Text-Zustand (z. B. „low“, „critical“): trifft, wenn der Wert eines der Muster (Komma = oder) enthält, ohne Groß-/Kleinschreibung. */
     public static function textMatches(string $value, string $patterns): bool
     {

@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.1] - 2026-10-13
+
+### Fixed
+- **Z-Wave-Sensoren standen fälschlich in „Funkstille“** (Befund an der eigenen Anlage: „Sensor Windfang“ und „Sensor Wohnzimmer“ meldeten täglich, der Wächter sagte „seit 7 Tagen kein Lebenszeichen“). Ursache: Variablen mit einer Aktion (Sollwert, Schalter) zählen nicht als Lebenszeichen, weil Symcon sie oft selbst schreibt. Der Wächter hielt dabei auch `VariableCustomAction = 1` für eine Aktion, das aber „keine Aktion“ heißt (so setzt das Z-Wave-Modul seine Sensorwerte). Damit galten fast alle Messwerte solcher Geräte als „von Symcon geschrieben“, und nur die Batterie (alle paar Tage) blieb als Lebenszeichen. Jetzt gilt: Benutzerdefinierte Aktion 1 = keine Aktion, größer als 1 = Skript oder Instanz, 0 = Standardaktion der Variable. Betroffen waren alle Geräte, deren Messwerte so gesetzt sind, nicht nur Z-Wave.
+
 ## [0.16.0] - 2026-10-13
 
 ### Added

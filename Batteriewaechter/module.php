@@ -2010,7 +2010,9 @@ class Batteriewaechter extends IPSModule
                 // Variablen mit Aktion (Sollwert, Schalter) schreibt oft Symcon selbst, z. B. eine
                 // Heizungssteuerung — das ist kein Lebenszeichen des Geräts. Live gefunden: ausgebaute
                 // Thermostate meldeten täglich „Sollwert aktualisiert“.
-                if ((int)($var['VariableAction'] ?? 0) > 0 || (int)($var['VariableCustomAction'] ?? 0) > 0) {
+                // Achtung: VariableCustomAction = 1 heißt „keine Aktion“ (so steht es bei Z-Wave-Sensorwerten),
+                // nicht „hat eine Aktion“; sonst gälte jeder Z-Wave-Sensor als schweigend.
+                if (BWACHLogik::hasAction((int)($var['VariableAction'] ?? 0), (int)($var['VariableCustomAction'] ?? 0))) {
                     continue;
                 }
                 $max = max($max, (int)($var['VariableUpdated'] ?? 0));

@@ -1036,6 +1036,22 @@ check('Neue Sensor-Zeilen übernehmen die Einstellung der gespeicherten Instanz-
 $sensorValues = array_map(function ($r) { return $r['Percent']; }, $sensorRows);
 check('Batteriestand je Sensor, nicht das Minimum der Instanz', count(array_unique($sensorValues)) === 2, json_encode($sensorValues));
 
+// Modul: Lebenszeichen aus Variablen mit „keine Aktion“ (Z-Wave: VariableCustomAction = 1)
+$mLs = freshModule(['NotificationsActive' => false]);
+mkinst(8901, 'Sensor Windfang', 'Z-Wave Module');
+mkvar(8902, 8901, 'BatteryVariable', 'Batterie', 1, 100, $GLOBALS['CLOCK'] - 8 * 86400, '~Battery.100');
+mkvar(8903, 8901, 'SensorMultilevel01Variable', 'Lufttemperatur', 2, 20.8, $GLOBALS['CLOCK'] - 300, '~Temperature', ['VariableCustomAction' => 1]);
+$GLOBALS['INSTS']['{3565B1F2-8F7B-4311-A4B6-1BF1D868F39E}'] = $GLOBALS['INSTS']['{3565B1F2-8F7B-4311-A4B6-1BF1D868F39E}'] ?? [];
+$mLs->Search(); $mLs->Check();
+$mLs->RequestAction('refresh', '');
+$lsDev = null; foreach (json_decode(end($mLs->visUpdates), true)['devices'] as $dv) { if ($dv['name'] === 'Sensor Windfang') { $lsDev = $dv; } }
+check('Z-Wave-Sensor: aktuelle Temperatur mit „keine Aktion“ ist ein Lebenszeichen, keine Funkstille', $lsDev !== null && $lsDev['funk'] === 'aktiv' && $lsDev['lifeAgeSec'] < 3600, json_encode($lsDev['funk'] ?? null));
+$GLOBALS['OBJ'][8903]['var']['VariableCustomAction'] = 0;
+$GLOBALS['OBJ'][8903]['var']['VariableAction'] = 8901;   // echter Sollwert/Schalter: zählt nicht
+$mLs->Check(); $mLs->RequestAction('refresh', '');
+$lsDev2 = null; foreach (json_decode(end($mLs->visUpdates), true)['devices'] as $dv) { if ($dv['name'] === 'Sensor Windfang') { $lsDev2 = $dv; } }
+check('Variable mit echter Aktion zählt weiter nicht als Lebenszeichen (Sollwert schreibt Symcon selbst)', $lsDev2 !== null && $lsDev2['funk'] === 'still', json_encode($lsDev2['funk'] ?? null));
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
@@ -2108,6 +2124,8 @@ check('Eigene Typen ohne Kurve werden bei „passt zu“ nicht vorgeschlagen', s
 BWACHZelle::setCustom([]);
 check('Eigene Typen: nach dem Zurücksetzen sind sie weg', !BWACHZelle::isKnown('own_lr9_spezial') && BWACHZelle::customKey('LR 9 / Spezial!') === 'own_lr_9_spezial');
 
+// Variablen mit „keine Aktion“ (VariableCustomAction = 1) sind Messwerte, keine Sollwerte (live: Z-Wave-Sensoren)
+check('hasAction: Standard 0/0 keine, Aktion >0 ja, benutzerdefiniert 1 = keine Aktion, >1 = Skript/Instanz', BWACHLogik::hasAction(0, 0) === false && BWACHLogik::hasAction(59470, 0) === true && BWACHLogik::hasAction(0, 1) === false && BWACHLogik::hasAction(59470, 1) === false && BWACHLogik::hasAction(0, 4711) === true);
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
 $mv = [$mk(1, 'OPERATING_VOLTAGE', 232.2, 70), $mk(2, 'OPERATING_VOLTAGE', 3.0, 71), $mk(3, 'OPERATING_VOLTAGE', 3000.0, 72), $mk(4, 'OPERATING_VOLTAGE', 30.0, 73), $mk(5, 'OPERATING_VOLTAGE', 31.0, 74), $mk(6, 'OPERATING_VOLTAGE', 400.0, 75)];

@@ -44,7 +44,6 @@ $mutations = [
     ['BWACHLogik.php', '$group === self::GROUP_EVENT ? ($p[\'stillDaysEvent\'] ?? 30) : ($p[\'stillDays\'] ?? 7)', '($p[\'stillDays\'] ?? 7)', 'Ereignismelder-Gruppe wirkungslos'],
     ['BWACHLogik.php', '$aggregateInstances[(int)$v[\'parentId\']] = true;', '', 'Sammelgerät-Regel (Raum-Flag) entfällt'],
     ['BWACHLogik.php', 'if (count($list) < 2 || !empty($d[\'merged\'])) {', 'if (true) {', 'Mehrere Sensoren einer Instanz werden nicht geteilt'],
-    ['module.php', 'if ((int)($var[\'VariableAction\'] ?? 0) > 0 || (int)($var[\'VariableCustomAction\'] ?? 0) > 0) {', 'if (false) {', 'Variablen mit Aktion zählen als Lebenszeichen'],
     // --- Meilenstein 2: Meldungslogik
     ['BWACHMeldung.php', "if (\$now - \$s['notified'] >= \$interval) {", "if (\$now - \$s['notified'] > \$interval) {", 'Erinnerung: ≥ → >'],
     ['BWACHMeldung.php', '$isNew = count(array_diff($probs, $s[\'probs\'])) > 0;', '$isNew = false;', 'Neuer Befund wird nie als neu erkannt'],
@@ -364,6 +363,10 @@ $mutations = [
     ['module.php', "\$row = ['Instance' => \$id] + array_merge(\$base, ['Alias' => '', 'Sensor' => \$sen]);", "\$row = ['Instance' => \$id, 'Sensor' => \$sen, 'Alias' => ''] + ['Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false, 'StillDays' => 0];", 'Neue Sensor-Zeile übernimmt die Instanz-Einstellung'],
     ['module.php', "\$p     = \$pcts[\$sensor > 0 ? \$rowKey : \$id] ?? null;", "\$p     = \$pcts[\$id] ?? null;", 'Batteriestand je Sensor'],
     ['module.php', "\$out[(string)\$key] = \$v;   // der Wert genau dieses Sensors", "", 'Wert je Sensor wird gemerkt'],
+    ['BWACHLogik.php', "if (\$customAction === 1) {\n            return false;\n        }", "", '„Keine Aktion“ (1) ist keine Aktion'],
+    ['BWACHLogik.php', "return \$customAction > 1 || \$action > 0;", "return \$action > 0;", 'Benutzerdefinierte Aktion zählt'],
+    ['BWACHLogik.php', "return \$customAction > 1 || \$action > 0;", "return \$customAction > 1;", 'Standardaktion zählt'],
+    ['module.php', "if (BWACHLogik::hasAction((int)(\$var['VariableAction'] ?? 0), (int)(\$var['VariableCustomAction'] ?? 0))) {", "if (false) {", 'Variablen mit Aktion sind kein Lebenszeichen'],
     ['module.php', "\$sig['voltage'] = ['value' => \$volt >= 400 ? \$volt / 1000 : \$volt, 'updated' => \$upd];", "\$sig['voltage'] = ['value' => \$volt, 'updated' => \$upd];", 'Millivolt werden als Volt gelesen'],
     ['module.php', '$this->SetTimerInterval(\'Debounce\', self::DEBOUNCE_MS);', '', 'Sammelfenster wird nie gestartet'],
     ['module.php', '$this->UnregisterMessage($sender, self::VM_UPDATE_MSG);', '', 'Abmeldung weggefallener Variablen entfällt'],
