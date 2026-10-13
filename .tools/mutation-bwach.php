@@ -367,6 +367,7 @@ $mutations = [
     ['BWACHLogik.php', "return \$customAction > 1 || \$action > 0;", "return \$action > 0;", 'Benutzerdefinierte Aktion zählt'],
     ['BWACHLogik.php', "return \$customAction > 1 || \$action > 0;", "return \$customAction > 1;", 'Standardaktion zählt'],
     ['module.php', "if (BWACHLogik::hasAction((int)(\$var['VariableAction'] ?? 0), (int)(\$var['VariableCustomAction'] ?? 0))) {", "if (false) {", 'Variablen mit Aktion sind kein Lebenszeichen'],
+    ['module.php', "\$rows[] = ['Nr' => \$i + 1] + \$r + ['Hits'", "\$rows[] = ['Nr' => 0] + \$r + ['Hits'", 'Regelnummer wird gezählt'],
     ['BWACHLogik.php', "[self::RULE_PLACE, self::RULE_MODULE, self::RULE_NAME, self::RULE_SENSOR], true)) {\n            return false;\n        }\n        \$value", "[self::RULE_PLACE, self::RULE_MODULE, self::RULE_NAME], true)) {\n            return false;\n        }\n        \$value", 'Kriterium Sensor wird ausgewertet'],
     ['module.php', "\$label['sensor'] = \$svn;", "", 'Sensor-Zeile: Kriterium Sensor in „Gilt“'],
     ['module.php', "\$i = BWACHLogik::firstRule(\$rules, \$this->deviceLabel(\$hd, \$hid, true, \$hsibs));", "\$i = BWACHLogik::firstRule(\$rules, \$labels[\$hid] ?? []);", 'Treffer je Sensor'],

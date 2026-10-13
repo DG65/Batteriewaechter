@@ -527,7 +527,7 @@ check('News-Panel erscheint danach nicht mehr, aber bei einer neueren Version wi
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 13);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
-    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits', 'Panel', 'Change', 'ChangeSort', 'SensorName'], true)) { return false; } } } } }
+    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits', 'Panel', 'Change', 'ChangeSort', 'SensorName', 'Nr'], true)) { return false; } } } } }
     return true;
 })());
 $captions = [];
@@ -1070,6 +1070,7 @@ foreach ($rsForm['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if 
 $sensorEffects = array_values(array_filter($rsRows, function ($r) { return $r['Instance'] === 105 && $r['Sensor'] > 0; }));
 check('Geräte-Einstellungen: „Gilt“ nennt die Regel nur beim passenden Sensor', count($sensorEffects) === 2 && (strpos($sensorEffects[0]['Effect'] . $sensorEffects[1]['Effect'], 'Regel 1') !== false) && (strpos($sensorEffects[0]['Effect'], 'Regel 1') !== false) !== (strpos($sensorEffects[1]['Effect'], 'Regel 1') !== false), json_encode([$sensorEffects[0]['Effect'], $sensorEffects[1]['Effect']], JSON_UNESCAPED_UNICODE));
 check('Regel „Sensor enthält“: „Treffer“ zählt den Sensor', isset($rsRuleRows[0]['Hits']) && $rsRuleRows[0]['Hits'] === 1, json_encode($rsRuleRows[0]['Hits'] ?? null));
+check('Gruppen-Regeln: Spalte „Nr.“ nummeriert die Regeln von oben (wie „Regel N“ in „Gilt“)', isset($rsRuleRows[0]['Nr']) && $rsRuleRows[0]['Nr'] === 1 && strpos(json_encode($rsForm, JSON_UNESCAPED_UNICODE), '"caption":"Nr."') !== false);
 check('Kriterium „Sensor enthält“ steht in der Auswahl', strpos(json_encode($rsForm, JSON_UNESCAPED_UNICODE), 'Sensor enthält') !== false);
 
 // Wechselerkennung im Modul

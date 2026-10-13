@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.3] - 2026-10-13
+
+### Added
+- **Spalte „Nr.“ in den Gruppen-Regeln** (Forum): Sie nummeriert die Regeln von oben und passt zu „Regel N“ in der Spalte „Gilt“. Die Nummer folgt der gespeicherten Reihenfolge; wer Zeilen verschiebt, sieht sie nach „Übernehmen“ neu.
+- Der Hilfetext der Regeln nennt das Kriterium „Sensor“.
+
 ## [0.16.2] - 2026-10-13
 
 ### Added

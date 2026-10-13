@@ -2992,7 +2992,7 @@ class Batteriewaechter extends IPSModule
         $rules = $this->groupRules();
         $rows  = [];
         foreach ($rules as $i => $r) {
-            $rows[] = $r + ['Hits' => (int)($dr['hits'][$i] ?? 0)];
+            $rows[] = ['Nr' => $i + 1] + $r + ['Hits' => (int)($dr['hits'][$i] ?? 0)];
         }
         $open = $dr['open'];
         $line = count($rules) === 0
@@ -3005,12 +3005,13 @@ class Batteriewaechter extends IPSModule
             'caption' => '👥  Gruppen',
             'items' => [
                 ['type' => 'Label', 'name' => 'RuleLine', 'caption' => $line],
-                ['type' => 'Label', 'caption' => 'Eine Regel gilt für alle Geräte, auf die ihr Muster passt: nach Ort (Kategorie der Instanz), System (Modul) oder Name. Mehrere Muster trennst du mit Komma (ODER), Groß- und Kleinschreibung ist egal. Es gilt die erste passende Regel von oben, Ausnahmen gehören also nach oben. Eine eigene Einstellung in „Geräte-Einstellungen“ geht vor, sobald sie vom Standard abweicht (Zelltyp gewählt, Ereignismelder, kritisch, ausgenommen). Die Spalte „Gilt“ dort zeigt, was am Ende für ein Gerät zählt.'],
+                ['type' => 'Label', 'caption' => 'Eine Regel gilt für alle Geräte, auf die ihr Muster passt: nach Ort (Kategorie der Instanz), System (Modul), Name oder, bei Instanzen mit mehreren Sensoren, nach dem Sensor (Name der Batterie-Variable). Mehrere Muster trennst du mit Komma (ODER), Groß- und Kleinschreibung ist egal. Es gilt die erste passende Regel von oben, Ausnahmen gehören also nach oben. Eine eigene Einstellung in „Geräte-Einstellungen“ geht vor, sobald sie vom Standard abweicht (Zelltyp gewählt, Ereignismelder, kritisch, ausgenommen). Die Spalte „Gilt“ dort zeigt, was am Ende für ein Gerät zählt.'],
                 [
                     'type' => 'List', 'name' => 'GroupRules', 'caption' => 'Regeln', 'rowCount' => 6, 'add' => true, 'delete' => true, 'changeOrder' => true,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
+                        ['caption' => 'Nr.', 'name' => 'Nr', 'width' => '45px', 'add' => 0],
                         ['caption' => 'An', 'name' => 'Active', 'width' => '50px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Bezeichnung', 'name' => 'Label', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Kriterium', 'name' => 'Kind', 'width' => '150px', 'add' => BWACHLogik::RULE_PLACE, 'edit' => ['type' => 'Select', 'options' => [
