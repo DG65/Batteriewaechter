@@ -1705,9 +1705,10 @@ class Batteriewaechter extends IPSModule
         $out  = [];
         if (is_array($rows)) {
             foreach ($rows as $r) {
-                $id = (int)($r['Instance'] ?? 0);
+                $id  = (int)($r['Instance'] ?? 0);
+                $sen = max(0, (int)($r['Sensor'] ?? 0));   // 0 = die Instanz als Ganzes, sonst die Variable des Sensors
                 if ($id > 0) {
-                    $out[$id] = [
+                    $out[$sen > 0 ? $id . '-' . $sen : $id] = [
                         'group'     => (string)($r['Group'] ?? BWACHLogik::GROUP_STANDARD),
                         'critical'  => (bool)($r['Critical'] ?? false),
                         'ignoreAge' => (bool)($r['IgnoreAge'] ?? false),
@@ -1753,7 +1754,7 @@ class Batteriewaechter extends IPSModule
             $sibs  = ($isInstance && isset($d['node'])) ? $this->matterSiblings($id) : [];
             $label = $this->deviceLabel($d, $id, $isInstance, $sibs);
             // Eigene Einstellung, dann die erste passende Gruppen-Regel
-            $st = BWACHLogik::applyRules($settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false, 'noStill' => false], $label, $rules);
+            $st = BWACHLogik::applyRules($settings[(string)$key] ?? $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false, 'noStill' => false], $label, $rules);
             if ($st['excluded'] || isset($retired[(string)$key])) {
                 continue;
             }
@@ -2676,17 +2677,19 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Eigenschaften je Gerät, die nur zum Anzeigen und Sortieren in der Liste dienen (nichts davon ist eine Einstellung). */
-    private function deviceInfo(int $id, array $pcts, array $own, array $labels, array $rules, array $diary = [], array $retired = []): array
+    private function deviceInfo(int $id, array $pcts, array $own, array $labels, array $rules, array $diary = [], array $retired = [], int $sensor = 0): array
     {
+        $rowKey = $sensor > 0 ? $id . '-' . $sensor : (string)$id;
         if ($id <= 0 || !IPS_InstanceExists($id)) {
-            return ['Name' => '(Instanz fehlt)', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'Change' => '', 'ChangeSort' => 0, 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
+            return ['Name' => '(Instanz fehlt)', 'SensorName' => '', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'Change' => '', 'ChangeSort' => 0, 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
         }
         $label = $labels[$id] ?? ['name' => IPS_GetName($id), 'place' => '', 'module' => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? '')];
-        $p     = $pcts[$id] ?? null;
-        $chg   = null;   // jüngster erfasster Wechsel über alle Einträge dieser Instanz (auch geteilte „id-n“)
+        $p     = $pcts[$sensor > 0 ? $rowKey : $id] ?? null;
+        $chg   = null;   // jüngster erfasster Wechsel dieses Eintrags; bei der Instanz als Ganzes über alle ihre Sensoren
         foreach ($diary as $de) {
             $dk = (string)$de['key'];
-            if (($dk === (string)$id || strpos($dk, $id . '-') === 0) && ($chg === null || (int)$de['t'] > $chg)) {
+            $mine = $sensor > 0 ? $dk === $rowKey : ($dk === (string)$id || strpos($dk, $id . '-') === 0);
+            if ($mine && ($chg === null || (int)$de['t'] > $chg)) {
                 $chg = (int)$de['t'];
             }
         }
@@ -2701,7 +2704,8 @@ class Batteriewaechter extends IPSModule
         if ($eff['ignoreAge']) { $parts[] = 'ohne Altersprüfung'; }
         if (!empty($eff['noStill'])) { $parts[] = 'ohne Funkstille-Prüfung'; }
         foreach (array_keys($retired) as $rk) {
-            if ((string)$rk === (string)$id || strpos((string)$rk, $id . '-') === 0) {
+            $rks = (string)$rk;
+            if ($sensor > 0 ? $rks === $rowKey : ($rks === (string)$id || strpos($rks, $id . '-') === 0)) {
                 $parts[] = 'außer Betrieb';
                 break;
             }
@@ -2712,8 +2716,10 @@ class Batteriewaechter extends IPSModule
             $rl = $rules[$eff['rule']];
             $parts[] = 'Regel ' . ($eff['rule'] + 1) . ($rl['Label'] !== '' ? ' (' . $rl['Label'] . ')' : '');
         }
+        $sensorName = $sensor > 0 && IPS_VariableExists($sensor) ? IPS_GetName($sensor) : '';
         return [
-            'Name'          => $label['name'],
+            'Name'          => $sensor > 0 ? $label['name'] . ' › ' . ($sensorName !== '' ? $sensorName : '#' . $sensor) : $label['name'],
+            'SensorName'    => $sensor > 0 ? ($sensorName !== '' ? $sensorName : '#' . $sensor) : '',
             'Place'         => $label['place'],
             'Module'        => $label['module'],
             'Percent'       => $p === null ? '—' : BWACHLogik::num($p) . ' %',
@@ -2756,6 +2762,9 @@ class Batteriewaechter extends IPSModule
             $v  = (float)$sig['percent']['value'] * (float)($sig['percent']['scale'] ?? 1.0);
             $id = (int)($d['parent'] ?? $key);
             $out[$id] = isset($out[$id]) ? min($out[$id], $v) : $v;
+            if (isset($d['parent'])) {
+                $out[(string)$key] = $v;   // der Wert genau dieses Sensors
+            }
         }
         return $out;
     }
@@ -2801,18 +2810,21 @@ class Batteriewaechter extends IPSModule
         $diaryD = $this->loadJson('Diary');
         $retD   = $this->loadJson('Retired');
         $open   = [];
+        $instRows = [];   // gespeicherte Zeilen „Instanz als Ganzes“: Vorbild für neue Sensor-Zeilen derselben Instanz
         if (is_array($saved)) {
             foreach ($saved as $r) {
-                $id = (int)($r['Instance'] ?? 0);
-                if ($id > 0 && isset($have[$id])) {
-                    continue;   // doppelte Zeilen derselben Instanz: die erste gilt, wie bei der Auswertung
+                $id  = (int)($r['Instance'] ?? 0);
+                $sen = max(0, (int)($r['Sensor'] ?? 0));
+                $hk  = $sen > 0 ? $id . '-' . $sen : (string)$id;
+                if ($id > 0 && isset($have[$hk])) {
+                    continue;   // doppelte Zeilen derselben Instanz (oder desselben Sensors): die erste gilt
                 }
                 if ($id > 0) {
-                    $have[$id] = true;
+                    $have[$hk] = true;
                 }
                 // Ein noch nicht gewählter Zelltyp wird mit dem vorbelegt, was das Gerät meldet; eine Wahl bleibt unberührt
                 $cell = BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN;
-                if ($cell === BWACHZelle::UNKNOWN && ($fromDev = $this->cellFromDevice($id)) !== BWACHZelle::UNKNOWN) {
+                if ($sen === 0 && $cell === BWACHZelle::UNKNOWN && ($fromDev = $this->cellFromDevice($id)) !== BWACHZelle::UNKNOWN) {
                     $cell = $fromDev;
                     $filled++;
                 }
@@ -2828,8 +2840,12 @@ class Batteriewaechter extends IPSModule
                     'Poll'      => (bool)($r['Poll'] ?? false),
                     'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                     'Alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
+                    'Sensor'    => $sen,
                 ];
-                $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD);
+                if ($sen === 0 && $id > 0) {
+                    $instRows[$id] = $row;
+                }
+                $info   = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD, $sen);
                 if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded'] && $id > 0 && IPS_InstanceExists($id)) { $open[] = $info['Name']; }
                 unset($info['effectiveCell'], $info['effectiveExcluded']);
                 $rows[] = $row + $info;
@@ -2840,16 +2856,38 @@ class Batteriewaechter extends IPSModule
         if ($found !== null) {
             foreach ($found['devices'] as $key => $d) {
                 $id = (int)($d['parent'] ?? $key);
-                if ($id > 0 && !isset($have[$id]) && IPS_InstanceExists($id)) {
-                    $have[$id] = true;
+                if ($id <= 0 || !IPS_InstanceExists($id)) {
+                    continue;
+                }
+                if (isset($d['parent'])) {
+                    // Mehrere Sensoren an einer Instanz (z. B. ein Gateway mit vielen Funksensoren): eine Zeile je Sensor
+                    $sen = (int)substr((string)$key, strlen((string)$id) + 1);
+                    $hk  = $id . '-' . $sen;
+                    if ($sen <= 0 || isset($have[$hk])) {
+                        continue;
+                    }
+                    $have[$hk] = true;
+                    $base = $instRows[$id] ?? ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => ''];
+                    // Die Einstellung der Instanz gilt bisher für alle ihre Sensoren: die neue Zeile übernimmt sie, ändert also nichts
+                    $row = ['Instance' => $id] + array_merge($base, ['Alias' => '', 'Sensor' => $sen]);
+                    $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD, $sen);
+                    if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
+                    unset($info['effectiveCell'], $info['effectiveExcluded']);
+                    $new[$hk] = $row + $info;
+                    continue;
+                }
+                $hk = (string)$id;
+                if (!isset($have[$hk])) {
+                    $have[$hk] = true;
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => ''];
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0];
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD);
                     if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
                     unset($info['effectiveCell'], $info['effectiveExcluded']);
-                    $new[$id] = $row + $info;
+                    $new[$hk] = $row + $info;
                 }
             }
             uasort($new, function ($a, $b) { return strcasecmp($a['Name'], $b['Name']); });
@@ -3026,6 +3064,8 @@ class Batteriewaechter extends IPSModule
                     'values' => $dr['rows'],
                     'columns' => [
                         ['caption' => 'Geräteinstanz', 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'sortColumn' => 'Name', 'edit' => ['type' => 'SelectInstance']],
+                        ['caption' => 'Sensor', 'name' => 'SensorName', 'width' => '150px', 'add' => ''],
+                        ['caption' => 'Sensor-Variable', 'name' => 'Sensor', 'width' => '0px', 'visible' => false, 'add' => 0, 'save' => true],
                         ['caption' => 'Ort', 'name' => 'Place', 'width' => '140px', 'add' => ''],
                         ['caption' => 'System', 'name' => 'Module', 'width' => '120px', 'add' => ''],
                         ['caption' => 'Batteriestand', 'name' => 'Percent', 'width' => '110px', 'add' => '—', 'sortColumn' => 'PercentSort'],

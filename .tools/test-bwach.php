@@ -527,7 +527,7 @@ check('News-Panel erscheint danach nicht mehr, aber bei einer neueren Version wi
 $m6->AckPurposeIntro(); $m6->AckForumHint();
 check('Zweck- und Forum-Hinweis einmalig wegklickbar', count(json_decode($m6->GetConfigurationForm(), true)['elements']) === 13);
 check('Listen: jede Spalte hat eine edit-Definition (kein Verlust beim Speichern); nur die reinen Anzeigespalten Ort, System, Batteriestand, Gilt, Treffer und die Sortierwerte nicht, sie werden bei jedem Öffnen neu berechnet', (function () use ($form) {
-    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits', 'Panel', 'Change', 'ChangeSort'], true)) { return false; } } } } }
+    foreach ($form['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['type'] ?? '') === 'List') { foreach ($it['columns'] as $c) { if (!isset($c['edit']) && empty($c['save']) && !in_array($c['name'], ['Place', 'Module', 'Percent', 'Name', 'PercentSort', 'Effect', 'Hits', 'Panel', 'Change', 'ChangeSort', 'SensorName'], true)) { return false; } } } } }
     return true;
 })());
 $captions = [];
@@ -1009,6 +1009,32 @@ $mO->props['OwnCells'] = '[]';
 $oj2 = json_encode(json_decode($mO->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
 check('Modul: Wird der eigene Typ gelöscht, fällt das Gerät auf „Zelltyp offen“ zurück (nichts bricht)', strpos($oj2, 'LR9 Spezial (eigener Typ)') === false && strpos($oj2, 'Zelltyp offen') !== false);
 check('Formular: „Zelltyp (eigen)“ gehört in die Geräteliste, „Vorrat“ heißt „Zelltyp“', (function () use ($oj2) { return substr_count($oj2, '"caption":"Zelltyp (eigen)"') === 1; })());
+
+// Einstellungen je Sensor bei Instanzen mit mehreren Sensoren (Forum: Lutz, 19 Froggit-Sensoren an wenigen Gateways)
+$mSn = freshModule(['NotificationsActive' => false]);
+$mSn->RequestAction('refresh', '');
+$snIds = []; foreach (json_decode(end($mSn->visUpdates), true)['devices'] as $dv) { if (strpos($dv['id'], '105-') === 0) { $snIds[] = $dv['id']; } }
+sort($snIds);
+check('Testwelt: Instanz 105 hat zwei Sensor-Einträge', count($snIds) === 2, json_encode($snIds));
+$s1 = (int)substr($snIds[0], 4); $s2 = (int)substr($snIds[1], 4);
+$mkRow = function (array $o) { return array_merge(['Instance' => 105, 'Sensor' => 0, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => ''], $o); };
+$devOf = function ($mm, $id) { $mm->RequestAction('refresh', ''); foreach (json_decode(end($mm->visUpdates), true)['devices'] as $dv) { if ($dv['id'] === $id) { return $dv; } } return null; };
+$mSn->props['DeviceSettings'] = json_encode([$mkRow(['Sensor' => $s1, 'Critical' => true, 'Cell' => 'aa_alkali', 'Cells' => 2, 'Alias' => 'Bodensensor Beet'])]);
+$d1 = $devOf($mSn, $snIds[0]); $d2 = $devOf($mSn, $snIds[1]);
+check('Einstellung je Sensor: nur dieser Sensor ist kritisch und hat Zelltyp AA (2×)', $d1['critical'] === true && strpos($d1['cellText'], 'AA') !== false && $d2['critical'] === false && $d2['cellText'] === '', json_encode([$d1['critical'], $d1['cellText'], $d2['critical'], $d2['cellText']], JSON_UNESCAPED_UNICODE));
+check('Alias am Sensor ersetzt den ganzen Namen, der andere Sensor behält „Instanz › Sensor“', $d1['name'] === 'Bodensensor Beet' && strpos($d2['name'], ' › ') !== false, $d1['name'] . ' | ' . $d2['name']);
+$mSn->props['DeviceSettings'] = json_encode([$mkRow(['Critical' => true, 'Cell' => 'cr2032'])]);
+$e1 = $devOf($mSn, $snIds[0]); $e2 = $devOf($mSn, $snIds[1]);
+check('Einstellung der Instanz (wie bisher) gilt für beide Sensoren', $e1['critical'] === true && $e2['critical'] === true && strpos($e1['cellText'], 'CR2032') !== false && strpos($e2['cellText'], 'CR2032') !== false);
+$mSn->props['DeviceSettings'] = json_encode([$mkRow(['Critical' => true, 'Cell' => 'cr2032']), $mkRow(['Sensor' => $s2, 'Critical' => false, 'Cell' => 'aaa_alkali', 'Cells' => 3])]);
+$f1 = $devOf($mSn, $snIds[0]); $f2 = $devOf($mSn, $snIds[1]);
+check('Die Zeile des Sensors geht der Zeile der Instanz vor, der andere Sensor erbt von der Instanz', $f1['critical'] === true && strpos($f1['cellText'], 'CR2032') !== false && $f2['critical'] === false && strpos($f2['cellText'], 'AAA') !== false);
+$mSn->props['DeviceSettings'] = json_encode([$mkRow(['Critical' => true, 'Cell' => 'cr2032', 'Cells' => 1])]);
+$rowsSn = []; foreach (json_decode($mSn->GetConfigurationForm(), true)['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $rowsSn = $it['values']; } } }
+$sensorRows = array_values(array_filter($rowsSn, function ($r) { return $r['Instance'] === 105 && $r['Sensor'] > 0; }));
+check('Neue Sensor-Zeilen übernehmen die Einstellung der gespeicherten Instanz-Zeile (nichts ändert sich beim ersten Speichern)', count($sensorRows) === 2 && $sensorRows[0]['Critical'] === true && $sensorRows[0]['Cell'] === 'cr2032' && $sensorRows[1]['Cell'] === 'cr2032' && $sensorRows[0]['Alias'] === '');
+$sensorValues = array_map(function ($r) { return $r['Percent']; }, $sensorRows);
+check('Batteriestand je Sensor, nicht das Minimum der Instanz', count(array_unique($sensorValues)) === 2, json_encode($sensorValues));
 
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
@@ -2445,19 +2471,22 @@ $list = function (BWTest $m) { $f = json_decode($m->GetConfigurationForm(), true
 $mDev = freshModule(['NotificationsActive' => false, 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'cr2032', 'Cells' => 2, 'Poll' => false]])]);
 [$el, $panel] = $list($mDev);
 $ids = array_column($el['values'], 'Instance');
-check('Liste enthält jede erkannte Geräteinstanz genau einmal (Instanzen 101–107, 111, 112, 114; 105 trotz zweier Sensoren nur einmal)', count($ids) === count(array_unique($ids)) && count($ids) === 10 && in_array(105, $ids, true) && in_array(101, $ids, true), json_encode($ids));
+$ids = array_column($el['values'], 'Instance');
+$pairs = array_map(function ($r) { return $r['Instance'] . '-' . $r['Sensor']; }, $el['values']);
+check('Liste enthält jede erkannte Geräteinstanz, geteilte Instanzen je Sensor (Instanz 105 mit zwei Sensoren: zwei Zeilen)', count($pairs) === count(array_unique($pairs)) && count(array_unique($ids)) === 10 && count($ids) === 11 && count(array_keys($ids, 105, true)) === 2 && in_array(101, $ids, true), json_encode($pairs));
+check('Sensor-Zeilen: Sensor-Variable gesetzt, Name nennt Instanz und Sensor; Instanz-Zeilen haben Sensor 0', (function () use ($el) { $n = 0; foreach ($el['values'] as $r) { if ($r['Instance'] === 105) { $n++; if ($r['Sensor'] <= 0 || strpos($r['Name'], ' › ') === false || $r['SensorName'] === '') { return false; } } elseif ($r['Sensor'] !== 0 || $r['SensorName'] !== '') { return false; } } return $n === 2; })());
 check('Die bereits gespeicherte Zeile bleibt unverändert vorn (kritisch, CR2032, 2 Zellen)', $el['values'][0]['Instance'] === 114 && $el['values'][0]['Critical'] === true && $el['values'][0]['Cell'] === 'cr2032' && $el['values'][0]['Cells'] === 2);
 check('Neue Zeilen tragen neutrale Standardwerte (Standard, nicht kritisch, Zelltyp unbekannt, 1 Zelle, keine Abfrage)', (function () use ($el) { foreach (array_slice($el['values'], 1) as $r) { if ($r['Group'] !== 'standard' || $r['Critical'] || $r['IgnoreAge'] || $r['Excluded'] || $r['Cell'] !== 'unbekannt' || $r['Cells'] !== 1 || $r['Poll']) { return false; } } return true; })());
 check('Jede Zeile hat alle Spalten (nichts geht beim Speichern verloren)', (function () use ($el) { foreach ($el['values'] as $r) { if (array_slice(array_keys($r), 0, 8) !== ['Instance', 'Group', 'Critical', 'IgnoreAge', 'NoStill', 'Excluded', 'Cell', 'Cells'] || array_diff(['Poll', 'Name', 'Place', 'Module', 'Percent', 'PercentSort', 'Change', 'ChangeSort'], array_keys($r))) { return false; } } return true; })());
 check('Neue Zeilen nach Instanzname sortiert', (function () use ($el) { $names = array_map(function ($r) { return IPS_GetName($r['Instance']); }, array_slice($el['values'], 1)); $s = $names; usort($s, 'strcasecmp'); return $names === $s; })());
 check('Liste liest nicht aus der Konfiguration, sondern aus den eingesetzten Werten (loadValuesFromConfiguration=false)', $el['loadValuesFromConfiguration'] === false);
-check('Panel ist aufgeklappt, solange es neue Zeilen gibt; Hinweis nennt Zahl und „noch nicht gespeichert“', $panel['expanded'] === true && strpos(json_encode($panel, JSON_UNESCAPED_UNICODE), '9 neu, noch nicht gespeichert') !== false, '');
+check('Panel ist aufgeklappt, solange es neue Zeilen gibt; Hinweis nennt Zahl und „noch nicht gespeichert“', $panel['expanded'] === true && strpos(json_encode($panel, JSON_UNESCAPED_UNICODE), '10 neu, noch nicht gespeichert') !== false, '');
 check('Es wird NICHTS gespeichert: die Eigenschaft bleibt wie sie war', count(json_decode($mDev->props['DeviceSettings'], true)) === 1);
 // vollständig gespeichert
-$all = []; foreach ($ids as $i) { $all[] = ['Instance' => $i, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false]; }
+$all = []; foreach ($el['values'] as $rv) { $all[] = ['Instance' => $rv['Instance'], 'Sensor' => $rv['Sensor'], 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false]; }
 $mDev->props['DeviceSettings'] = json_encode($all);
 [$el2, $panel2] = $list($mDev);
-check('Nach „Übernehmen“: keine Doppelten, nichts Neues, Panel eingeklappt, Hinweis „alle stehen in der Liste“', count($el2['values']) === 10 && $panel2['expanded'] === false && strpos(json_encode($panel2, JSON_UNESCAPED_UNICODE), 'Alle erkannten Geräte stehen in der Liste') !== false);
+check('Nach „Übernehmen“: keine Doppelten, nichts Neues, Panel eingeklappt, Hinweis „alle stehen in der Liste“', count($el2['values']) === 11 && $panel2['expanded'] === false && strpos(json_encode($panel2, JSON_UNESCAPED_UNICODE), 'Alle erkannten Geräte stehen in der Liste') !== false);
 // doppelte gespeicherte Zeilen derselben Instanz
 $mDev->props['DeviceSettings'] = json_encode([$all[0], $all[0], $all[1]]);
 [$el3] = $list($mDev);

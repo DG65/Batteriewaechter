@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.0] - 2026-10-13
+
+### Added
+- **Einstellungen je Sensor bei Instanzen mit mehreren Sensoren** (Forum: 19 Froggit-Sensoren an wenigen Gateways): Hängen mehrere Batterie-Variablen an einer Instanz, führt der Wächter sie schon als eigene Geräte, die Geräteeinstellungen kannten aber nur die Instanz. Jetzt bekommt jeder Sensor eine eigene Zeile in „Geräte-Einstellungen“ (Spalte „Sensor“) mit eigenem Zelltyp, eigener Zellenzahl, „kritisch“, „Ohne Altersprüfung“, „Ohne Funkstille-Prüfung“, Abfragen, Funkstille-Schwelle und Anzeigename. Der „Batteriestand“ ist der des Sensors, nicht mehr das Minimum der Instanz. Eine Zeile für die **Instanz** gilt wie bisher für alle ihre Sensoren, solange ein Sensor keine eigene Zeile hat; eine neue Sensor-Zeile übernimmt die Einstellung der Instanz, das erste Speichern ändert also nichts. Neue Spalte: `Sensor` (Variablen-ID, gespeichert) und `Sensor` als Anzeige.
+
 ## [0.15.1] - 2026-10-12
 
 ### Changed
