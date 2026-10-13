@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.2] - 2026-10-13
+
+### Added
+- **Gruppen-Regel nach „Sensor enthält“** (Forum: Froggit-Sensoren mit gleichem Instanz-, Ort- und Systemnamen, nur der Sensor unterscheidet sich): Neues Kriterium neben „Ort“, „System“ und „Name“. Es sucht im Namen der Batterie-Variable (z. B. „soilbatt1“), nicht im Namen der Instanz, und trifft nur bei Instanzen mit mehreren Sensoren.
+
+### Fixed
+- In „Geräte-Einstellungen“ zeigte „Gilt“ bei Sensor-Zeilen keine Gruppen-Regel, die auf den Sensor passt, und die Spalte „Treffer“ zählte je Instanz statt je Sensor. Beides folgt jetzt der Auswertung.
+
 ## [0.16.1] - 2026-10-13
 
 ### Fixed

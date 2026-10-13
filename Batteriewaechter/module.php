@@ -1687,7 +1687,15 @@ class Batteriewaechter extends IPSModule
             $parent = (int)IPS_GetParent($id);
             $place  = $parent > 0 ? IPS_GetName($parent) : '';
         }
-        return ['name' => $name, 'place' => $place, 'module' => (string)($d['module'] ?? '')];
+        // Sensor: nur bei Instanzen mit mehreren Sensoren (geteilte Einträge) der Name der Batterie-Variable
+        $sensor = '';
+        if ($isInstance && isset($d['parent'])) {
+            foreach ($d['signals'] as $list) {
+                $first = $list[0]['vid'] ?? null;
+            }
+            $sensor = ($first ?? null) !== null && IPS_VariableExists((int)$first) ? IPS_GetName((int)$first) : '';
+        }
+        return ['name' => $name, 'place' => $place, 'module' => (string)($d['module'] ?? ''), 'sensor' => $sensor];
     }
 
     /** Anzeigename je Gerät: ohne Zeilenumbruch und Steuerzeichen, höchstens 60 Zeichen, leer = Name der Instanz. */
@@ -2686,6 +2694,12 @@ class Batteriewaechter extends IPSModule
             return ['Name' => '(Instanz fehlt)', 'SensorName' => '', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'Change' => '', 'ChangeSort' => 0, 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
         }
         $label = $labels[$id] ?? ['name' => IPS_GetName($id), 'place' => '', 'module' => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? '')];
+        if ($sensor > 0) {
+            // Regeln sehen den Sensor wie die Auswertung: Name „Instanz › Sensor“ und das Kriterium „Sensor“
+            $svn = IPS_VariableExists($sensor) ? IPS_GetName($sensor) : '';
+            $label['name']   = $label['name'] . ' › ' . ($svn !== '' ? $svn : '#' . $sensor);
+            $label['sensor'] = $svn;
+        }
         $p     = $pcts[$sensor > 0 ? $rowKey : $id] ?? null;
         $chg   = null;   // jüngster erfasster Wechsel dieses Eintrags; bei der Instanz als Ganzes über alle ihre Sensoren
         foreach ($diary as $de) {
@@ -2896,9 +2910,15 @@ class Batteriewaechter extends IPSModule
         }
         sort($open, SORT_NATURAL | SORT_FLAG_CASE);
         // Treffer je Regel: wie viele Geräte die Regel als erste trifft
+        // (je erkanntem Eintrag, wie die Auswertung: bei Instanzen mit mehreren Sensoren also je Sensor)
         $hits = array_fill(0, count($rules), 0);
-        foreach ($labels as $lb) {
-            $i = BWACHLogik::firstRule($rules, $lb);
+        foreach ($found0['devices'] ?? [] as $hk => $hd) {
+            $hid = (int)($hd['parent'] ?? $hk);
+            if ($hid <= 0 || !IPS_InstanceExists($hid)) {
+                continue;
+            }
+            $hsibs = isset($hd['node']) ? $this->matterSiblings($hid) : [];
+            $i = BWACHLogik::firstRule($rules, $this->deviceLabel($hd, $hid, true, $hsibs));
             if ($i !== null) { $hits[$i]++; }
         }
         return ['rows' => array_merge($rows, array_values($new)), 'added' => count($new), 'filled' => $filled, 'open' => $open, 'hits' => $hits, 'labels' => $labels];
@@ -2997,6 +3017,7 @@ class Batteriewaechter extends IPSModule
                             ['caption' => 'Ort (Kategorie)', 'value' => BWACHLogik::RULE_PLACE],
                             ['caption' => 'System (Modul)', 'value' => BWACHLogik::RULE_MODULE],
                             ['caption' => 'Name enthält', 'value' => BWACHLogik::RULE_NAME],
+                            ['caption' => 'Sensor enthält', 'value' => BWACHLogik::RULE_SENSOR],
                         ]]],
                         ['caption' => 'Muster (Komma = oder)', 'name' => 'Pattern', 'width' => 'auto', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Zelltyp', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],

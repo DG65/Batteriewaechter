@@ -1052,6 +1052,26 @@ $mLs->Check(); $mLs->RequestAction('refresh', '');
 $lsDev2 = null; foreach (json_decode(end($mLs->visUpdates), true)['devices'] as $dv) { if ($dv['name'] === 'Sensor Windfang') { $lsDev2 = $dv; } }
 check('Variable mit echter Aktion zählt weiter nicht als Lebenszeichen (Sollwert schreibt Symcon selbst)', $lsDev2 !== null && $lsDev2['funk'] === 'still', json_encode($lsDev2['funk'] ?? null));
 
+// Modul: Regel nach Sensor wirkt, „Gilt“ zeigt sie, Treffer zählt je Sensor
+$mRs = freshModule(['NotificationsActive' => false]);
+$mRs->RequestAction('refresh', '');
+$rsIds = []; $rsNames = [];
+foreach (json_decode(end($mRs->visUpdates), true)['devices'] as $dv) { if (strpos($dv['id'], '105-') === 0) { $rsIds[] = $dv['id']; $rsNames[$dv['id']] = $dv['name']; } }
+sort($rsIds);
+$sensorWord = trim(explode(' › ', $rsNames[$rsIds[0]])[1] ?? '');
+$mRs->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'nur ein Sensor', 'Kind' => 'sensor', 'Pattern' => $sensorWord, 'Cell' => 'cr2032', 'Cells' => 1, 'Group' => '', 'Critical' => true, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Poll' => false, 'StillDays' => 0]]);
+$ra = null; $rb = null;
+$mRs->RequestAction('refresh', '');
+foreach (json_decode(end($mRs->visUpdates), true)['devices'] as $dv) { if ($dv['id'] === $rsIds[0]) { $ra = $dv; } if ($dv['id'] === $rsIds[1]) { $rb = $dv; } }
+check('Modul: Regel „Sensor enthält“ wirkt nur auf den passenden Sensor (kritisch, CR2032)', $ra['critical'] === true && strpos($ra['cellText'], 'CR2032') !== false && $rb['critical'] === false, json_encode([$ra['critical'], $rb['critical']]));
+$rsForm = json_decode($mRs->GetConfigurationForm(), true);
+$rsRows = []; $rsRuleRows = [];
+foreach ($rsForm['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $rsRows = $it['values']; } if (($it['name'] ?? '') === 'GroupRules') { $rsRuleRows = $it['values']; } } }
+$sensorEffects = array_values(array_filter($rsRows, function ($r) { return $r['Instance'] === 105 && $r['Sensor'] > 0; }));
+check('Geräte-Einstellungen: „Gilt“ nennt die Regel nur beim passenden Sensor', count($sensorEffects) === 2 && (strpos($sensorEffects[0]['Effect'] . $sensorEffects[1]['Effect'], 'Regel 1') !== false) && (strpos($sensorEffects[0]['Effect'], 'Regel 1') !== false) !== (strpos($sensorEffects[1]['Effect'], 'Regel 1') !== false), json_encode([$sensorEffects[0]['Effect'], $sensorEffects[1]['Effect']], JSON_UNESCAPED_UNICODE));
+check('Regel „Sensor enthält“: „Treffer“ zählt den Sensor', isset($rsRuleRows[0]['Hits']) && $rsRuleRows[0]['Hits'] === 1, json_encode($rsRuleRows[0]['Hits'] ?? null));
+check('Kriterium „Sensor enthält“ steht in der Auswahl', strpos(json_encode($rsForm, JSON_UNESCAPED_UNICODE), 'Sensor enthält') !== false);
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
@@ -2126,6 +2146,8 @@ check('Eigene Typen: nach dem Zurücksetzen sind sie weg', !BWACHZelle::isKnown(
 
 // Variablen mit „keine Aktion“ (VariableCustomAction = 1) sind Messwerte, keine Sollwerte (live: Z-Wave-Sensoren)
 check('hasAction: Standard 0/0 keine, Aktion >0 ja, benutzerdefiniert 1 = keine Aktion, >1 = Skript/Instanz', BWACHLogik::hasAction(0, 0) === false && BWACHLogik::hasAction(59470, 0) === true && BWACHLogik::hasAction(0, 1) === false && BWACHLogik::hasAction(59470, 1) === false && BWACHLogik::hasAction(0, 4711) === true);
+// Gruppen-Regel nach Sensor (Forum: Froggit-Sensoren mit gleichem Instanz-, Ort- und Systemnamen)
+check('Regel „Sensor enthält“ trifft nur den Sensornamen, nicht den Instanznamen', BWACHLogik::ruleMatches(['Kind' => 'sensor', 'Pattern' => 'soil'], ['name' => 'Gateway › Soil 1', 'place' => 'Garten', 'module' => 'Froggit', 'sensor' => 'Soil 1']) && !BWACHLogik::ruleMatches(['Kind' => 'sensor', 'Pattern' => 'gateway'], ['name' => 'Gateway › Soil 1', 'place' => 'Garten', 'module' => 'Froggit', 'sensor' => 'Soil 1']) && !BWACHLogik::ruleMatches(['Kind' => 'sensor', 'Pattern' => 'soil'], ['name' => 'Gateway', 'place' => '', 'module' => 'Froggit']));
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
 $mv = [$mk(1, 'OPERATING_VOLTAGE', 232.2, 70), $mk(2, 'OPERATING_VOLTAGE', 3.0, 71), $mk(3, 'OPERATING_VOLTAGE', 3000.0, 72), $mk(4, 'OPERATING_VOLTAGE', 30.0, 73), $mk(5, 'OPERATING_VOLTAGE', 31.0, 74), $mk(6, 'OPERATING_VOLTAGE', 400.0, 75)];

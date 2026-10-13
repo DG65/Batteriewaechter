@@ -259,13 +259,14 @@ final class BWACHLogik
     public const RULE_PLACE  = 'place';    // Ort = Name der Kategorie, in der die Geräteinstanz liegt
     public const RULE_MODULE = 'module';   // System = Name des Moduls der Instanz (z. B. „Z-Wave Module“)
     public const RULE_NAME   = 'name';     // Name des Geräts
+    public const RULE_SENSOR = 'sensor';   // Name des Sensors (der Batterie-Variable) bei Instanzen mit mehreren Sensoren
 
     /**
      * Passt eine Regel auf ein Gerät? Das Muster darf mehrere Teile haben, durch Komma getrennt (ODER); ein Teil
      * passt, wenn er im Wert vorkommt (ohne Groß-/Kleinschreibung). Ohne Muster oder abgeschaltet passt eine Regel nie.
      *
      * @param array $rule ['Active'?,'Kind','Pattern']
-     * @param array $dev  ['name','place','module']
+     * @param array $dev  ['name','place','module','sensor'?]
      */
     public static function ruleMatches(array $rule, array $dev): bool
     {
@@ -273,7 +274,7 @@ final class BWACHLogik
             return false;
         }
         $kind = (string)($rule['Kind'] ?? '');
-        if (!in_array($kind, [self::RULE_PLACE, self::RULE_MODULE, self::RULE_NAME], true)) {
+        if (!in_array($kind, [self::RULE_PLACE, self::RULE_MODULE, self::RULE_NAME, self::RULE_SENSOR], true)) {
             return false;
         }
         $value = (string)($dev[$kind] ?? '');
