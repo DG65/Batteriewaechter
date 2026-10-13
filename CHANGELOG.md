@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.5] - 2026-10-13
+
+### Changed
+- **Formular-Aufbau mit Kontrollkästchen statt Auswahlliste** (Anregung von Dietmar: schneller, und man sieht die Wahl aller Bereiche auf einen Blick): Die Liste hat die Spalten „Aufgeklappt“, „Zugeklappt“ und „🙈 Ausgeblendet“ zum Anhaken. Kein Haken heißt „Standard“. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“, und die Liste zeigt nach dem Öffnen nur den geltenden. Eine bisher gespeicherte Auswahl wird weiter gelesen.
+
 ## [0.16.4] - 2026-10-13
 
 ### Added

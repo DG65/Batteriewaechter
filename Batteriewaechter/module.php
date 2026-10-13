@@ -3212,8 +3212,13 @@ class Batteriewaechter extends IPSModule
         }
         $out = [];
         foreach ($keys as $i => $k) {
-            $r    = $by[$k] ?? [];
-            $open = (string)($r['Open'] ?? 'std');
+            $r = $by[$k] ?? [];
+            if (array_key_exists('Opened', $r) || array_key_exists('Closed', $r) || array_key_exists('Hidden', $r)) {
+                // Kontrollkästchen; Vorrang bei Widerspruch: ausgeblendet vor zugeklappt vor aufgeklappt, keines = Standard
+                $open = !empty($r['Hidden']) ? 'hidden' : (!empty($r['Closed']) ? 'closed' : (!empty($r['Opened']) ? 'open' : 'std'));
+            } else {
+                $open = (string)($r['Open'] ?? 'std');   // frühere Auswahlliste (bis 0.16.4)
+            }
             $out[$k] = [
                 'open' => in_array($open, ['open', 'closed', 'hidden'], true) ? $open : 'std',
                 'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
@@ -3231,20 +3236,21 @@ class Batteriewaechter extends IPSModule
         $hidden = [];
         foreach ($layout as $key => $l) {
             $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$key]['caption'] ?? $key)));
-            $rows[] = ['Key' => $key, 'Panel' => $name, 'Open' => $l['open'], 'Pos' => $l['pos']];
+            $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
+                'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
             if ($l['open'] === 'hidden') {
                 $hidden[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $name));
             }
         }
         $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen hier auf „Standard“ stellen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
             : [];
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
             'items' => array_merge($hiddenLine, [
                 ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
-                ['type' => 'Label', 'caption' => '„Standard“ heißt: wie das Modul es vorsieht (z. B. „Geräte-Einstellungen“ aufgeklappt, wenn es etwas Neues gibt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen hier auf „Standard“ stellen oder „Auf Standard zurücksetzen“ klicken. Die Bereiche oben (Zweck, Dokumentation, Erste Schritte) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind und lassen sich nicht ausblenden.'],
+                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht (z. B. „Geräte-Einstellungen“ aufgeklappt, wenn es etwas Neues gibt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Zweck, Dokumentation, Erste Schritte) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind und lassen sich nicht ausblenden.'],
                 [
                     'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
@@ -3252,12 +3258,9 @@ class Batteriewaechter extends IPSModule
                     'columns' => [
                         ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
                         ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Beim Öffnen', 'name' => 'Open', 'width' => '170px', 'add' => 'std', 'edit' => ['type' => 'Select', 'options' => [
-                            ['caption' => 'Standard', 'value' => 'std'],
-                            ['caption' => 'Aufgeklappt', 'value' => 'open'],
-                            ['caption' => 'Zugeklappt', 'value' => 'closed'],
-                            ['caption' => '🙈 Ausgeblendet', 'value' => 'hidden'],
-                        ]]],
+                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
@@ -3272,7 +3275,7 @@ class Batteriewaechter extends IPSModule
         $keys = ['discovery', 'devices', 'status', 'notify', 'ack', 'forecast', 'threshold', 'rules', 'manual'];
         $rows = [];
         foreach ($keys as $i => $k) {
-            $rows[] = ['Key' => $k, 'Panel' => $this->panelCaption($k), 'Open' => 'std', 'Pos' => $i + 1];
+            $rows[] = ['Key' => $k, 'Panel' => $this->panelCaption($k), 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => $i + 1];
         }
         $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
         return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';

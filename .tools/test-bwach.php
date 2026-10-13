@@ -872,8 +872,22 @@ check('Formular-Aufbau: „Ausgeblendet“ setzt visible=false, das Panel bleibt
 $layoutCap = null; $layoutJson = ''; $layoutVisible = true;
 foreach ($hf['elements'] as $e) { if (strpos($e['caption'], 'Formular: Aufbau') !== false) { $layoutCap = $e['caption']; $layoutJson = json_encode($e, JSON_UNESCAPED_UNICODE); $layoutVisible = $e['visible'] ?? true; } }
 check('Formular-Aufbau: Kopfzeile nennt die Zahl, eine Zeile nennt die Namen, das Aufbau-Panel bleibt sichtbar', $layoutCap === '🪟  Formular: Aufbau (2 ausgeblendet)' && strpos($layoutJson, 'Ausgeblendet: Meldungen, Prognose und Einkauf') !== false && $layoutVisible === true);
-check('Formular-Aufbau: Auswahl hat „Ausgeblendet“', strpos($layoutJson, '"value":"hidden"') !== false);
+check('Formular-Aufbau: Kontrollkästchen „Aufgeklappt“, „Zugeklappt“, „Ausgeblendet“ in der Liste', strpos($layoutJson, '"name":"Opened"') !== false && strpos($layoutJson, '"name":"Closed"') !== false && strpos($layoutJson, '"name":"Hidden"') !== false && strpos($layoutJson, '"type":"CheckBox"') !== false);
 check('Formular-Aufbau: Feste Panels (Doku, Erste Schritte, Rückmeldungen) lassen sich nicht ausblenden', (function () use ($m) { $m->props['FormLayout'] = json_encode([['Key' => 'docs', 'Open' => 'hidden'], ['Key' => 'firststeps', 'Open' => 'hidden']]); foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $e) { if (isset($e['visible']) && $e['visible'] === false) { return false; } } return true; })());
+// Kontrollkästchen statt Auswahlliste (Dietmar: schneller): Opened/Closed/Hidden, Vorrang bei Widerspruch
+$flagRow = function ($mm, $key) { foreach (json_decode($mm->GetConfigurationForm(), true)['elements'] as $e) { foreach ($e['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'FormLayout') { foreach ($it['values'] as $v) { if ($v['Key'] === $key) { return $v; } } } } } return null; };
+$m->props['FormLayout'] = json_encode([['Key' => 'notify', 'Opened' => true, 'Closed' => false, 'Hidden' => false, 'Pos' => 3], ['Key' => 'forecast', 'Opened' => false, 'Closed' => true, 'Hidden' => false, 'Pos' => 5], ['Key' => 'manual', 'Opened' => false, 'Closed' => false, 'Hidden' => true, 'Pos' => 9]]);
+$fj = json_decode($m->GetConfigurationForm(), true)['elements'];
+$byCap = []; foreach ($fj as $e) { $byCap[$e['caption']] = $e; }
+check('Kontrollkästchen: Aufgeklappt, Zugeklappt, Ausgeblendet wirken', ($byCap['🔔  Meldungen']['expanded'] ?? null) === true && ($byCap['🧮  Prognose und Einkauf']['expanded'] ?? null) === false && ($byCap['➕  Weitere Variablen']['visible'] ?? true) === false);
+$m->props['FormLayout'] = json_encode([['Key' => 'notify', 'Opened' => true, 'Closed' => true, 'Hidden' => true, 'Pos' => 3], ['Key' => 'forecast', 'Opened' => true, 'Closed' => true, 'Hidden' => false, 'Pos' => 5]]);
+$rN = $flagRow($m, 'notify'); $rF = $flagRow($m, 'forecast');
+check('Kontrollkästchen: bei mehreren Haken gilt Ausgeblendet vor Zugeklappt vor Aufgeklappt, die Liste zeigt nur den geltenden', $rN['Hidden'] === true && $rN['Closed'] === false && $rN['Opened'] === false && $rF['Closed'] === true && $rF['Opened'] === false);
+$m->props['FormLayout'] = json_encode([['Key' => 'notify', 'Open' => 'closed', 'Pos' => 3]]);
+check('Frühere Einstellung (Auswahlliste „Open“) wird weiter gelesen', $flagRow($m, 'notify')['Closed'] === true);
+$m->fieldUpdates = []; $m->ResetFormLayout();
+$resetVals = null; foreach ($m->fieldUpdates as $u) { if ($u[0] === 'FormLayout') { $resetVals = json_decode($u[2], true); } }
+check('Zurücksetzen: alle Haken leer', $resetVals !== null && count($resetVals) === 9 && count(array_filter($resetVals, function ($r) { return $r['Opened'] || $r['Closed'] || $r['Hidden']; })) === 0);
 $m->props['FormLayout'] = '[]';
 check('Formular-Aufbau: ohne Einstellung gilt die Standardreihenfolge', $capsOf($m) === $std);
 $m->props['FormLayout'] = 'kaputt';
@@ -881,7 +895,7 @@ check('Formular-Aufbau: kaputte Einstellung fällt auf den Standard zurück', $c
 $m->props['FormLayout'] = json_encode([['Key' => 'gibtsnicht', 'Open' => 'open', 'Pos' => 1], ['Key' => 'ack', 'Open' => 'quatsch', 'Pos' => 500]]);
 check('Formular-Aufbau: unbekannter Schlüssel wird ignoriert, ungültiger Zustand gilt als Standard, Position wird auf 99 begrenzt', count($capsOf($m)) === count($std) && $expOf($m, '✅  Quittieren und Batterietagebuch') === false && array_search('✅  Quittieren und Batterietagebuch', $capsOf($m)) === array_search('➕  Weitere Variablen', $std));
 check('Formular-Aufbau: Liste zeigt für einen ungültigen Zustand „Standard“', (function () use ($m) {
-    foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $e) { foreach ($e['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'FormLayout') { foreach ($it['values'] as $v) { if ($v['Key'] === 'ack') { return $v['Open'] === 'std'; } } } } }
+    foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $e) { foreach ($e['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'FormLayout') { foreach ($it['values'] as $v) { if ($v['Key'] === 'ack') { return $v['Opened'] === false && $v['Closed'] === false && $v['Hidden'] === false; } } } } }
     return false;
 })());
 $m->props['FormLayout'] = json_encode([['Key' => 'ack', 'Open' => 'std', 'Pos' => -5]]);
