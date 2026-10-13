@@ -865,6 +865,15 @@ check('Formular-Aufbau: Position bringt „Meldungen“ an die erste Stelle der 
 check('Formular-Aufbau: „Aufgeklappt“ und „Zugeklappt“ überstimmen den Standard', $expOf($m, '🔔  Meldungen') === true && $expOf($m, '🏷️  Geräte-Einstellungen') === false);
 check('Formular-Aufbau: feste Panels bleiben oben und unten', array_slice($c2, 0, 3) === array_slice($std, 0, 3) && array_slice($c2, -3) === array_slice($std, -3));
 check('Formular-Aufbau: kein Panel geht verloren oder doppelt', count($c2) === count($std) && count(array_unique($c2)) === count($c2) && !array_diff($std, $c2));
+$m->props['FormLayout'] = json_encode([['Key' => 'notify', 'Open' => 'hidden', 'Pos' => 3], ['Key' => 'forecast', 'Open' => 'hidden', 'Pos' => 5]]);
+$hf = json_decode($m->GetConfigurationForm(), true);
+$hidPanels = array_filter($hf['elements'], function ($e) { return isset($e['visible']) && $e['visible'] === false; });
+check('Formular-Aufbau: „Ausgeblendet“ setzt visible=false, das Panel bleibt im Formular (Werte bleiben erhalten)', count($hidPanels) === 2 && count($hf['elements']) === count(json_decode($m->GetConfigurationForm(), true)['elements']) && count($capsOf($m)) === count($std) - 0 && in_array('🔔  Meldungen', array_map(function ($e) { return $e['caption']; }, $hidPanels), true) && in_array('🧮  Prognose und Einkauf', array_map(function ($e) { return $e['caption']; }, $hidPanels), true));
+$layoutCap = null; $layoutJson = ''; $layoutVisible = true;
+foreach ($hf['elements'] as $e) { if (strpos($e['caption'], 'Formular: Aufbau') !== false) { $layoutCap = $e['caption']; $layoutJson = json_encode($e, JSON_UNESCAPED_UNICODE); $layoutVisible = $e['visible'] ?? true; } }
+check('Formular-Aufbau: Kopfzeile nennt die Zahl, eine Zeile nennt die Namen, das Aufbau-Panel bleibt sichtbar', $layoutCap === '🪟  Formular: Aufbau (2 ausgeblendet)' && strpos($layoutJson, 'Ausgeblendet: Meldungen, Prognose und Einkauf') !== false && $layoutVisible === true);
+check('Formular-Aufbau: Auswahl hat „Ausgeblendet“', strpos($layoutJson, '"value":"hidden"') !== false);
+check('Formular-Aufbau: Feste Panels (Doku, Erste Schritte, Rückmeldungen) lassen sich nicht ausblenden', (function () use ($m) { $m->props['FormLayout'] = json_encode([['Key' => 'docs', 'Open' => 'hidden'], ['Key' => 'firststeps', 'Open' => 'hidden']]); foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $e) { if (isset($e['visible']) && $e['visible'] === false) { return false; } } return true; })());
 $m->props['FormLayout'] = '[]';
 check('Formular-Aufbau: ohne Einstellung gilt die Standardreihenfolge', $capsOf($m) === $std);
 $m->props['FormLayout'] = 'kaputt';

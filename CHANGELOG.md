@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.4] - 2026-10-13
+
+### Added
+- **Bereiche ausblenden** im Panel „🪟 Formular: Aufbau“ (Anregung aus dem Toolkit): Die Spalte „Beim Öffnen“ hat die vierte Auswahl „🙈 Ausgeblendet“ für die Fachpanels (nicht für Zweck, Dokumentation, Erste Schritte, Rückmeldungen und Lizenz). Ein ausgeblendetes Panel bleibt im Formular (nur nicht sichtbar), seine Einstellungen bleiben beim „Übernehmen“ erhalten und wirken weiter. Die Kopfzeile des Aufbau-Panels nennt die Zahl („2 ausgeblendet“), eine Zeile darin die Namen. „Auf Standard zurücksetzen“ holt alles zurück.
+
 ## [0.16.3] - 2026-10-13
 
 ### Added

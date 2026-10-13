@@ -3215,7 +3215,7 @@ class Batteriewaechter extends IPSModule
             $r    = $by[$k] ?? [];
             $open = (string)($r['Open'] ?? 'std');
             $out[$k] = [
-                'open' => in_array($open, ['open', 'closed'], true) ? $open : 'std',
+                'open' => in_array($open, ['open', 'closed', 'hidden'], true) ? $open : 'std',
                 'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
                 'idx'  => $i,
             ];
@@ -3227,16 +3227,24 @@ class Batteriewaechter extends IPSModule
     /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */
     private function LayoutPanel(array $layout, array $free): array
     {
-        $rows = [];
+        $rows   = [];
+        $hidden = [];
         foreach ($layout as $key => $l) {
-            $rows[] = ['Key' => $key, 'Panel' => (string)($free[$key]['caption'] ?? $key), 'Open' => $l['open'], 'Pos' => $l['pos']];
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$key]['caption'] ?? $key)));
+            $rows[] = ['Key' => $key, 'Panel' => $name, 'Open' => $l['open'], 'Pos' => $l['pos']];
+            if ($l['open'] === 'hidden') {
+                $hidden[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $name));
+            }
         }
+        $hiddenLine = $hidden
+            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen hier auf „Standard“ stellen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            : [];
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🪟  Formular: Aufbau',
-            'items' => [
+            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'items' => array_merge($hiddenLine, [
                 ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
-                ['type' => 'Label', 'caption' => '„Standard“ heißt: wie das Modul es vorsieht (z. B. „Geräte-Einstellungen“ aufgeklappt, wenn es etwas Neues gibt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. Die Bereiche oben (Zweck, Dokumentation, Erste Schritte) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind.'],
+                ['type' => 'Label', 'caption' => '„Standard“ heißt: wie das Modul es vorsieht (z. B. „Geräte-Einstellungen“ aufgeklappt, wenn es etwas Neues gibt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen hier auf „Standard“ stellen oder „Auf Standard zurücksetzen“ klicken. Die Bereiche oben (Zweck, Dokumentation, Erste Schritte) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind und lassen sich nicht ausblenden.'],
                 [
                     'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
@@ -3248,12 +3256,13 @@ class Batteriewaechter extends IPSModule
                             ['caption' => 'Standard', 'value' => 'std'],
                             ['caption' => 'Aufgeklappt', 'value' => 'open'],
                             ['caption' => 'Zugeklappt', 'value' => 'closed'],
+                            ['caption' => '🙈 Ausgeblendet', 'value' => 'hidden'],
                         ]]],
                         ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
                 ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo BWACH_ResetFormLayout($id);'],
-            ],
+            ]),
         ];
     }
 
@@ -3302,6 +3311,9 @@ class Batteriewaechter extends IPSModule
                 $panel['expanded'] = true;
             } elseif ($l['open'] === 'closed') {
                 $panel['expanded'] = false;
+            } elseif ($l['open'] === 'hidden') {
+                // Nicht weglassen: die Felder bleiben im Formular, gespeicherte Werte bleiben beim „Übernehmen“ erhalten
+                $panel['visible'] = false;
             }
             $middle[] = $panel;
         }
