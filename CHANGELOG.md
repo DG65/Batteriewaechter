@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.7] - 2026-10-15
+
+### Fixed
+- **Stufenanzeige wurde als Prozentwert gelesen** (Forum, Netatmo): Das Netatmo-Modul meldet die Batterie als Integer `Battery` mit dem Profil `Netatmo.Battery` in sechs Stufen (0 = empty … 5 = max, Profil ohne Wertebereich 0 bis 0, aber mit benannten Stufen). Der Wächter las die 5 als „5 %“ und meldete jedes Gerät als leer. Jetzt gilt: Eine über den Ident erkannte Integer-Variable mit eigenem Profil (nicht `~…`) und 3 bis 10 benannten Stufen ist eine Stufenanzeige. Die Stufen werden gleichmäßig auf 0 bis 100 % verteilt (bei sechs Stufen 0, 20, … 100), die unterste Stufe gilt als leer, die zweitunterste (ab vier Stufen) als schwach, der Rest als in Ordnung. Die Gründe nennen die Stufe („Stufe 5 von 5“). Gilt für jedes Modul, das die Batterie so meldet. Quelle des Befunds: Quelltext des Moduls (demel42/IPSymconNetatmoWeather), nicht an einem Netatmo-Gerät geprüft.
+
 ## [0.16.6] - 2026-10-15
 
 ### Fixed

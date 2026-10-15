@@ -63,6 +63,8 @@ function MATTER_RequestStatus(int $id) { $GLOBALS['MT'][] = $id; return $GLOBALS
 function IPS_SetHidden(int $id, bool $h): bool { $GLOBALS['OBJ'][$id]['hidden'] = $h; return true; }
 function IPS_GetLinkList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 6) { $o[] = $id; } } return $o; }
 function IPS_GetLink(int $id): array { return ['TargetID' => $GLOBALS['OBJ'][$id]['target'] ?? 0]; }
+function IPS_VariableProfileExists(string $p): bool { return isset($GLOBALS['PROFILES'][$p]); }
+function IPS_GetVariableProfile(string $p): array { return $GLOBALS['PROFILES'][$p] ?? []; }
 function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INSTS'][$g] ?? []; }
 function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
 if (!defined('KL_WARNING')) { define('KL_WARNING', 103); }
@@ -1128,6 +1130,31 @@ check('Formular: „Automatisch erkannte Wechsel löschen“ steht hinter einer 
 $mV = freshModule(['NotificationsActive' => false]);
 $vRows = []; foreach (json_decode($mV->GetConfigurationForm(), true)['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $vRows = $it['values']; } } }
 check('Batteriestand-Spalte nennt, wenn bekannt, auch die gemessene Spannung („… · … V“)', count(array_filter($vRows, function ($r) { return strpos($r['Percent'], ' V') !== false; })) > 0, json_encode(array_column($vRows, 'Percent')));
+
+// Modul: Netatmo-Stufenanzeige als Integer mit Profil ohne Spanne
+$GLOBALS['PROFILES']['Netatmo.Battery'] = ['MinValue' => 0, 'MaxValue' => 0, 'Associations' => [['Value' => 0, 'Name' => 'empty'], ['Value' => 1, 'Name' => 'low'], ['Value' => 2, 'Name' => 'medium'], ['Value' => 3, 'Name' => 'high'], ['Value' => 4, 'Name' => 'full'], ['Value' => 5, 'Name' => 'max']]];
+$mNa = freshModule(['NotificationsActive' => false]);
+$GLOBALS['PROFILES']['Netatmo.Battery'] = ['MinValue' => 0, 'MaxValue' => 0, 'Associations' => [['Value' => 0, 'Name' => 'empty'], ['Value' => 1, 'Name' => 'low'], ['Value' => 2, 'Name' => 'medium'], ['Value' => 3, 'Name' => 'high'], ['Value' => 4, 'Name' => 'full'], ['Value' => 5, 'Name' => 'max']]];
+mkinst(8981, 'Netatmo Außenmodul', 'Netatmo Weather Device');
+mkvar(8982, 8981, 'Battery', 'Batterie-Status', 1, 5, $GLOBALS['CLOCK'] - 60, 'Netatmo.Battery');
+$mNa->Search(); $mNa->Check();
+// Grenzen: zwei benannte Werte (Ok/Schwach) und ein ~-Profil mit Assoziationen sind keine Stufenanzeige
+$GLOBALS['PROFILES']['Foo.Bat2'] = ['MinValue' => 0, 'MaxValue' => 100, 'Associations' => [['Value' => 0, 'Name' => 'low'], ['Value' => 1, 'Name' => 'ok']]];
+$GLOBALS['PROFILES']['~Battery.100'] = ['MinValue' => 0, 'MaxValue' => 100, 'Associations' => [['Value' => 0, 'Name' => 'a'], ['Value' => 20, 'Name' => 'b'], ['Value' => 40, 'Name' => 'c'], ['Value' => 60, 'Name' => 'd']]];
+mkinst(8983, 'Zweistufig', 'Anderes Modul');
+mkvar(8984, 8983, 'Battery', 'Batterie', 1, 1, $GLOBALS['CLOCK'] - 60, 'Foo.Bat2');
+mkinst(8985, 'Verbundprofil', 'Anderes Modul');
+mkvar(8986, 8985, 'Battery', 'Batterie', 1, 60, $GLOBALS['CLOCK'] - 60, '~Battery.100');
+$mNa->Search(); $mNa->Check(); $mNa->RequestAction('refresh', '');
+$byN = []; foreach (json_decode(end($mNa->visUpdates), true)['devices'] as $dv) { $byN[$dv['name']] = $dv; }
+check('Zwei benannte Werte sind keine Stufenanzeige (der Wert 1 bleibt „1 %“)', isset($byN['Zweistufig']) && (float)$byN['Zweistufig']['percent'] === 1.0 && strpos(implode(' ', $byN['Zweistufig']['reasons']), 'Stufe') === false);
+check('~Battery.100 bleibt Prozent, auch mit Assoziationen (60 → 60 %)', isset($byN['Verbundprofil']) && (float)$byN['Verbundprofil']['percent'] === 60.0);
+$naOf = function ($mm) { $mm->RequestAction('refresh', ''); foreach (json_decode(end($mm->visUpdates), true)['devices'] as $dv) { if ($dv['name'] === 'Netatmo Außenmodul') { return $dv; } } return null; };
+$na5 = $naOf($mNa);
+check('Netatmo Stufe 5 von 5: 100 %, in Ordnung (nicht „leer“)', $na5 !== null && $na5['status'] === 'ok' && (float)$na5['percent'] === 100.0, json_encode($na5 ? [$na5['status'], $na5['percent']] : null));
+$GLOBALS['OBJ'][8982]['var']['value'] = 1; $GLOBALS['OBJ'][8982]['var']['VariableUpdated'] = $GLOBALS['CLOCK'];
+$mNa->Check(); $na1 = $naOf($mNa);
+check('Netatmo Stufe 1 (low): schwach; Stufe 0 (empty): leer', $na1['status'] === 'schwach' && (function () use ($mNa, $naOf) { $GLOBALS['OBJ'][8982]['var']['value'] = 0; $GLOBALS['OBJ'][8982]['var']['VariableUpdated'] = $GLOBALS['CLOCK']; $mNa->Check(); return $naOf($mNa)['status'] === 'leer'; })());
 
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
@@ -2212,6 +2239,18 @@ check('Berechnet: 40 → 85 % (neue Zelle, 1,5 V) ist ein Wechsel', BWACHMeldung
 check('Berechnet: 10 → 70 % ist kein Wechsel (unter 80 %), 10 → 95 % schon', BWACHMeldung::detectReplacement(['p' => 10.0, 'f' => null], ['p' => 70.0, 'f' => null], 25, true) === null && BWACHMeldung::detectReplacement(['p' => 10.0, 'f' => null], ['p' => 95.0, 'f' => null], 25, true) !== null);
 check('Berechnet: 55 → 85 % (Sprung 30) ist kein Wechsel, gemessen schon', BWACHMeldung::detectReplacement(['p' => 55.0, 'f' => null], ['p' => 85.0, 'f' => null], 25, true) === null && BWACHMeldung::detectReplacement(['p' => 55.0, 'f' => null], ['p' => 85.0, 'f' => null], 25, false) !== null);
 check('Berechnet: ein zurückgesetztes „schwach“-Flag bleibt ein Wechsel', BWACHMeldung::detectReplacement(['p' => null, 'f' => true], ['p' => null, 'f' => false], 25, true) !== null);
+// Stufenanzeige (Forum: Netatmo meldet 0 = empty … 5 = max als Integer mit Profil Netatmo.Battery, Spanne 0..0)
+$st6 = [0, 1, 2, 3, 4, 5];
+check('Stufe: Rang und gleichmäßiger Prozentwert (6 Stufen: 0, 20, … 100), Zwischenwert zählt zur unteren', BWACHLogik::stageOf(0, $st6)['percent'] === 0.0 && BWACHLogik::stageOf(3, $st6)['percent'] === 60.0 && BWACHLogik::stageOf(5, $st6)['percent'] === 100.0 && BWACHLogik::stageOf(2.5, $st6)['rank'] === 2 && BWACHLogik::stageOf(5, $st6)['n'] === 6);
+$stv = [['vid' => 1, 'ident' => 'Battery', 'name' => 'Batterie-Status', 'type' => 1, 'profile' => 'Netatmo.Battery', 'parentId' => 70, 'parentIsInstance' => true, 'moduleName' => 'Netatmo', 'instanceName' => 'Außenmodul', 'stages' => $st6, 'updated' => 1790000000],
+        ['vid' => 2, 'ident' => 'Battery', 'name' => 'Batterie', 'type' => 1, 'profile' => '~Battery.100', 'parentId' => 71, 'parentIsInstance' => true, 'moduleName' => 'Z-Wave', 'instanceName' => 'Sensor', 'updated' => 1790000000]];
+$stf = BWACHLogik::classify($stv, ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+check('Stufenanzeige: Variable mit benannten Stufen trägt die Stufenliste, ~Battery.100 nicht', ($stf['devices'][70]['signals']['percent'][0]['stages'] ?? null) === $st6 && !isset($stf['devices'][71]['signals']['percent'][0]['stages']));
+$stEv = function (int $rank) use ($NOW, $P) { return BWACHLogik::evaluate(['percent' => ['value' => $rank * 20.0, 'updated' => $NOW - 60, 'scale' => 1.0, 'stage' => ['rank' => $rank, 'n' => 6, 'percent' => $rank * 20.0, 'raw' => $rank]]], $NOW - 60, $NOW, $P); };
+check('Stufenanzeige: Stufe 0 ist leer, Stufe 1 schwach, ab Stufe 2 in Ordnung', $stEv(0)['status'] === 'leer' && $stEv(1)['status'] === 'schwach' && $stEv(2)['status'] === 'ok' && $stEv(5)['status'] === 'ok');
+$stByProfile = BWACHLogik::classify([['vid' => 3, 'ident' => 'x', 'name' => 'x', 'type' => 1, 'profile' => '~Battery.100', 'parentId' => 72, 'parentIsInstance' => true, 'moduleName' => 'M', 'instanceName' => 'N', 'stages' => $st6, 'updated' => 1790000000]], ['excludedModules' => [], 'nameSearch' => false, 'manual' => []]);
+check('Stufenliste gilt nur für über den Ident erkannte Variablen, nicht für Profil-Erkennung (~Battery.100)', !isset($stByProfile['devices'][72]['signals']['percent'][0]['stages']));
+check('Stufenanzeige: die Gründe nennen die Stufe', strpos(implode(' ', $stEv(5)['reasons']), 'Stufe 5 von 5') !== false);
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
 $mv = [$mk(1, 'OPERATING_VOLTAGE', 232.2, 70), $mk(2, 'OPERATING_VOLTAGE', 3.0, 71), $mk(3, 'OPERATING_VOLTAGE', 3000.0, 72), $mk(4, 'OPERATING_VOLTAGE', 30.0, 73), $mk(5, 'OPERATING_VOLTAGE', 31.0, 74), $mk(6, 'OPERATING_VOLTAGE', 400.0, 75)];

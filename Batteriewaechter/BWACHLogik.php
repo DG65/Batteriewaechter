@@ -84,6 +84,25 @@ final class BWACHLogik
     }
 
     /**
+     * Stufe eines Wertes in einer aufsteigenden Stufenliste: Rang (0 = unterste), Anzahl und gleichmäßig verteilter
+     * Prozentwert (bei 6 Stufen 0, 20, 40, 60, 80, 100). Ein Wert zwischen zwei Stufen zählt zur unteren.
+     *
+     * @param int[] $stages aufsteigend
+     * @return array ['rank'=>int,'n'=>int,'percent'=>float,'raw'=>float]
+     */
+    public static function stageOf(float $value, array $stages): array
+    {
+        $n    = count($stages);
+        $rank = 0;
+        foreach ($stages as $i => $sv) {
+            if ($value >= $sv) {
+                $rank = (int)$i;
+            }
+        }
+        return ['rank' => $rank, 'n' => $n, 'percent' => $n > 1 ? round($rank / ($n - 1) * 100, 1) : 0.0, 'raw' => $value];
+    }
+
+    /**
      * Hat die Variable eine Aktion (Schalter, Sollwert)? Die benutzerdefinierte Aktion hat Vorrang:
      * 0 = Standardaktion der Variable, 1 = „keine Aktion“ (Symcon setzt sie z. B. bei Z-Wave-Sensorwerten),
      * alles darüber ist die ID eines Skripts oder einer Instanz.
@@ -602,6 +621,11 @@ final class BWACHLogik
             }
             $kind = $s['kind'];
             $entry = ['vid' => $vid, 'basis' => $s['basis'], 'scale' => $s['scale'], 'unverified' => $s['unverified'], 'label' => $name];
+            // Stufenanzeige: über den Ident erkannter Prozentwert, dessen Profil 3 bis 10 benannte Stufen hat
+            if ($kind === self::KIND_PERCENT && $s['basis'] === self::BASIS_IDENT && !empty($v['stages']) && is_array($v['stages'])
+                && count($v['stages']) >= 3 && count($v['stages']) <= 10) {
+                $entry['stages'] = array_values(array_map('intval', $v['stages']));
+            }
             if (isset($manualText[$vid]) && $kind === self::KIND_FLAG) {
                 $entry['text'] = $manualText[$vid];   // Text-Zustand: „schwach“, wenn der Text eines der Muster enthält
             }
@@ -759,6 +783,12 @@ final class BWACHLogik
         $stPct = null;
         if ($pct !== null) {
             $stPct = $pct <= $emptyThr ? self::ST_EMPTY : ($pct < $lowThr ? self::ST_LOW : self::ST_OK);
+        }
+        // Stufenanzeige (0 = leer … max): unterste Stufe leer, zweitunterste schwach (bei mindestens vier Stufen), der Rest in Ordnung
+        $stage = !empty($sig['percent']['stage']) ? $sig['percent']['stage'] : null;
+        if ($stage !== null && $pct !== null) {
+            $stPct = (int)$stage['rank'] === 0 ? self::ST_EMPTY : (((int)$stage['rank'] === 1 && (int)$stage['n'] >= 4) ? self::ST_LOW : self::ST_OK);
+            $reasons[] = 'Gerät meldet in Stufen: Stufe ' . (int)$stage['rank'] . ' von ' . ((int)$stage['n'] - 1) . ', hier gleichmäßig als ' . self::num((float)$pct) . ' % gezeigt';
         }
         $stFlag = $flagLow === null ? null : ($flagLow ? self::ST_LOW : self::ST_OK);
 

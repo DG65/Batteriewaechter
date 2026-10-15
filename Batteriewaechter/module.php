@@ -1440,6 +1440,8 @@ class Batteriewaechter extends IPSModule
                 'updated'          => (int)($var['VariableUpdated'] ?? 0),
                 // Nur für Spannungen nötig: damit Netzspannung (232 V) nicht als Batterie gilt
                 'value'            => $this->voltValue($vid, $obj, $var),
+                // Stufenanzeige (z. B. Netatmo 0 = leer … 5 = max): die Werte der benannten Stufen des Profils
+                'stages'           => $this->profileStages($obj, $var),
             ];
         }
         return $out;
@@ -1580,6 +1582,33 @@ class Batteriewaechter extends IPSModule
      * klassischen Profilfelder LEER — dann steht das Profil, falls überhaupt,
      * im Schlüssel PROFILE der Darstellung (SUITE.md Stolperstein 21).
      */
+    /**
+     * Die benannten Stufen eines eigenen Profils (3 bis 10 Assoziationen) an einer Integer-Variable, die nach Batterie
+     * heißt; sonst null. So wird eine Stufenanzeige (0 = leer … 5 = max) nicht als Prozentwert gelesen.
+     *
+     * @return int[]|null aufsteigend sortierte Stufenwerte
+     */
+    private function profileStages(array $obj, array $var): ?array
+    {
+        if ((int)($var['VariableType'] ?? -1) !== 1 || !preg_match('/bat/i', (string)($obj['ObjectIdent'] ?? '') . ' ' . (string)($obj['ObjectName'] ?? ''))) {
+            return null;
+        }
+        $p = $this->resolveProfile($var);
+        if ($p === '' || $p[0] === '~' || !IPS_VariableProfileExists($p)) {
+            return null;
+        }
+        $assoc  = (array)(IPS_GetVariableProfile($p)['Associations'] ?? []);
+        $values = [];
+        foreach ($assoc as $a) {
+            if (is_array($a) && isset($a['Value'])) {
+                $values[] = (int)$a['Value'];
+            }
+        }
+        $values = array_values(array_unique($values));
+        sort($values);
+        return count($values) >= 3 && count($values) <= 10 ? $values : null;
+    }
+
     private function resolveProfile(array $var): string
     {
         $p = (string)($var['VariableCustomProfile'] ?? '');
@@ -1996,9 +2025,16 @@ class Batteriewaechter extends IPSModule
                 $val = GetValue($vid);
                 $upd = (int)($var['VariableUpdated'] ?? 0);
                 if ($kind === BWACHLogik::KIND_PERCENT) {
+                    $stage = null;
+                    if (!empty($s['stages']) && is_array($s['stages'])) {
+                        // Stufenanzeige: Rang der Stufe, gleichmäßig auf 0 bis 100 verteilt
+                        $stage = BWACHLogik::stageOf((float)$val, array_map('intval', $s['stages']));
+                        $val   = $stage['percent'];
+                        $s['scale'] = 1.0;
+                    }
                     $scaled = (float)$val * (float)$s['scale'];
                     if (!isset($sig['percent']) || $scaled < (float)$sig['percent']['value'] * (float)$sig['percent']['scale']) {
-                        $sig['percent'] = ['value' => (float)$val, 'updated' => $upd, 'scale' => (float)$s['scale']];
+                        $sig['percent'] = ['value' => (float)$val, 'updated' => $upd, 'scale' => (float)$s['scale']] + ($stage !== null ? ['stage' => $stage] : []);
                     }
                 } elseif ($kind === BWACHLogik::KIND_FLAG || $kind === BWACHLogik::KIND_FLAG_REV) {
                     if (isset($s['text']) && (string)$s['text'] !== '') {
