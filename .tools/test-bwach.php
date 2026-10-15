@@ -1096,6 +1096,39 @@ check('Regel „Sensor enthält“: „Treffer“ zählt den Sensor', isset($rsR
 check('Gruppen-Regeln: Spalte „Nr.“ nummeriert die Regeln von oben (wie „Regel N“ in „Gilt“)', isset($rsRuleRows[0]['Nr']) && $rsRuleRows[0]['Nr'] === 1 && strpos(json_encode($rsForm, JSON_UNESCAPED_UNICODE), '"caption":"Nr."') !== false);
 check('Kriterium „Sensor enthält“ steht in der Auswahl', strpos(json_encode($rsForm, JSON_UNESCAPED_UNICODE), 'Sensor enthält') !== false);
 
+// Modul: Spannungsrauschen einer berechneten Batterie ist kein erkannter Wechsel
+$mN = freshModule(['NotificationsActive' => false, 'ReplaceJumpPercent' => 20, 'DeviceSettings' => json_encode([['Instance' => 8951, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Cell' => 'aa_alkali', 'Cells' => 2, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0]])]);
+mkinst(8951, 'Fensterkontakt Rauschen', 'HomeMatic CCU Device');
+mkvar(8952, 8951, 'OPERATING_VOLTAGE', 'OPERATING_VOLTAGE', 2, 2.6, $GLOBALS['CLOCK'] - 60, '');
+$mN->Search(); $mN->Check();
+$GLOBALS['OBJ'][8952]['var']['value'] = 2.8; $GLOBALS['OBJ'][8952]['var']['VariableUpdated'] = $GLOBALS['CLOCK'];
+$mN->Check();
+$noiseDiary = array_filter(json_decode($mN->GetValue('Diary'), true) ?: [], function ($e) { return $e['key'] === '8951'; });
+check('Modul: Spannung 2,6 → 2,8 V (2× AA, 40 → 65 %) erzeugt keinen erkannten Wechsel', count($noiseDiary) === 0, json_encode($noiseDiary));
+$GLOBALS['OBJ'][8952]['var']['value'] = 2.4; $GLOBALS['OBJ'][8952]['var']['VariableUpdated'] = $GLOBALS['CLOCK'];
+$mN->Check();
+$GLOBALS['OBJ'][8952]['var']['value'] = 3.1; $GLOBALS['OBJ'][8952]['var']['VariableUpdated'] = $GLOBALS['CLOCK'];
+$mN->Check();
+$realDiary = array_filter(json_decode($mN->GetValue('Diary'), true) ?: [], function ($e) { return $e['key'] === '8951'; });
+check('Modul: Spannung 2,4 → 3,1 V (leer → neue Zellen) wird als Wechsel erkannt', count($realDiary) === 1, json_encode($realDiary));
+
+// Modul: erkannte Wechsel löschen, Spannung in der Liste und im Gerät
+$mD = freshModule(['NotificationsActive' => false]);
+$mD->Acknowledge('114', 'getauscht');
+$dy = json_decode($mD->GetValue('Diary'), true);
+$dy[] = ['t' => $GLOBALS['CLOCK'] - 86400, 'key' => '101', 'name' => 'A', 'type' => 'erkannt', 'note' => 'Prozentwert sprang von 40 % auf 65 %'];
+$dy[] = ['t' => $GLOBALS['CLOCK'] - 2 * 86400, 'key' => '102', 'name' => 'B', 'type' => 'erkannt', 'note' => 'x'];
+$dy[] = ['t' => $GLOBALS['CLOCK'] - 30 * 86400, 'key' => '103', 'name' => 'C', 'type' => 'nachgetragen', 'note' => 'von Hand'];
+$mD->SetValue('Diary', json_encode($dy));
+$delMsg = $mD->DeleteDetectedChanges();
+$dyAfter = json_decode($mD->GetValue('Diary'), true);
+check('Erkannte Wechsel löschen: nur Art „erkannt“ geht, von Hand eingetragene und nachgetragene bleiben', strpos($delMsg, '2 automatisch erkannte Wechsel gelöscht') !== false && count($dyAfter) === 2 && !array_filter($dyAfter, function ($e) { return $e['type'] === 'erkannt'; }), $delMsg);
+check('Erkannte Wechsel löschen: ohne Einträge ein ehrlicher Hinweis, nichts passiert', strpos($mD->DeleteDetectedChanges(), 'keine automatisch erkannten') !== false && count(json_decode($mD->GetValue('Diary'), true)) === 2);
+check('Formular: „Automatisch erkannte Wechsel löschen“ steht hinter einer Rückfrage', (function () use ($mD) { $j = json_encode(json_decode($mD->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE); return strpos($j, 'BWACH_DeleteDetectedChanges') !== false && substr_count($j, 'BWACH_DeleteDetectedChanges') === 1; })());
+$mV = freshModule(['NotificationsActive' => false]);
+$vRows = []; foreach (json_decode($mV->GetConfigurationForm(), true)['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $vRows = $it['values']; } } }
+check('Batteriestand-Spalte nennt, wenn bekannt, auch die gemessene Spannung („… · … V“)', count(array_filter($vRows, function ($r) { return strpos($r['Percent'], ' V') !== false; })) > 0, json_encode(array_column($vRows, 'Percent')));
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %
@@ -2172,6 +2205,13 @@ check('Eigene Typen: nach dem Zurücksetzen sind sie weg', !BWACHZelle::isKnown(
 check('hasAction: Standard 0/0 keine, Aktion >0 ja, benutzerdefiniert 1 = keine Aktion, >1 = Skript/Instanz', BWACHLogik::hasAction(0, 0) === false && BWACHLogik::hasAction(59470, 0) === true && BWACHLogik::hasAction(0, 1) === false && BWACHLogik::hasAction(59470, 1) === false && BWACHLogik::hasAction(0, 4711) === true);
 // Gruppen-Regel nach Sensor (Forum: Froggit-Sensoren mit gleichem Instanz-, Ort- und Systemnamen)
 check('Regel „Sensor enthält“ trifft nur den Sensornamen, nicht den Instanznamen', BWACHLogik::ruleMatches(['Kind' => 'sensor', 'Pattern' => 'soil'], ['name' => 'Gateway › Soil 1', 'place' => 'Garten', 'module' => 'Froggit', 'sensor' => 'Soil 1']) && !BWACHLogik::ruleMatches(['Kind' => 'sensor', 'Pattern' => 'gateway'], ['name' => 'Gateway › Soil 1', 'place' => 'Garten', 'module' => 'Froggit', 'sensor' => 'Soil 1']) && !BWACHLogik::ruleMatches(['Kind' => 'sensor', 'Pattern' => 'soil'], ['name' => 'Gateway', 'place' => '', 'module' => 'Froggit']));
+// Wechselerkennung bei aus der Spannung berechneten Werten (Forum: Rainer, HomeMatic schwankt um 0,1 V)
+$dPrev = ['p' => 40.0, 'f' => null];
+check('Berechnet: 40 → 65 % (0,1 V Rauschen) ist kein Wechsel, gemessen schon (Sprung ≥ Schwelle)', BWACHMeldung::detectReplacement($dPrev, ['p' => 65.0, 'f' => null], 25, true) === null && BWACHMeldung::detectReplacement($dPrev, ['p' => 65.0, 'f' => null], 25, false) !== null);
+check('Berechnet: 40 → 85 % (neue Zelle, 1,5 V) ist ein Wechsel', BWACHMeldung::detectReplacement($dPrev, ['p' => 85.0, 'f' => null], 25, true) !== null);
+check('Berechnet: 10 → 70 % ist kein Wechsel (unter 80 %), 10 → 95 % schon', BWACHMeldung::detectReplacement(['p' => 10.0, 'f' => null], ['p' => 70.0, 'f' => null], 25, true) === null && BWACHMeldung::detectReplacement(['p' => 10.0, 'f' => null], ['p' => 95.0, 'f' => null], 25, true) !== null);
+check('Berechnet: 55 → 85 % (Sprung 30) ist kein Wechsel, gemessen schon', BWACHMeldung::detectReplacement(['p' => 55.0, 'f' => null], ['p' => 85.0, 'f' => null], 25, true) === null && BWACHMeldung::detectReplacement(['p' => 55.0, 'f' => null], ['p' => 85.0, 'f' => null], 25, false) !== null);
+check('Berechnet: ein zurückgesetztes „schwach“-Flag bleibt ein Wechsel', BWACHMeldung::detectReplacement(['p' => null, 'f' => true], ['p' => null, 'f' => false], 25, true) !== null);
 // Netzspannung ist keine Batteriespannung (Messsteckdose, Forum)
 $mk = function (int $vid, string $ident, float $val, int $inst) { return ['vid' => $vid, 'ident' => $ident, 'name' => strtoupper($ident), 'type' => 2, 'profile' => '', 'parentId' => $inst, 'parentIsInstance' => true, 'moduleName' => 'HomeMatic Device', 'instanceName' => 'Dose ' . $inst, 'value' => $val]; };
 $mv = [$mk(1, 'OPERATING_VOLTAGE', 232.2, 70), $mk(2, 'OPERATING_VOLTAGE', 3.0, 71), $mk(3, 'OPERATING_VOLTAGE', 3000.0, 72), $mk(4, 'OPERATING_VOLTAGE', 30.0, 73), $mk(5, 'OPERATING_VOLTAGE', 31.0, 74), $mk(6, 'OPERATING_VOLTAGE', 400.0, 75)];

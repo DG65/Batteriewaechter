@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.6] - 2026-10-15
+
+### Fixed
+- **Spannungsrauschen galt als Batteriewechsel** (Forum, HomeMatic): Bei Geräten, die nur eine Spannung melden, rechnet der Wächter den Ladezustand aus der Spannung. Eine Schwankung von 0,1 V bewegt die Alkali-Kurve im mittleren Bereich um bis zu 25 Prozentpunkte (1,3 V = 40 %, 1,4 V = 65 %), und das war die Schwelle für einen erkannten Wechsel: Tagebuch, „Gewechselte Batterien“, Lebensdauer und Prognose-Vergleich füllten sich mit falschen Einträgen („Prozentwert sprang von 40 % auf 65 %“). Jetzt gilt ein Wechsel bei aus der Spannung berechneten Werten nur, wenn der neue Wert mindestens 80 % beträgt und der Sprung mindestens 40 Prozentpunkte. Ein zurückgesetztes „schwach“-Flag und gemessene Prozentwerte sind unverändert.
+
+### Added
+- **„Automatisch erkannte Wechsel löschen“** (Panel „Quittieren und Batterietagebuch“, mit Rückfrage): Löscht die als „erkannt“ markierten Einträge und setzt den Prognose-Vergleich zurück. Von Hand eingetragene und nachgetragene Wechsel bleiben. Für das, was frühere Versionen fälschlich erkannt haben (`BWACH_DeleteDetectedChanges`).
+- **Gemessene Spannung wird gezeigt:** Im aufgeklappten Gerät der Kachel („⚡ Gemessene Spannung 1,2 V (daraus berechnet: …)“) und in der Spalte „Batteriestand“ der Geräte-Einstellungen („40 % · 1,2 V“).
+
 ## [0.16.5] - 2026-10-13
 
 ### Changed

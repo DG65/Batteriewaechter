@@ -1032,6 +1032,27 @@ class Batteriewaechter extends IPSModule
         return '✅ Gerät wieder aufgenommen.';
     }
 
+    /**
+     * Löscht alle AUTOMATISCH erkannten Wechsel aus dem Batterietagebuch (Art „erkannt“). Von Hand eingetragene
+     * und nachgetragene bleiben. Gedacht, wenn eine frühere Version Spannungsrauschen für Wechsel gehalten hat.
+     */
+    public function DeleteDetectedChanges(): string
+    {
+        $diary = $this->loadJson('Diary');
+        $keep  = array_values(array_filter($diary, function ($e) { return (string)($e['type'] ?? '') !== 'erkannt'; }));
+        $n     = count($diary) - count($keep);
+        if ($n === 0) {
+            return 'ℹ️ Es gibt keine automatisch erkannten Wechsel im Tagebuch.';
+        }
+        $this->saveJson('Diary', $keep);
+        $this->saveJson('FcLog', []);   // der Vergleich mit der Prognose hing an den gelöschten Wechseln
+        $this->Check();
+        $msg = '✅ ' . $n . ($n === 1 ? ' automatisch erkannter Wechsel' : ' automatisch erkannte Wechsel') . ' gelöscht. Von Hand eingetragene bleiben.';
+        $this->UpdateFormField('AckStatus', 'caption', $msg);
+        $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
+        return $msg;
+    }
+
     /** Nimmt alle außer Betrieb gesetzten Geräte wieder auf. */
     public function UnretireAll(): string
     {
@@ -1127,7 +1148,7 @@ class Batteriewaechter extends IPSModule
             $key = $row['id'];
             $cur = ['p' => $row['r']['percent'], 'f' => $row['r']['flagLow']];
             $prev = isset($last[$key]) ? ['p' => $last[$key]['p'] ?? null, 'f' => $last[$key]['f'] ?? null] : null;
-            $desc = BWACHMeldung::detectReplacement($prev, $cur, $jump);
+            $desc = BWACHMeldung::detectReplacement($prev, $cur, $jump, !empty($row['r']['derived']));
             if ($desc !== null) {
                 $entry = ['t' => $now, 'key' => $key, 'name' => $row['name'], 'type' => 'erkannt', 'note' => $desc];
                 // Prognose gegen die Wirklichkeit: Stand vor dem Wechsel gegen das, was die Prognose Wochen vorher sagte
@@ -2596,6 +2617,13 @@ class Batteriewaechter extends IPSModule
                     ],
                 ]],
                 ['type' => 'Label', 'name' => 'DiaryLine', 'caption' => $this->diaryLine()],
+                ['type' => 'PopupButton', 'caption' => 'Automatisch erkannte Wechsel löschen …', 'width' => '320px', 'popup' => [
+                    'caption' => 'Erkannte Wechsel löschen?',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => '⚠️ Das löscht alle AUTOMATISCH erkannten Einträge aus dem Batterietagebuch (Art „erkannt“). Von Hand eingetragene und nachgetragene Wechsel bleiben. Nützlich, wenn der Wächter Spannungsschwankungen für Batteriewechsel gehalten hat. Lebensdauer, Statistik und Prognose-Vergleich werden danach neu aufgebaut.'],
+                        ['type' => 'Button', 'caption' => '🗑️ Ja, erkannte Wechsel löschen', 'onClick' => 'echo BWACH_DeleteDetectedChanges($id);'],
+                    ],
+                ]],
                 ['type' => 'NumberSpinner', 'name' => 'ReplaceJumpPercent', 'caption' => 'Wechsel erkennen, wenn der Prozentwert um mindestens so viel steigt', 'suffix' => ' Prozentpunkte', 'minimum' => 5, 'maximum' => 90],
             ],
         ];
@@ -2738,7 +2766,7 @@ class Batteriewaechter extends IPSModule
             'SensorName'    => $sensor > 0 ? ($sensorName !== '' ? $sensorName : '#' . $sensor) : '',
             'Place'         => $label['place'],
             'Module'        => $label['module'],
-            'Percent'       => $p === null ? '—' : BWACHLogik::num($p) . ' %',
+            'Percent'       => $this->percentColumn($p, $pcts['v:' . $rowKey] ?? null),
             'PercentSort'   => $p === null ? 1000.0 : round($p, 1),   // Geräte ohne Wert landen bei „aufsteigend“ hinten
             'Effect'        => implode(' · ', $parts),
             'Change'        => $chg === null ? '—' : date('d.m.Y', $chg),
@@ -2746,6 +2774,19 @@ class Batteriewaechter extends IPSModule
             'effectiveCell' => $eff['cell'],
             'effectiveExcluded' => (bool)$eff['excluded'],
         ];
+    }
+
+    /** Spalte „Batteriestand“: Prozent und, wenn bekannt, die gemessene Spannung („40 % · 1,2 V“). */
+    private function percentColumn(?float $percent, ?float $volt): string
+    {
+        $parts = [];
+        if ($percent !== null) {
+            $parts[] = BWACHLogik::num($percent) . ' %';
+        }
+        if ($volt !== null) {
+            $parts[] = BWACHLogik::num($volt) . ' V';
+        }
+        return $parts ? implode(' · ', $parts) : '—';
     }
 
     /** Name, Ort und System je Geräteinstanz, wie sie in den Regeln gelten. */
@@ -2772,11 +2813,15 @@ class Batteriewaechter extends IPSModule
         $out = [];
         foreach ($found['devices'] ?? [] as $key => $d) {
             $sig = $this->readSignals($d['signals'] ?? []);
+            $id  = (int)($d['parent'] ?? $key);
+            $rk  = isset($d['parent']) ? (string)$key : (string)$id;
+            if (!empty($sig['voltage'])) {
+                $out['v:' . $rk] = (float)$sig['voltage']['value'];   // gemessene Spannung, nur zur Anzeige
+            }
             if (empty($sig['percent'])) {
                 continue;
             }
             $v  = (float)$sig['percent']['value'] * (float)($sig['percent']['scale'] ?? 1.0);
-            $id = (int)($d['parent'] ?? $key);
             $out[$id] = isset($out[$id]) ? min($out[$id], $v) : $v;
             if (isset($d['parent'])) {
                 $out[(string)$key] = $v;   // der Wert genau dieses Sensors

@@ -182,10 +182,22 @@ final class BWACHMeldung
      * @param array      $cur  dasselbe, aktuell
      * @return string|null Beschreibung des Sprungs, null = kein Wechsel
      */
-    public static function detectReplacement(?array $prev, array $cur, int $jumpPct): ?string
+    /** Ein aus der Spannung berechneter Wert gilt nur dann als neue Batterie, wenn er mindestens so hoch ist (neue Zelle). */
+    public const DERIVED_MIN_PERCENT = 80;
+    /** … und um mindestens so viele Prozentpunkte springt (Spannungsrauschen von 0,1 V bewegt die Kurve um bis zu 25). */
+    public const DERIVED_MIN_JUMP = 40;
+
+    public static function detectReplacement(?array $prev, array $cur, int $jumpPct, bool $derived = false): ?string
     {
         if ($prev === null) {
             return null;
+        }
+        if ($derived) {
+            // Aus der Spannung berechnet: ein Sprung um 0,1 V ist Rauschen, keine neue Batterie
+            $jumpPct = max($jumpPct, self::DERIVED_MIN_JUMP);
+            if ($cur['p'] !== null && $cur['p'] < self::DERIVED_MIN_PERCENT) {
+                $jumpPct = 1000;
+            }
         }
         if ($prev['p'] !== null && $cur['p'] !== null && $cur['p'] - $prev['p'] >= $jumpPct) {
             return 'Prozentwert sprang von ' . BWACHLogik::num((float)$prev['p']) . ' % auf ' . BWACHLogik::num((float)$cur['p']) . ' %';

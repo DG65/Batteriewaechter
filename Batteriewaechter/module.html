@@ -289,6 +289,7 @@
             if (d.pollText) { det.appendChild(bwEl('div', 'facts', '🔔 ' + d.pollText)); }
             if (d.changeText) { det.appendChild(bwEl('div', 'facts', '🔄 ' + d.changeText)); }
             if (d.idText) { det.appendChild(bwEl('div', 'facts', '🆔 ' + d.idText)); }
+            if (d.voltageText && d.percentText) { det.appendChild(bwEl('div', 'facts', '⚡ Gemessene Spannung ' + d.voltageText + (d.derived ? ' (daraus berechnet: ' + d.percentText + ', eine Näherung)' : ''))); }
             if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · Ladezustand aus der Spannung berechnet (Näherung)' : ''))); }
             if (BW.allowAck) {
                 var acts = bwEl('div', 'bw-acts');
