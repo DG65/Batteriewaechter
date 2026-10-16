@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.16.8] - 2026-10-16
+
+### Changed
+- **„Rückgängig“ bleibt nicht mehr tagelang stehen** (Forum: Die Schaltfläche war seit Tagen da, obwohl nichts zurückzunehmen war): Sie verfällt nach 24 Stunden statt nach 7 Tagen, lässt sich mit dem neuen „✕“ daneben ausblenden, ohne etwas zurückzunehmen, und verschwindet, sobald ein Wechsel von Hand nachgetragen oder die erkannten Wechsel gelöscht werden (sie gälte sonst für einen Stand, den es nicht mehr gibt).
+
 ## [0.16.7] - 2026-10-15
 
 ### Fixed

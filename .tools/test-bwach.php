@@ -1156,6 +1156,28 @@ $GLOBALS['OBJ'][8982]['var']['value'] = 1; $GLOBALS['OBJ'][8982]['var']['Variabl
 $mNa->Check(); $na1 = $naOf($mNa);
 check('Netatmo Stufe 1 (low): schwach; Stufe 0 (empty): leer', $na1['status'] === 'schwach' && (function () use ($mNa, $naOf) { $GLOBALS['OBJ'][8982]['var']['value'] = 0; $GLOBALS['OBJ'][8982]['var']['VariableUpdated'] = $GLOBALS['CLOCK']; $mNa->Check(); return $naOf($mNa)['status'] === 'leer'; })());
 
+// Rückgängig: nach 24 Stunden weg, ausblendbar, aufgehoben durch Nachtragen und Löschen (Forum: Rainer, Schaltfläche blieb stehen)
+$mU = freshModule(['NotificationsActive' => false]);
+$undoText = function ($mm) { $mm->RequestAction('refresh', ''); return json_decode(end($mm->visUpdates), true)['undoText']; };
+$mU->Acknowledge('114', 'getauscht');
+check('Rückgängig steht nach der Quittierung da', strpos($undoText($mU), 'Batteriewechsel') === 0);
+$GLOBALS['CLOCK'] += 23 * 3600;
+check('Rückgängig steht nach 23 Stunden noch', $undoText($mU) !== '');
+$GLOBALS['CLOCK'] += 2 * 3600;
+check('Rückgängig ist nach 25 Stunden weg und lässt sich nicht mehr auslösen', $undoText($mU) === '' && strpos($mU->UndoAcknowledge(), 'nichts zurückzunehmen') !== false);
+$mU->Acknowledge('114', 'getauscht');
+$mU->RequestAction('undo_dismiss', '');
+check('Ausblenden (✕) entfernt Rückgängig, ohne etwas zurückzunehmen', $undoText($mU) === '' && count(json_decode($mU->GetValue('Diary'), true)) === 1);
+$mU->Acknowledge('103', 'zurueckgestellt');
+$mU->AddReplacement('114', date('d.m.Y', $GLOBALS['CLOCK'] - 60 * 86400));
+check('Ein von Hand nachgetragener Wechsel hebt Rückgängig auf', $undoText($mU) === '');
+$mU->Acknowledge('103', 'zurueckgestellt');
+$mU->DeleteDetectedChanges();
+$mU->SetValue('Diary', json_encode([['t' => $GLOBALS['CLOCK'] - 100, 'key' => '101', 'name' => 'A', 'type' => 'erkannt', 'note' => 'x']]));
+$mU->Acknowledge('103', 'zurueckgestellt');
+$mU->DeleteDetectedChanges();
+check('Das Löschen erkannter Wechsel hebt Rückgängig auf', $undoText($mU) === '');
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %

@@ -50,6 +50,8 @@ class Batteriewaechter extends IPSModule
     // Push-Ziele (SUITE.md Stolperstein 22): klassisches WebFront UND Kachel-Visualisierung, je eigene Funktion
     private const WEBFRONT_GUID = '{3565B1F2-8F7B-4311-A4B6-1BF1D868F39E}';
     private const KACHEL_GUID   = '{B5B875BB-9B76-45FD-4E67-2607E45B3AC4}';
+    /** So lange bleibt „Rückgängig“ nach einer Quittierung stehen (eine versehentlich gedrückte Schaltfläche fällt schnell auf). */
+    private const UNDO_SECONDS  = 86400;
     private const MAX_DIARY_ROWS = 50;
 
     private const REPO_URL    = 'https://github.com/DG65/Batteriewaechter';
@@ -632,6 +634,8 @@ class Batteriewaechter extends IPSModule
         } elseif ($Ident === 'undo') {
             $meta['ack'] = ['m' => $this->ReadPropertyBoolean('TileAllowAck') ? $this->UndoAcknowledge() : '⛔ Das Quittieren aus der Kachel ist in den Einstellungen ausgeschaltet.', 't' => $now];
             $this->saveJson('Meta', $meta);
+        } elseif ($Ident === 'undo_dismiss') {
+            $this->saveJson('Undo', []);   // „Rückgängig“ ausblenden, ohne etwas zurückzunehmen
         } elseif ($Ident === 'shop_send') {
             $meta['ack'] = ['m' => $this->SendShopping(), 't' => $now];
             $this->saveJson('Meta', $meta);
@@ -814,18 +818,18 @@ class Batteriewaechter extends IPSModule
     private function undoLabel(): string
     {
         $u = $this->loadJson('Undo');
-        return (!empty($u['items']) && $this->now() - (int)$u['t'] <= 7 * 86400) ? (string)$u['label'] : '';
+        return (!empty($u['items']) && $this->now() - (int)$u['t'] <= self::UNDO_SECONDS) ? (string)$u['label'] : '';
     }
 
     /**
      * Nimmt die letzte Quittierung zurück: Meldezustand und „Außer Betrieb“ werden auf den Stand davor gesetzt,
      * ein dabei angelegter Tagebucheintrag wird entfernt. Nur die jeweils letzte Quittierung (eine Tauschrunde
-     * zählt als eine), bis zu 7 Tage lang.
+     * zählt als eine), bis zu 24 Stunden lang; ein Wechsel von Hand oder das Löschen erkannter Wechsel hebt es auf.
      */
     public function UndoAcknowledge(): string
     {
         $u = $this->loadJson('Undo');
-        if (empty($u['items']) || $this->now() - (int)$u['t'] > 7 * 86400) {
+        if (empty($u['items']) || $this->now() - (int)$u['t'] > self::UNDO_SECONDS) {
             return 'ℹ️ Es gibt nichts zurückzunehmen.';
         }
         $state   = $this->loadJson('NotifyState');
@@ -925,6 +929,7 @@ class Batteriewaechter extends IPSModule
         }
         usort($new, function ($a, $b) { return (int)$a['t'] <=> (int)$b['t']; });
         $this->saveJson('Diary', $new);
+        $this->saveJson('Undo', []);   // das letzte „Rückgängig“ gälte sonst für einen Stand, den es nicht mehr gibt
         $this->Check();
         $msg = '✅ Wechsel bei „' . $name . '“ am ' . date('d.m.Y', $t) . ' nachgetragen.';
         $this->UpdateFormField('AckStatus', 'caption', $msg);
@@ -1045,6 +1050,7 @@ class Batteriewaechter extends IPSModule
             return 'ℹ️ Es gibt keine automatisch erkannten Wechsel im Tagebuch.';
         }
         $this->saveJson('Diary', $keep);
+        $this->saveJson('Undo', []);
         $this->saveJson('FcLog', []);   // der Vergleich mit der Prognose hing an den gelöschten Wechseln
         $this->Check();
         $msg = '✅ ' . $n . ($n === 1 ? ' automatisch erkannter Wechsel' : ' automatisch erkannte Wechsel') . ' gelöscht. Von Hand eingetragene bleiben.';
