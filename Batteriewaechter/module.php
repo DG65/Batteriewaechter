@@ -1711,6 +1711,7 @@ class Batteriewaechter extends IPSModule
                     'Excluded' => (bool)($r['Excluded'] ?? false),
                     'Poll'     => (bool)($r['Poll'] ?? false),
                     'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
+                    'PlaceSet'  => $this->cleanAlias((string)($r['PlaceSet'] ?? '')),
                 ];
             }
         }
@@ -1783,6 +1784,7 @@ class Batteriewaechter extends IPSModule
                         'poll'      => (bool)($r['Poll'] ?? false),
                         'stillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                         'alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
+                        'place'     => $this->cleanAlias((string)($r['PlaceOwn'] ?? '')),
                     ];
                 }
             }
@@ -1818,7 +1820,7 @@ class Batteriewaechter extends IPSModule
             $sibs  = ($isInstance && isset($d['node'])) ? $this->matterSiblings($id) : [];
             $label = $this->deviceLabel($d, $id, $isInstance, $sibs);
             // Eigene Einstellung, dann die erste passende Gruppen-Regel
-            $st = BWACHLogik::applyRules($settings[(string)$key] ?? $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false, 'noStill' => false], $label, $rules);
+            $st = BWACHLogik::applyRules($settings[(string)$key] ?? $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false, 'noStill' => false, 'place' => ''], $label, $rules);
             if ($st['excluded'] || isset($retired[(string)$key])) {
                 continue;
             }
@@ -1864,7 +1866,7 @@ class Batteriewaechter extends IPSModule
                 'stillDaysEvent' => $this->ReadPropertyInteger('StillDaysEvent'),
             ]);
             $name  = $label['name'];
-            $place = $label['place'];
+            $place = trim((string)($st['place'] ?? '')) !== '' ? (string)$st['place'] : $label['place'];   // eigener Ort geht der Kategorie vor
             // Anzeigename aus „Geräte-Einstellungen“: gilt in Kachel, Tabellen, Meldungen, Tagebuch und Liste.
             // Die Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz, damit eine Umbenennung nichts verstellt.
             $alias = (string)($st['alias'] ?? '');
@@ -2783,6 +2785,7 @@ class Batteriewaechter extends IPSModule
             'group' => (string)$own['Group'], 'critical' => (bool)$own['Critical'], 'ignoreAge' => (bool)$own['IgnoreAge'],
             'excluded' => (bool)$own['Excluded'], 'cell' => (string)$own['Cell'], 'cells' => (int)$own['Cells'], 'poll' => (bool)$own['Poll'],
             'stillDays' => (int)($own['StillDays'] ?? 0), 'noStill' => (bool)($own['NoStill'] ?? false),
+            'place' => (string)($own['PlaceOwn'] ?? ''),
         ], $label, $rules);
         $parts = [BWACHZelle::isKnown($eff['cell']) ? ($eff['cells'] > 1 ? $eff['cells'] . '× ' : '') . (string)BWACHZelle::shopLabel($eff['cell']) : 'Zelltyp offen'];
         if ($eff['group'] === BWACHLogik::GROUP_EVENT) { $parts[] = 'Ereignismelder'; }
@@ -2806,7 +2809,7 @@ class Batteriewaechter extends IPSModule
         return [
             'Name'          => $sensor > 0 ? $label['name'] . ' › ' . ($sensorName !== '' ? $sensorName : '#' . $sensor) : $label['name'],
             'SensorName'    => $sensor > 0 ? ($sensorName !== '' ? $sensorName : '#' . $sensor) : '',
-            'Place'         => $label['place'],
+            'Place'         => trim((string)($eff['place'] ?? '')) !== '' ? (string)$eff['place'] : $label['place'],
             'Module'        => $label['module'],
             'Percent'       => $this->percentColumn($p, $pcts['v:' . $rowKey] ?? null),
             'PercentSort'   => $p === null ? 1000.0 : round($p, 1),   // Geräte ohne Wert landen bei „aufsteigend“ hinten
@@ -2944,6 +2947,7 @@ class Batteriewaechter extends IPSModule
                     'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                     'Alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                     'Sensor'    => $sen,
+                    'PlaceOwn'  => $this->cleanAlias((string)($r['PlaceOwn'] ?? '')),
                 ];
                 if ($sen === 0 && $id > 0) {
                     $instRows[$id] = $row;
@@ -2971,7 +2975,7 @@ class Batteriewaechter extends IPSModule
                     }
                     $have[$hk] = true;
                     $base = $instRows[$id] ?? ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'NoStill' => false, 'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => ''];
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'PlaceOwn' => ''];
                     // Die Einstellung der Instanz gilt bisher für alle ihre Sensoren: die neue Zeile übernimmt sie, ändert also nichts
                     $row = ['Instance' => $id] + array_merge($base, ['Alias' => '', 'Sensor' => $sen]);
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD, $sen);
@@ -2986,7 +2990,7 @@ class Batteriewaechter extends IPSModule
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0];
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0, 'PlaceOwn' => ''];
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD);
                     if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
                     unset($info['effectiveCell'], $info['effectiveExcluded']);
@@ -3144,6 +3148,7 @@ class Batteriewaechter extends IPSModule
             . "Kritisch: für Geräte, bei denen eine leere Batterie weh tut. Der Wächter warnt früher (schwach ab $crit % statt $low %), sortiert das Gerät weiter oben und erinnert öfter (alle $remC statt $rem Tage)" . ($quiet ? '; die Ruhezeit gilt dafür nicht' : '') . ". Bei einem Widerspruch zwischen Prozentwert und Hinweis „schwach“ zählt die schlechtere Aussage.\n\n"
             . "Ohne Altersprüfung: normal gilt ein Batteriewert, der älter als $old Tage ist, als „veraltet“. Mit diesem Haken entfällt das, für Geräte, die ihren Batteriewert nur sehr selten melden. Die Funkstille-Prüfung bleibt davon unberührt.\n\n"
             . "Ausnehmen: das Gerät wird gar nicht überwacht (keine Meldung, nicht in Kachel und Zahlen). Die Zeile bleibt stehen, damit die Einstellung erhalten bleibt. Etwas anderes als „Außer Betrieb“ in der Kachel.\n\n"
+            . "Ort (eigen): der Ort, unter dem das Gerät in Kachel, Tabellen und Tauschrunde steht (leer = Name der Kategorie, in der die Instanz liegt). Eine Gruppen-Regel kann ihn mit „Ort setzen“ für viele Geräte setzen; der eigene Ort am Gerät geht vor.\n\n"
             . "Anzeigename: ein eigener Name für das Gerät in Kachel, Tabellen, Meldungen und Tagebuch (leer = Name der Instanz). Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz.\n\n"
             . "Zelltyp (eigen) und Zellen (eigen): das sind die Einstellungen dieses einen Geräts. Gilt für das Gerät eine Gruppen-Regel, zeigt die Spalte „Gilt“ den Wert, der am Ende zählt; die beiden Spalten bleiben, wie sie sind, solange das Gerät keinen eigenen Wert hat.\n\n"
             . "Zelltyp und Anzahl Zellen: damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen. Meldet ein Matter-Gerät seinen Zelltyp selbst, steht er schon drin.\n\n"
@@ -3195,9 +3200,11 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Ausnehmen', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Zelltyp (eigen)', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
                         ['caption' => 'Zellen (eigen)', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
+                        ['caption' => 'Ort (eigen)', 'name' => 'PlaceOwn', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Anzeigename', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Funkstille nach (Tage, 0 = Standard)', 'name' => 'StillDays', 'width' => '230px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
+                        ['caption' => 'Ort setzen', 'name' => 'PlaceSet', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],
                 ],
             ],

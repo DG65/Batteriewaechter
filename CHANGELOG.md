@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.17.0] - 2026-10-17
+
+### Added
+- **Ort selbst bestimmen** (Forum: Der Ort kam bisher nur aus dem Namen der Kategorie und passte nicht immer): „Geräte-Einstellungen“ haben die Spalte „Ort (eigen)“ (je Gerät und je Sensor), die Gruppen-Regeln die Spalte „Ort setzen“, mit der sich viele Geräte auf einmal einem Ort zuordnen lassen. Vorrang: eigener Ort am Gerät, dann Ort aus der Regel, dann die Kategorie. Der Ort gilt in der Kachel (Anzeige, Sortierung „Nach Ort“), in den Tabellen, in Tauschrunde und Einkaufsliste, in der CSV und in der Spalte „Ort“ der Geräte-Einstellungen. Die Regel nach „Ort (Kategorie)“ sucht weiter in der Kategorie, damit eine Regel, die einen Ort setzt, ihre eigene Bedingung nicht verändert. Neue Spalten: `PlaceOwn` (Geräte) und `PlaceSet` (Regeln).
+
 ## [0.16.8] - 2026-10-16
 
 ### Changed

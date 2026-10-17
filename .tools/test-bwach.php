@@ -1178,6 +1178,29 @@ $mU->Acknowledge('103', 'zurueckgestellt');
 $mU->DeleteDetectedChanges();
 check('Das Löschen erkannter Wechsel hebt Rückgängig auf', $undoText($mU) === '');
 
+// Ort selbst bestimmen (Forum: Tom): „Ort (eigen)“ am Gerät und „Ort setzen“ in der Gruppen-Regel
+$plBase = ['group' => 'standard', 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => 'unbekannt', 'cells' => 1, 'poll' => false];
+check('Regel „Ort setzen“ setzt den Ort, ein eigener Ort am Gerät geht vor', BWACHLogik::applyRules($plBase, ['name' => 'Badfenster', 'place' => 'Kat', 'module' => ''], [['Kind' => 'name', 'Pattern' => 'Badfenster', 'PlaceSet' => 'Keller', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => false]])['place'] === 'Keller' && BWACHLogik::applyRules(['place' => 'Büro'] + $plBase, ['name' => 'Badfenster', 'place' => 'Kat', 'module' => ''], [['Kind' => 'name', 'Pattern' => 'Badfenster', 'PlaceSet' => 'Keller', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'Excluded' => false]])['place'] === 'Büro');
+$mP = freshModule(['NotificationsActive' => false]);
+$placeOf = function ($mm, $id) { $mm->RequestAction('refresh', ''); foreach (json_decode(end($mm->visUpdates), true)['devices'] as $dv) { if ($dv['id'] === $id) { return $dv['place']; } } return null; };
+$catPlace = $placeOf($mP, '114');
+$mP->props['DeviceSettings'] = json_encode([['Instance' => 114, 'Sensor' => 0, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'PlaceOwn' => 'Heizraum']]);
+check('Ort (eigen) am Gerät ersetzt den Ort aus der Kategorie in Kachel-Daten (vorher „' . $catPlace . '“)', $placeOf($mP, '114') === 'Heizraum' && $catPlace !== 'Heizraum');
+$mP->props['DeviceSettings'] = '[]';
+$mP->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'alle Rauchmelder', 'Kind' => 'name', 'Pattern' => 'Rauchmelder', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Poll' => false, 'StillDays' => 0, 'PlaceSet' => 'Technik']]);
+check('Regel „Ort setzen“ setzt den Ort für alle passenden Geräte', $placeOf($mP, '114') === 'Technik');
+$mP->props['DeviceSettings'] = json_encode([['Instance' => 114, 'Sensor' => 0, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'PlaceOwn' => 'Heizraum']]);
+check('Eigener Ort am Gerät geht dem Ort aus der Regel vor', $placeOf($mP, '114') === 'Heizraum');
+$mP->props['DeviceSettings'] = '[]';
+$mP->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'alle Rauchmelder', 'Kind' => 'name', 'Pattern' => 'Rauchmelder', 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => false, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Poll' => false, 'StillDays' => 0, 'PlaceSet' => 'Technik']]);
+$pForm = json_decode($mP->GetConfigurationForm(), true);
+$pRows = []; $pRuleRows = [];
+foreach ($pForm['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $pRows = $it['values']; } if (($it['name'] ?? '') === 'GroupRules') { $pRuleRows = $it['values']; } } }
+$r114 = array_values(array_filter($pRows, function ($r) { return $r['Instance'] === 114; }))[0] ?? null;
+check('Geräte-Einstellungen: Spalte „Ort“ zeigt den wirksamen Ort, „Ort (eigen)“ den eigenen', $r114 !== null && $r114['Place'] === 'Technik' && $r114['PlaceOwn'] === '');
+check('Gruppen-Regel nach „Ort (Kategorie)“ sucht weiter in der Kategorie, auch wenn eine Regel den Ort ändert', (function () use ($mP, $catPlace) { $mP->props['DeviceSettings'] = '[]'; $mP->props['GroupRules'] = json_encode([['Active' => true, 'Label' => 'nach Kategorie', 'Kind' => 'place', 'Pattern' => $catPlace, 'Cell' => 'unbekannt', 'Cells' => 1, 'Group' => '', 'Critical' => true, 'IgnoreAge' => false, 'NoStill' => false, 'Excluded' => false, 'Poll' => false, 'StillDays' => 0, 'PlaceSet' => 'Neu']]); $mP->RequestAction('refresh', ''); foreach (json_decode(end($mP->visUpdates), true)['devices'] as $dv) { if ($dv['id'] === '114') { return $dv['place'] === 'Neu' && $dv['critical'] === true; } } return false; })());
+check('Formular: Spalten „Ort (eigen)“ und „Ort setzen“', strpos(json_encode($pForm, JSON_UNESCAPED_UNICODE), '"name":"PlaceOwn"') !== false && strpos(json_encode($pForm, JSON_UNESCAPED_UNICODE), '"name":"PlaceSet"') !== false);
+
 // Wechselerkennung im Modul
 $m = freshModule(['NotificationsActive' => true]);
 $GLOBALS['OBJ'][1141]['var']['value'] = 12;   // Rauchmelder fällt auf 12 %

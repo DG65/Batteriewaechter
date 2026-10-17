@@ -344,6 +344,9 @@ final class BWACHLogik
         if (!$own['critical'] && !empty($r['Critical'])) {
             $own['critical'] = true;
         }
+        if (trim((string)($own['place'] ?? '')) === '' && trim((string)($r['PlaceSet'] ?? '')) !== '') {
+            $own['place'] = trim((string)$r['PlaceSet']);   // Ort aus der Regel, falls das Gerät keinen eigenen hat
+        }
         if (empty($own['noStill']) && !empty($r['NoStill'])) {
             $own['noStill'] = true;
         }
