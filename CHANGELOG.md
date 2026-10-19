@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.17.1] - 2026-10-19
+
+### Fixed
+- **Flackerndes „Batterie schwach“ löste Wechsel aus** (Forum, Homematic an der Spannungsgrenze): Bei aus der Spannung berechneten Werten zählt das Zurücksetzen des Schwach-Flags nur noch als Wechsel, wenn der Ladezustand zugleich auf mindestens 80 % und um mindestens 40 Punkte steigt, wie schon beim Prozentsprung.
+
 ## [0.17.0] - 2026-10-17
 
 ### Added

@@ -203,6 +203,10 @@ final class BWACHMeldung
             return 'Prozentwert sprang von ' . BWACHLogik::num((float)$prev['p']) . ' % auf ' . BWACHLogik::num((float)$cur['p']) . ' %';
         }
         if ($prev['f'] === true && $cur['f'] === false) {
+            if ($derived && ($cur['p'] === null || $cur['p'] < self::DERIVED_MIN_PERCENT
+                || ($prev['p'] !== null && $cur['p'] - $prev['p'] < self::DERIVED_MIN_JUMP))) {
+                return null; // flackerndes Flag an der Spannungsgrenze, keine neue Batterie
+            }
             return '„Batterie schwach“-Flag wurde zurückgesetzt';
         }
         return null;
