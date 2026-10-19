@@ -867,6 +867,14 @@ final class BWACHLogik
             $funk = 'aktiv';
         }
 
+        // Das Gerät selbst meldet „nicht erreichbar“ (z. B. HomeMatic UNREACH): zählt als Funkstille, auch wenn sich
+        // irgendeine Variable des Geräts kürzlich aktualisiert hat. Die Wartezeit gegen Flackern ist schon abgezogen.
+        $unreach = (int)($p['unreachSince'] ?? 0);
+        if ($unreach > 0 && empty($p['noStill'])) {
+            $funk = 'still';
+            $reasons[] = 'Gerät meldet sich seit ' . self::daysDat(max(0, $now - $unreach)) . ' als nicht erreichbar';
+        }
+
         $pctText = $pct !== null ? ' (' . ($derived ? '≈' : '') . self::num($pct) . ' %' . ($derived ? ', aus Spannung berechnet' : '') . ')' : '';
         if ($status === self::ST_EMPTY) {
             array_unshift($reasons, 'Batterie leer' . $pctText);

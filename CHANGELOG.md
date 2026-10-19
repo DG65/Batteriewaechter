@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.0] - 2026-10-19
+
+### Added
+- **Erreichbarkeit** (Forum: HomeMatic-Geräte standen auf „aktiv“, obwohl `UNREACH` „nicht erreichbar“ meldete): Meldet ein Gerät sich nicht erreichbar, zählt das als Funkstille, auch wenn sich irgendeine Variable des Geräts kürzlich gemeldet hat. Eine Variable mit dem Ident `UNREACH` wertet der Wächter automatisch aus (an der Instanz, ihren Geschwistern und zusammengeführten HomeMatic-Kanälen). In den Geräte-Einstellungen lässt sich je Gerät eine eigene Erreichbarkeits-Variable wählen (z. B. eine entprellte), mit der Option „umkehren“. Neue Einstellung „nicht erreichbar zählt als Funkstille nach“ (Standard 30 Minuten, 0 = aus), damit kurzes Flackern nicht zählt. „Ohne Funkstille-Prüfung“ gilt auch hier. Neue Spalten: `ReachVar`, `ReachInv`; neue Einstellung `UnreachMinutes`.
+
 ## [0.17.1] - 2026-10-19
 
 ### Fixed

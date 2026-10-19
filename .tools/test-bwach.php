@@ -647,6 +647,7 @@ check('Befunde: leer / schwach / still, Datenqualität löst nichts aus', BWACHM
 check('Wechsel: 15 % → 100 % erkannt', BWACHMeldung::detectReplacement(['p' => 15.0, 'f' => null], ['p' => 100.0, 'f' => null], 25) !== null);
 check('Wechsel: Sprung genau 25 Punkte erkannt, 24 nicht', BWACHMeldung::detectReplacement(['p' => 40.0, 'f' => null], ['p' => 65.0, 'f' => null], 25) !== null && BWACHMeldung::detectReplacement(['p' => 40.0, 'f' => null], ['p' => 64.0, 'f' => null], 25) === null);
 check('Wechsel: Flag „schwach“ → „ok“ erkannt', BWACHMeldung::detectReplacement(['p' => null, 'f' => true], ['p' => null, 'f' => false], 25) !== null);
+check('Berechnet: Flag zurückgesetzt, Anstieg genau 40 Punkte auf 85 % zählt', BWACHMeldung::detectReplacement(['p' => 45.0, 'f' => true], ['p' => 85.0, 'f' => false], 25, true) !== null);
 check('Berechnet: Flag zurückgesetzt bei kleinem Prozentanstieg kein Wechsel, bei 15 → 100 % schon', BWACHMeldung::detectReplacement(['p' => 5.0, 'f' => true], ['p' => 12.0, 'f' => false], 25, true) === null && BWACHMeldung::detectReplacement(['p' => null, 'f' => true], ['p' => null, 'f' => false], 25, true) === null && BWACHMeldung::detectReplacement(['p' => 15.0, 'f' => true], ['p' => 100.0, 'f' => false], 25, true) !== null && BWACHMeldung::detectReplacement(['p' => 50.0, 'f' => true], ['p' => 85.0, 'f' => false], 25, true) === null);
 check('Kein Wechsel: erste Beobachtung, sinkender Wert, Flag false → true', BWACHMeldung::detectReplacement(null, ['p' => 100.0, 'f' => null], 25) === null
     && BWACHMeldung::detectReplacement(['p' => 80.0, 'f' => null], ['p' => 60.0, 'f' => null], 25) === null && BWACHMeldung::detectReplacement(['p' => null, 'f' => false], ['p' => null, 'f' => true], 25) === null);
@@ -2700,6 +2701,44 @@ check('Kachel-Daten nennen den Ort für den Zelltyp: Instanzname, Panel, Spalte'
 check('Die Kachel zeigt diesen Ort beim fehlenden Zelltyp', strpos(file_get_contents($MODDIR . '/module.html'), "'Keine Zelltypen bekannt. Zelltyp je Gerät eintragen: ' + s.where") !== false && strpos(file_get_contents($MODDIR . '/module.html'), "'. Eintragen: ' + s.where") !== false);
 $mH2 = freshModule(['NotificationsActive' => false, 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1]])]);
 check('Tabelle nennt Instanz, Panel und Spalte', strpos($mH2->GetValue('TableShopping'), 'in der Instanz „Batteriewächter“ unter „Geräte-Einstellungen“ in der Spalte „Zelltyp“ wählen') !== false, strip_tags($mH2->GetValue('TableShopping')));
+
+// Erreichbarkeit (0.18.0): UNREACH / eigene Variable zählt als Funkstille, mit Wartezeit gegen Flackern
+function reachDev(BWTest $m, string $name): ?array { $m->RequestAction('refresh', ''); foreach (json_decode(end($m->visUpdates), true)['devices'] as $dv) { if ($dv['name'] === $name) { return $dv; } } return null; }
+$mU = freshModule(['NotificationsActive' => false]);
+mkinst(8951, 'Sensor Flur', 'Z-Wave Module');
+mkvar(8952, 8951, 'BatteryVariable', 'Batterie', 1, 80, $GLOBALS['CLOCK'] - 600, '~Battery.100');
+mkvar(8953, 8951, 'UNREACH', 'Nicht erreichbar', 0, true, $GLOBALS['CLOCK'] - 3600);
+$mU->Search(); $mU->Check();
+$u1 = reachDev($mU, 'Sensor Flur');
+check('Erreichbarkeit: UNREACH seit einer Stunde (Wartezeit 30 Minuten) ist Funkstille, auch bei frischem Lebenszeichen', $u1 !== null && $u1['funk'] === 'still' && in_array('Gerät meldet sich seit 1 Stunde als nicht erreichbar', $u1['reasons'], true), json_encode($u1['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 600;
+check('Erreichbarkeit: erst seit 10 Minuten nicht erreichbar zählt noch nicht (Flackern)', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
+$GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 1800;
+check('Erreichbarkeit: genau 30 Minuten zählt', reachDev($mU, 'Sensor Flur')['funk'] === 'still');
+$GLOBALS['OBJ'][8953]['var']['value'] = false;
+check('Erreichbarkeit: UNREACH false ist erreichbar', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
+$GLOBALS['OBJ'][8953]['var']['value'] = true; $GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 3600;
+$mU->props['UnreachMinutes'] = 0;
+check('Erreichbarkeit: Wartezeit 0 schaltet die Auswertung ab', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
+$mU->props['UnreachMinutes'] = 30;
+$mU->props['DeviceSettings'] = json_encode([['Instance' => 8951, 'NoStill' => true]]);
+check('Erreichbarkeit: „Ohne Funkstille-Prüfung“ gilt auch hier', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
+// eigene Variable, umgekehrt (true = erreichbar)
+mkvar(8954, 8951, 'MeinStatus', 'Online', 0, false, $GLOBALS['CLOCK'] - 7200);
+$GLOBALS['OBJ'][8953]['var']['value'] = false;
+$mU->props['DeviceSettings'] = json_encode([['Instance' => 8951, 'ReachVar' => 8954, 'ReachInv' => true]]);
+check('Erreichbarkeit: eigene Variable, umgekehrt: false = nicht erreichbar, geht UNREACH vor', reachDev($mU, 'Sensor Flur')['funk'] === 'still');
+$GLOBALS['OBJ'][8954]['var']['value'] = true;
+check('Erreichbarkeit: eigene Variable umgekehrt, true = erreichbar', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
+$mU->props['DeviceSettings'] = json_encode([['Instance' => 8951, 'ReachVar' => 8954, 'ReachInv' => false]]);
+check('Erreichbarkeit: eigene Variable ohne Umkehr, true = nicht erreichbar', reachDev($mU, 'Sensor Flur')['funk'] === 'still');
+$mU->props['DeviceSettings'] = json_encode([['Instance' => 8951, 'ReachVar' => 99999]]);
+$GLOBALS['OBJ'][8953]['var']['value'] = true; $GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 3600; $GLOBALS['OBJ'][8954]['var']['value'] = true;
+$mU->props['DeviceSettings'] = json_encode([['Instance' => 8951, 'ReachVar' => 8954, 'ReachInv' => true]]);
+check('Erreichbarkeit: die eigene Variable ersetzt UNREACH (meldet sie „erreichbar“, zählt UNREACH nicht)', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
+check('Erreichbarkeit: gelöschte eigene Variable verursacht keinen Fehler und keine Funkstille', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
+$rowsU = []; foreach (json_decode($mU->GetConfigurationForm(), true)['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $rowsU = $it['values']; } } }
+check('Erreichbarkeit: Spalten in den Geräte-Einstellungen', count($rowsU) > 0 && array_key_exists('ReachVar', $rowsU[0]) && array_key_exists('ReachInv', $rowsU[0]));
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

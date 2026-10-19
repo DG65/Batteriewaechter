@@ -82,7 +82,7 @@ Spannungswerte werden angezeigt, aber noch nicht in Prozent umgerechnet (die Aus
 |---|---|
 | ✅ ok / ⚠️ schwach / 🪫 leer | aus Prozentwert (Schwellen einstellbar) oder aus dem „schwach“-Flag des Geräts |
 | ❔ unbekannt | nichts Auswertbares (z. B. nur Spannung oder unplausibler Wert) |
-| 🔇 Funkstille | seit mehr als N Tagen keine Aktualisierung irgendeiner Variable des Geräts |
+| 🔇 Funkstille | seit mehr als N Tagen keine Aktualisierung irgendeiner Variable des Geräts, oder das Gerät meldet sich länger als eingestellt als nicht erreichbar (HomeMatic `UNREACH` oder eigene Erreichbarkeits-Variable) |
 | „Wert veraltet“ | der Batteriewert wurde seit mehr als N Tagen nicht gemeldet; manche Geräte melden ihn nur alle paar Monate (dann „Ohne Altersprüfung“) |
 | „Widerspruch“ | Flag und Prozentwert sagen Verschiedenes; es gilt das neuere Signal, bei kritischen Geräten das schlechtere |
 

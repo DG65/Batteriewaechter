@@ -88,6 +88,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyInteger('PollAfterDays', 14);
         $this->RegisterPropertyInteger('PollEveryDays', 7);
         $this->RegisterPropertyInteger('OrphanDays', 60);
+        $this->RegisterPropertyInteger('UnreachMinutes', 30);
         $this->RegisterPropertyBoolean('TileAllowAck', true);
         $this->RegisterPropertyBoolean('LightTheme', false);
         $this->RegisterPropertyString('FormLayout', '[]');
@@ -1785,6 +1786,8 @@ class Batteriewaechter extends IPSModule
                         'stillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                         'alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                         'place'     => $this->cleanAlias((string)($r['PlaceOwn'] ?? '')),
+                        'reach'     => max(0, (int)($r['ReachVar'] ?? 0)),
+                        'reachInv'  => (bool)($r['ReachInv'] ?? false),
                     ];
                 }
             }
@@ -1861,6 +1864,7 @@ class Batteriewaechter extends IPSModule
                 'emptyPct'       => $this->ReadPropertyInteger('EmptyPercent'),
                 'critLowPct'     => $this->ReadPropertyInteger('CriticalLowPercent'),
                 'valueOldDays'   => $this->ReadPropertyInteger('ValueOldDays'),
+                'unreachSince'   => $this->unreachSince($id, $isInstance, $sibs, $d['members'] ?? [], (int)($st['reach'] ?? 0), !empty($st['reachInv'])),
                 'stillOverrideDays' => (int)($st['stillDays'] ?? 0),
                 'stillDays'      => $this->ReadPropertyInteger('StillDays'),
                 'stillDaysEvent' => $this->ReadPropertyInteger('StillDaysEvent'),
@@ -2100,6 +2104,47 @@ class Batteriewaechter extends IPSModule
             }
         }
         return $max;
+    }
+
+    /**
+     * Seit wann das Gerät sich als „nicht erreichbar“ meldet (nach Abzug der Wartezeit gegen Flackern), sonst null.
+     * Quelle: die im Gerät gewählte Erreichbarkeits-Variable (true = nicht erreichbar, umkehrbar), sonst eine Variable
+     * mit dem Ident UNREACH an der Instanz, ihren Matter-/HomeMatic-Geschwistern oder zusammengeführten Kanälen.
+     */
+    private function unreachSince(int $id, bool $isInstance, array $sibs, array $members, int $own, bool $inv): ?int
+    {
+        $wait = $this->ReadPropertyInteger('UnreachMinutes') * 60;
+        if ($wait <= 0) {
+            return null;
+        }
+        $vars = [];
+        if ($own > 0) {
+            if (IPS_VariableExists($own)) {
+                $vars[] = [$own, $inv];
+            }
+        } elseif ($isInstance) {
+            foreach (array_unique(array_merge([$id], $sibs, array_map('intval', $members))) as $inst) {
+                if ($inst > 0 && IPS_InstanceExists($inst)) {
+                    $v = @IPS_GetObjectIDByIdent('UNREACH', $inst);
+                    if ($v !== false && $v > 0 && IPS_VariableExists($v)) {
+                        $vars[] = [$v, false];
+                    }
+                }
+            }
+        }
+        $since = null;
+        foreach ($vars as [$vid, $invert]) {
+            $info = IPS_GetVariable($vid);
+            if ((int)($info['VariableType'] ?? -1) !== 0) {
+                continue;
+            }
+            $unreach = (bool)GetValue($vid) !== $invert;
+            $changed = (int)($info['VariableChanged'] ?? 0);
+            if ($unreach && $changed > 0 && $this->now() - $changed >= $wait) {
+                $since = $since === null ? $changed : min($since, $changed);
+            }
+        }
+        return $since;
     }
 
     /** Meldet sich bei allen gefundenen Batterievariablen an und bei weggefallenen ab. */
@@ -2729,6 +2774,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'NumberSpinner', 'name' => 'ValueOldDays', 'caption' => 'Batteriewert gilt als veraltet nach', 'suffix' => ' Tagen', 'minimum' => 1, 'maximum' => 3650],
                 ['type' => 'NumberSpinner', 'name' => 'StillDays', 'caption' => 'Funkstille nach (Standard-Geräte)', 'suffix' => ' Tagen', 'minimum' => 1, 'maximum' => 365],
                 ['type' => 'NumberSpinner', 'name' => 'StillDaysEvent', 'caption' => 'Funkstille nach (Ereignismelder)', 'suffix' => ' Tagen', 'minimum' => 1, 'maximum' => 365],
+                ['type' => 'NumberSpinner', 'name' => 'UnreachMinutes', 'caption' => 'Meldet ein Gerät „nicht erreichbar“ (z. B. HomeMatic UNREACH), zählt das als Funkstille nach (0 = Meldung nicht auswerten)', 'suffix' => ' Minuten', 'minimum' => 0, 'maximum' => 10080],
                 ['type' => 'NumberSpinner', 'name' => 'CheckIntervalMin', 'caption' => 'Prüfintervall', 'suffix' => ' min', 'minimum' => 5, 'maximum' => 1440],
                 ['type' => 'PopupButton', 'caption' => 'Wie arbeiten die Schwellen zusammen?', 'width' => '400px', 'popup' => [
                     'caption' => 'Schwellen',
@@ -2948,6 +2994,8 @@ class Batteriewaechter extends IPSModule
                     'Alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                     'Sensor'    => $sen,
                     'PlaceOwn'  => $this->cleanAlias((string)($r['PlaceOwn'] ?? '')),
+                    'ReachVar'  => max(0, (int)($r['ReachVar'] ?? 0)),
+                    'ReachInv'  => (bool)($r['ReachInv'] ?? false),
                 ];
                 if ($sen === 0 && $id > 0) {
                     $instRows[$id] = $row;
@@ -2975,7 +3023,7 @@ class Batteriewaechter extends IPSModule
                     }
                     $have[$hk] = true;
                     $base = $instRows[$id] ?? ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'NoStill' => false, 'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'PlaceOwn' => ''];
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'PlaceOwn' => '', 'ReachVar' => 0, 'ReachInv' => false];
                     // Die Einstellung der Instanz gilt bisher für alle ihre Sensoren: die neue Zeile übernimmt sie, ändert also nichts
                     $row = ['Instance' => $id] + array_merge($base, ['Alias' => '', 'Sensor' => $sen]);
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD, $sen);
@@ -2990,7 +3038,7 @@ class Batteriewaechter extends IPSModule
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0, 'PlaceOwn' => ''];
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0, 'PlaceOwn' => '', 'ReachVar' => 0, 'ReachInv' => false];
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD);
                     if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
                     unset($info['effectiveCell'], $info['effectiveExcluded']);
@@ -3148,6 +3196,7 @@ class Batteriewaechter extends IPSModule
             . "Kritisch: für Geräte, bei denen eine leere Batterie weh tut. Der Wächter warnt früher (schwach ab $crit % statt $low %), sortiert das Gerät weiter oben und erinnert öfter (alle $remC statt $rem Tage)" . ($quiet ? '; die Ruhezeit gilt dafür nicht' : '') . ". Bei einem Widerspruch zwischen Prozentwert und Hinweis „schwach“ zählt die schlechtere Aussage.\n\n"
             . "Ohne Altersprüfung: normal gilt ein Batteriewert, der älter als $old Tage ist, als „veraltet“. Mit diesem Haken entfällt das, für Geräte, die ihren Batteriewert nur sehr selten melden. Die Funkstille-Prüfung bleibt davon unberührt.\n\n"
             . "Ausnehmen: das Gerät wird gar nicht überwacht (keine Meldung, nicht in Kachel und Zahlen). Die Zeile bleibt stehen, damit die Einstellung erhalten bleibt. Etwas anderes als „Außer Betrieb“ in der Kachel.\n\n"
+            . "Erreichbarkeit (Variable): meldet das Gerät selbst, ob es erreichbar ist, wertet der Wächter das aus (HomeMatic „UNREACH“ erkennt er von allein). Hier lässt sich stattdessen eine eigene Variable wählen, z. B. eine entprellte. Wahr bedeutet „nicht erreichbar“, mit „umkehren“ gilt wahr als „erreichbar“. Wie lange das Gerät so melden muss, bis es als Funkstille zählt, steht unter „Schwellen“.\n\n"
             . "Ort (eigen): der Ort, unter dem das Gerät in Kachel, Tabellen und Tauschrunde steht (leer = Name der Kategorie, in der die Instanz liegt). Eine Gruppen-Regel kann ihn mit „Ort setzen“ für viele Geräte setzen; der eigene Ort am Gerät geht vor.\n\n"
             . "Anzeigename: ein eigener Name für das Gerät in Kachel, Tabellen, Meldungen und Tagebuch (leer = Name der Instanz). Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz.\n\n"
             . "Zelltyp (eigen) und Zellen (eigen): das sind die Einstellungen dieses einen Geräts. Gilt für das Gerät eine Gruppen-Regel, zeigt die Spalte „Gilt“ den Wert, der am Ende zählt; die beiden Spalten bleiben, wie sie sind, solange das Gerät keinen eigenen Wert hat.\n\n"
@@ -3201,6 +3250,8 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Zelltyp (eigen)', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
                         ['caption' => 'Zellen (eigen)', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
                         ['caption' => 'Ort (eigen)', 'name' => 'PlaceOwn', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Erreichbarkeit (Variable)', 'name' => 'ReachVar', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                        ['caption' => 'Erreichbarkeit umkehren', 'name' => 'ReachInv', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Anzeigename', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Funkstille nach (Tage, 0 = Standard)', 'name' => 'StillDays', 'width' => '230px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
