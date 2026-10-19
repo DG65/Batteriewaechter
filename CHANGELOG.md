@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.1] - 2026-10-19
+
+### Added
+- **Stufenanzeige aus Darstellungen** (Forum: Blink-Kameras zeigten die Stufe 3 „Gut“ als „3 % leer“): Die Stufen einer Batterievariable liest der Wächter jetzt auch aus den Intervallen einer Symcon-Darstellung (ohne Prozentanzeige), nicht nur aus Profilen. Eine Stufe, die „Unbekannt“ heißt, ergibt den Status „unbekannt“ mit eigenem Grund und keinen Batteriestand.
+
+### Changed
+- **Ausdrücklich gewählte Erreichbarkeits-Variable geht in beide Richtungen vor** (Forum): „nicht erreichbar“ zählt nach der Wartezeit auch bei „Ohne Funkstille-Prüfung“, „erreichbar“ gilt sofort als aktiv, auch wenn das Gerät lange nichts sendet. Das automatisch erkannte `UNREACH` bleibt wie in 0.18.0 (verstärkt nur).
+
 ## [0.18.0] - 2026-10-19
 
 ### Added

@@ -1448,7 +1448,8 @@ class Batteriewaechter extends IPSModule
                 // Nur für Spannungen nötig: damit Netzspannung (232 V) nicht als Batterie gilt
                 'value'            => $this->voltValue($vid, $obj, $var),
                 // Stufenanzeige (z. B. Netatmo 0 = leer … 5 = max): die Werte der benannten Stufen des Profils
-                'stages'           => $this->profileStages($obj, $var),
+                'stages'           => ($si = $this->stageInfo($obj, $var))['values'] ?? null,
+                'stageUnknown'     => $si['unknown'] ?? [],
             ];
         }
         return $out;
@@ -1595,25 +1596,58 @@ class Batteriewaechter extends IPSModule
      *
      * @return int[]|null aufsteigend sortierte Stufenwerte
      */
-    private function profileStages(array $obj, array $var): ?array
+    /**
+     * Stufenanzeige einer Batterievariable: die Werte der benannten Stufen und welche davon „unbekannt“ heißen.
+     * Quelle: die Assoziationen des Profils oder, bei Symcon-Darstellungen ohne Profil, die Intervalle der Darstellung
+     * (INTERVALS, ein JSON-String; nur mit INTERVALS_ACTIVE und ohne PERCENTAGE).
+     *
+     * @return array|null ['values'=>int[] aufsteigend,'unknown'=>int[]]
+     */
+    private function stageInfo(array $obj, array $var): ?array
     {
         if ((int)($var['VariableType'] ?? -1) !== 1 || !preg_match('/bat/i', (string)($obj['ObjectIdent'] ?? '') . ' ' . (string)($obj['ObjectName'] ?? ''))) {
             return null;
         }
+        $named = [];   // Wert => Beschriftung
         $p = $this->resolveProfile($var);
-        if ($p === '' || $p[0] === '~' || !IPS_VariableProfileExists($p)) {
-            return null;
-        }
-        $assoc  = (array)(IPS_GetVariableProfile($p)['Associations'] ?? []);
-        $values = [];
-        foreach ($assoc as $a) {
-            if (is_array($a) && isset($a['Value'])) {
-                $values[] = (int)$a['Value'];
+        if ($p !== '') {
+            if ($p[0] === '~' || !IPS_VariableProfileExists($p)) {
+                return null;
+            }
+            foreach ((array)(IPS_GetVariableProfile($p)['Associations'] ?? []) as $a) {
+                if (is_array($a) && isset($a['Value'])) {
+                    $named[(int)$a['Value']] = (string)($a['Name'] ?? '');
+                }
+            }
+        } else {
+            foreach (['VariableCustomPresentation', 'VariablePresentation'] as $key) {
+                $pres = $var[$key] ?? null;
+                if (!is_array($pres) || empty($pres['INTERVALS_ACTIVE']) || !empty($pres['PERCENTAGE'])) {
+                    continue;
+                }
+                $list = is_string($pres['INTERVALS'] ?? null) ? json_decode($pres['INTERVALS'], true) : ($pres['INTERVALS'] ?? null);
+                if (is_array($list)) {
+                    foreach ($list as $iv) {
+                        if (is_array($iv) && isset($iv['IntervalMinValue']) && is_numeric($iv['IntervalMinValue'])) {
+                            $named[(int)$iv['IntervalMinValue']] = !empty($iv['ConstantActive']) ? (string)($iv['ConstantValue'] ?? '') : '';
+                        }
+                    }
+                    break;
+                }
             }
         }
-        $values = array_values(array_unique($values));
-        sort($values);
-        return count($values) >= 3 && count($values) <= 10 ? $values : null;
+        ksort($named);
+        $values = array_keys($named);
+        if (count($values) < 3 || count($values) > 10) {
+            return null;
+        }
+        $unknown = [];
+        foreach ($named as $v => $name) {
+            if (preg_match('/unbekannt|unknown/iu', $name)) {
+                $unknown[] = (int)$v;
+            }
+        }
+        return ['values' => $values, 'unknown' => $unknown];
     }
 
     private function resolveProfile(array $var): string
@@ -1849,6 +1883,7 @@ class Batteriewaechter extends IPSModule
                 }
             }
 
+            $reach = $this->reachState($id, $isInstance, $sibs, $d['members'] ?? [], (int)($st['reach'] ?? 0), !empty($st['reachInv']));
             $defaultStill = ($st['group'] === BWACHLogik::GROUP_EVENT ? $this->ReadPropertyInteger('StillDaysEvent') : $this->ReadPropertyInteger('StillDays')) * 86400;
             $stillSec = $learn ? BWACHPrognose::learnedThreshold($lifeObs[(string)$key] ?? [], $defaultStill) : $defaultStill;
             $r = BWACHLogik::evaluate($sig, $life, $now, [
@@ -1864,7 +1899,9 @@ class Batteriewaechter extends IPSModule
                 'emptyPct'       => $this->ReadPropertyInteger('EmptyPercent'),
                 'critLowPct'     => $this->ReadPropertyInteger('CriticalLowPercent'),
                 'valueOldDays'   => $this->ReadPropertyInteger('ValueOldDays'),
-                'unreachSince'   => $this->unreachSince($id, $isInstance, $sibs, $d['members'] ?? [], (int)($st['reach'] ?? 0), !empty($st['reachInv'])),
+                'unreachSince'   => $reach['since'],
+                'reachUp'        => $reach['up'],
+                'reachExplicit'  => $reach['explicit'],
                 'stillOverrideDays' => (int)($st['stillDays'] ?? 0),
                 'stillDays'      => $this->ReadPropertyInteger('StillDays'),
                 'stillDaysEvent' => $this->ReadPropertyInteger('StillDaysEvent'),
@@ -2038,6 +2075,11 @@ class Batteriewaechter extends IPSModule
                 $upd = (int)($var['VariableUpdated'] ?? 0);
                 if ($kind === BWACHLogik::KIND_PERCENT) {
                     $stage = null;
+                    // Stufe „unbekannt“ (z. B. Blink 0): kein Batteriestand, ehrlich als unbekannt behandeln
+                    if (!empty($s['stageUnknown']) && in_array((int)$val, array_map('intval', $s['stageUnknown']), true)) {
+                        $sig['stageUnknown'] = true;
+                        continue;
+                    }
                     if (!empty($s['stages']) && is_array($s['stages'])) {
                         // Stufenanzeige: Rang der Stufe, gleichmäßig auf 0 bis 100 verteilt
                         $stage = BWACHLogik::stageOf((float)$val, array_map('intval', $s['stages']));
@@ -2107,22 +2149,23 @@ class Batteriewaechter extends IPSModule
     }
 
     /**
-     * Seit wann das Gerät sich als „nicht erreichbar“ meldet (nach Abzug der Wartezeit gegen Flackern), sonst null.
-     * Quelle: die im Gerät gewählte Erreichbarkeits-Variable (true = nicht erreichbar, umkehrbar), sonst eine Variable
-     * mit dem Ident UNREACH an der Instanz, ihren Matter-/HomeMatic-Geschwistern oder zusammengeführten Kanälen.
+     * Erreichbarkeit des Geräts. Quelle: die im Gerät gewählte Variable (true = nicht erreichbar, umkehrbar), sonst eine
+     * Variable mit dem Ident UNREACH an der Instanz, ihren Matter-/HomeMatic-Geschwistern oder zusammengeführten Kanälen.
+     * Eine ausdrücklich gewählte Variable geht in beide Richtungen vor der Zeit-Schwelle der Funkstille.
+     *
+     * @return array ['since'=>?int (seit wann nicht erreichbar, nach Abzug der Wartezeit gegen Flackern),'up'=>bool (ausdrücklich erreichbar),'explicit'=>bool]
      */
-    private function unreachSince(int $id, bool $isInstance, array $sibs, array $members, int $own, bool $inv): ?int
+    private function reachState(int $id, bool $isInstance, array $sibs, array $members, int $own, bool $inv): array
     {
+        $res  = ['since' => null, 'up' => false, 'explicit' => false];
         $wait = $this->ReadPropertyInteger('UnreachMinutes') * 60;
-        if ($wait <= 0) {
-            return null;
-        }
         $vars = [];
         if ($own > 0) {
             if (IPS_VariableExists($own)) {
                 $vars[] = [$own, $inv];
+                $res['explicit'] = true;
             }
-        } elseif ($isInstance) {
+        } elseif ($wait > 0 && $isInstance) {
             foreach (array_unique(array_merge([$id], $sibs, array_map('intval', $members))) as $inst) {
                 if ($inst > 0 && IPS_InstanceExists($inst)) {
                     $v = @IPS_GetObjectIDByIdent('UNREACH', $inst);
@@ -2132,19 +2175,23 @@ class Batteriewaechter extends IPSModule
                 }
             }
         }
-        $since = null;
         foreach ($vars as [$vid, $invert]) {
             $info = IPS_GetVariable($vid);
             if ((int)($info['VariableType'] ?? -1) !== 0) {
+                $res['explicit'] = false;
                 continue;
             }
             $unreach = (bool)GetValue($vid) !== $invert;
             $changed = (int)($info['VariableChanged'] ?? 0);
-            if ($unreach && $changed > 0 && $this->now() - $changed >= $wait) {
-                $since = $since === null ? $changed : min($since, $changed);
+            if ($unreach) {
+                if ($wait > 0 && $changed > 0 && $this->now() - $changed >= $wait) {
+                    $res['since'] = $res['since'] === null ? $changed : min($res['since'], $changed);
+                }
+            } elseif ($res['explicit']) {
+                $res['up'] = true;
             }
         }
-        return $since;
+        return $res;
     }
 
     /** Meldet sich bei allen gefundenen Batterievariablen an und bei weggefallenen ab. */
@@ -3196,7 +3243,7 @@ class Batteriewaechter extends IPSModule
             . "Kritisch: für Geräte, bei denen eine leere Batterie weh tut. Der Wächter warnt früher (schwach ab $crit % statt $low %), sortiert das Gerät weiter oben und erinnert öfter (alle $remC statt $rem Tage)" . ($quiet ? '; die Ruhezeit gilt dafür nicht' : '') . ". Bei einem Widerspruch zwischen Prozentwert und Hinweis „schwach“ zählt die schlechtere Aussage.\n\n"
             . "Ohne Altersprüfung: normal gilt ein Batteriewert, der älter als $old Tage ist, als „veraltet“. Mit diesem Haken entfällt das, für Geräte, die ihren Batteriewert nur sehr selten melden. Die Funkstille-Prüfung bleibt davon unberührt.\n\n"
             . "Ausnehmen: das Gerät wird gar nicht überwacht (keine Meldung, nicht in Kachel und Zahlen). Die Zeile bleibt stehen, damit die Einstellung erhalten bleibt. Etwas anderes als „Außer Betrieb“ in der Kachel.\n\n"
-            . "Erreichbarkeit (Variable): meldet das Gerät selbst, ob es erreichbar ist, wertet der Wächter das aus (HomeMatic „UNREACH“ erkennt er von allein). Hier lässt sich stattdessen eine eigene Variable wählen, z. B. eine entprellte. Wahr bedeutet „nicht erreichbar“, mit „umkehren“ gilt wahr als „erreichbar“. Wie lange das Gerät so melden muss, bis es als Funkstille zählt, steht unter „Schwellen“.\n\n"
+            . "Erreichbarkeit (Variable): meldet das Gerät selbst, ob es erreichbar ist, wertet der Wächter das aus (HomeMatic „UNREACH“ erkennt er von allein). Hier lässt sich stattdessen eine eigene Variable wählen, z. B. eine entprellte. Wahr bedeutet „nicht erreichbar“, mit „umkehren“ gilt wahr als „erreichbar“. Eine hier gewählte Variable geht in beide Richtungen vor der Funkstille-Schwelle: „nicht erreichbar“ zählt nach der Wartezeit auch bei „Ohne Funkstille-Prüfung“, „erreichbar“ gilt auch dann als aktiv, wenn das Gerät lange nichts sendet. Meldet die Variable selbst nichts mehr, fällt das nicht auf. Wie lange das Gerät so melden muss, bis es als Funkstille zählt, steht unter „Schwellen“.\n\n"
             . "Ort (eigen): der Ort, unter dem das Gerät in Kachel, Tabellen und Tauschrunde steht (leer = Name der Kategorie, in der die Instanz liegt). Eine Gruppen-Regel kann ihn mit „Ort setzen“ für viele Geräte setzen; der eigene Ort am Gerät geht vor.\n\n"
             . "Anzeigename: ein eigener Name für das Gerät in Kachel, Tabellen, Meldungen und Tagebuch (leer = Name der Instanz). Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz.\n\n"
             . "Zelltyp (eigen) und Zellen (eigen): das sind die Einstellungen dieses einen Geräts. Gilt für das Gerät eine Gruppen-Regel, zeigt die Spalte „Gilt“ den Wert, der am Ende zählt; die beiden Spalten bleiben, wie sie sind, solange das Gerät keinen eigenen Wert hat.\n\n"

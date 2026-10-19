@@ -628,6 +628,9 @@ final class BWACHLogik
             if ($kind === self::KIND_PERCENT && $s['basis'] === self::BASIS_IDENT && !empty($v['stages']) && is_array($v['stages'])
                 && count($v['stages']) >= 3 && count($v['stages']) <= 10) {
                 $entry['stages'] = array_values(array_map('intval', $v['stages']));
+                if (!empty($v['stageUnknown']) && is_array($v['stageUnknown'])) {
+                    $entry['stageUnknown'] = array_values(array_map('intval', $v['stageUnknown']));
+                }
             }
             if (isset($manualText[$vid]) && $kind === self::KIND_FLAG) {
                 $entry['text'] = $manualText[$vid];   // Text-Zustand: „schwach“, wenn der Text eines der Muster enthält
@@ -824,6 +827,8 @@ final class BWACHLogik
                 $reasons[] = 'nur Spannung vorhanden (' . self::num((float)$sig['voltage']['value']) . ' V): Zelltyp wählen, dann rechnet der Wächter den Ladezustand aus' . ($suggest !== '' ? ' (' . $suggest . ')' : '');
                 $quality[] = 'nur_spannung';
             }
+        } elseif (!empty($sig['stageUnknown'])) {
+            $reasons[] = 'Gerät meldet die Batteriestufe „unbekannt“';
         } else {
             $reasons[] = 'kein auswertbares Batteriesignal';
         }
@@ -851,7 +856,10 @@ final class BWACHLogik
         }
         $lifeAge   = $life > 0 ? max(0, $now - $life) : null;
         $orphan    = false;
-        if ($lifeAge === null) {
+        $reachUp   = !empty($p['reachUp']);   // ausdrücklich gewählte Erreichbarkeits-Variable meldet „erreichbar“: geht der Zeit-Schwelle vor
+        if ($reachUp) {
+            $funk = 'aktiv';
+        } elseif ($lifeAge === null) {
             $funk = 'unbekannt';
         } elseif (!empty($p['noStill'])) {
             $funk = 'aktiv';   // „Ohne Funkstille-Prüfung“: das Gerät darf beliebig lange schweigen, nur der Batteriestand zählt
@@ -870,7 +878,7 @@ final class BWACHLogik
         // Das Gerät selbst meldet „nicht erreichbar“ (z. B. HomeMatic UNREACH): zählt als Funkstille, auch wenn sich
         // irgendeine Variable des Geräts kürzlich aktualisiert hat. Die Wartezeit gegen Flackern ist schon abgezogen.
         $unreach = (int)($p['unreachSince'] ?? 0);
-        if ($unreach > 0 && empty($p['noStill'])) {
+        if ($unreach > 0 && (empty($p['noStill']) || !empty($p['reachExplicit']))) {
             $funk = 'still';
             $reasons[] = 'Gerät meldet sich seit ' . self::daysDat(max(0, $now - $unreach)) . ' als nicht erreichbar';
         }

@@ -22,6 +22,7 @@ $src  = $root . '/Batteriewaechter';
 // „ladung“ (die Namenserkennung lässt „Batterieladung“ ohnehin nicht zu) und Wegfall von „$found === null“
 // im Tick (LastDiscoveryTs = 0 löst dieselbe Suche aus).
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
+// Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
     ['BWACHLogik.php', '$pct <= $emptyThr ? self::ST_EMPTY', '$pct < $emptyThr ? self::ST_EMPTY', 'Grenze „leer“ ≤ → <'],
     ['BWACHLogik.php', '$pct < $lowThr ? self::ST_LOW', '$pct <= $lowThr ? self::ST_LOW', 'Grenze „schwach“ < → ≤'],
@@ -381,12 +382,16 @@ $mutations = [
     ['BWACHMeldung.php', "if (\$cur['p'] !== null && \$cur['p'] < self::DERIVED_MIN_PERCENT) {", "if (false) {", 'Berechnet: neuer Wert mindestens 80 %'],
     ['module.php', "BWACHMeldung::detectReplacement(\$prev, \$cur, \$jump, !empty(\$row['r']['derived']));", "BWACHMeldung::detectReplacement(\$prev, \$cur, \$jump, false);", 'Berechnete Werte werden als berechnet erkannt'],
     ['BWACHMeldung.php', "if (\$derived && (\$cur['p'] === null || \$cur['p'] < self::DERIVED_MIN_PERCENT", "if (false && (\$cur['p'] === null || \$cur['p'] < self::DERIVED_MIN_PERCENT", 'Berechnet: Flag-Reset ohne Prozentanstieg zählt'],
-    ['BWACHLogik.php', "if (\$unreach > 0 && empty(\$p['noStill'])) {", "if (\$unreach > 0) {", 'Nicht erreichbar ignoriert „ohne Funkstille-Prüfung“ nicht'],
-    ['BWACHLogik.php', "if (\$unreach > 0 && empty(\$p['noStill'])) {", "if (false) {", 'Nicht erreichbar zählt nicht als Funkstille'],
+    ['BWACHLogik.php', "(empty(\$p['noStill']) || !empty(\$p['reachExplicit']))", "empty(\$p['noStill'])", 'Ausdrückliche Erreichbarkeit schlägt „ohne Funkstille-Prüfung“ nicht'],
+    ['BWACHLogik.php', "if (\$unreach > 0 && (empty(\$p['noStill']) || !empty(\$p['reachExplicit']))) {", "if (false) {", 'Nicht erreichbar zählt nicht als Funkstille'],
     ['module.php', "\$this->now() - \$changed >= \$wait", "\$this->now() - \$changed > \$wait", 'Nicht erreichbar: Wartezeit ≥ → >'],
     ['module.php', "\$unreach = (bool)GetValue(\$vid) !== \$invert;", "\$unreach = (bool)GetValue(\$vid);", 'Nicht erreichbar: Umkehr entfällt'],
-    ['module.php', "if (\$wait <= 0) {\n            return null;", "if (false) {\n            return null;", 'Nicht erreichbar: Wartezeit 0 schaltet nicht ab'],
-    ['module.php', "} elseif (\$isInstance) {\n            foreach (array_unique", "} if (\$isInstance) {\n            foreach (array_unique", 'Nicht erreichbar: eigene Variable geht UNREACH nicht vor'],
+    ['module.php', "} elseif (\$wait > 0 && \$isInstance) {", "} if (\$wait > 0 && \$isInstance) {", 'Nicht erreichbar: eigene Variable geht UNREACH nicht vor'],
+    ['BWACHLogik.php', "if (\$reachUp) {\n            \$funk = 'aktiv';", "if (false) {\n            \$funk = 'aktiv';", 'Ausdrücklich erreichbar geht der Zeit-Schwelle nicht vor'],
+    ['module.php', "} elseif (\$res['explicit']) {\n                \$res['up'] = true;", "} else {\n                \$res['up'] = true;", 'Erreichbar auch ohne ausdrückliche Variable'],
+    ['module.php', "empty(\$pres['INTERVALS_ACTIVE']) || !empty(\$pres['PERCENTAGE'])", "false", 'Intervalle: aktiv und Prozent-Darstellung werden nicht geprüft'],
+    ['module.php', "preg_match('/unbekannt|unknown/iu', \$name)", "false", 'Stufe „Unbekannt“ wird nicht erkannt'],
+    ['module.php', "in_array((int)\$val, array_map('intval', \$s['stageUnknown']), true)", "false", 'Stufe „Unbekannt“ wird als Stufe gewertet'],
     ['module.php', "(string)(\$e['type'] ?? '') !== 'erkannt'", "true", 'Erkannte Wechsel löschen: nur die erkannten'],
     ['module.php', "\$out['v:' . \$rk] = (float)\$sig['voltage']['value'];", "", 'Spannung in der Liste'],
     ['BWACHLogik.php', "return ['rank' => \$rank, 'n' => \$n, 'percent' => \$n > 1 ? round(\$rank / (\$n - 1) * 100, 1) : 0.0, 'raw' => \$value];", "return ['rank' => \$rank, 'n' => \$n, 'percent' => \$value, 'raw' => \$value];", 'Stufe: gleichmäßig auf 0 bis 100 verteilt'],

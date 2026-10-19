@@ -2740,5 +2740,48 @@ check('Erreichbarkeit: gelöschte eigene Variable verursacht keinen Fehler und k
 $rowsU = []; foreach (json_decode($mU->GetConfigurationForm(), true)['elements'] as $pe) { foreach ($pe['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $rowsU = $it['values']; } } }
 check('Erreichbarkeit: Spalten in den Geräte-Einstellungen', count($rowsU) > 0 && array_key_exists('ReachVar', $rowsU[0]) && array_key_exists('ReachInv', $rowsU[0]));
 
+// 0.18.1: ausdrücklich gewählte Erreichbarkeits-Variable geht in beide Richtungen vor; Stufen aus Darstellungs-Intervallen (Blink)
+$mR = freshModule(['NotificationsActive' => false]);
+mkinst(8961, 'Fernbedienung', 'Z-Wave Module');
+mkvar(8962, 8961, 'BatteryVariable', 'Batterie', 1, 80, $GLOBALS['CLOCK'] - 20 * 86400, '~Battery.100');
+mkvar(8963, 8961, 'Ping', 'Erreichbar2', 0, false, $GLOBALS['CLOCK'] - 20 * 86400);
+$mR->Search(); $mR->Check();
+check('Ohne Erreichbarkeits-Variable: 20 Tage still ist Funkstille', reachDev($mR, 'Fernbedienung')['funk'] === 'still');
+$mR->props['DeviceSettings'] = json_encode([['Instance' => 8961, 'ReachVar' => 8963, 'ReachInv' => false]]);
+check('Ausdrücklich „erreichbar“ geht der Zeit-Schwelle vor: kein Funkstille, keine „ausgebaut“-Vermutung', ($rr = reachDev($mR, 'Fernbedienung'))['funk'] === 'aktiv' && !array_filter($rr['reasons'], function ($x) { return strpos($x, 'Funkstille') !== false; }), json_encode($rr['reasons'], JSON_UNESCAPED_UNICODE));
+$mR->props['DeviceSettings'] = json_encode([['Instance' => 8961, 'NoStill' => true, 'ReachVar' => 8963, 'ReachInv' => false]]);
+check('Ausdrücklich „erreichbar“ (falsch) bleibt aktiv, auch mit „Ohne Funkstille-Prüfung“', reachDev($mR, 'Fernbedienung')['funk'] === 'aktiv');
+$GLOBALS['OBJ'][8963]['var']['value'] = true; $GLOBALS['OBJ'][8963]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 3600;
+check('Ausdrücklich „nicht erreichbar“ schlägt „Ohne Funkstille-Prüfung“', reachDev($mR, 'Fernbedienung')['funk'] === 'still');
+$GLOBALS['OBJ'][8963]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 600;
+check('Ausdrücklich „nicht erreichbar“ erst seit 10 Minuten: Wartezeit gilt noch, „Ohne Funkstille-Prüfung“ hält', reachDev($mR, 'Fernbedienung')['funk'] === 'aktiv');
+$mR->props['DeviceSettings'] = json_encode([]);
+$GLOBALS['OBJ'][8963]['var']['value'] = false;
+check('Ohne gewählte Variable übersteuert „erreichbar“ nichts: 20 Tage still bleibt Funkstille', reachDev($mR, 'Fernbedienung')['funk'] === 'still');
+
+mkvar(8964, 8961, 'UNREACH', 'UNREACH', 0, false, $GLOBALS['CLOCK'] - 20 * 86400);
+check('Automatisches UNREACH = erreichbar übersteuert die Zeit-Schwelle nicht (20 Tage still bleibt Funkstille)', reachDev($mR, 'Fernbedienung')['funk'] === 'still');
+$blinkInt = json_encode([
+    ['IntervalMinValue' => 0, 'IntervalMaxValue' => 0, 'ConstantActive' => true, 'ConstantValue' => 'Unbekannt'],
+    ['IntervalMinValue' => 1, 'IntervalMaxValue' => 1, 'ConstantActive' => true, 'ConstantValue' => 'Niedrig'],
+    ['IntervalMinValue' => 2, 'IntervalMaxValue' => 2, 'ConstantActive' => true, 'ConstantValue' => 'Mittel'],
+    ['IntervalMinValue' => 3, 'IntervalMaxValue' => 3, 'ConstantActive' => true, 'ConstantValue' => 'Gut'],
+]);
+$blinkPres = ['PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}', 'INTERVALS_ACTIVE' => true, 'PERCENTAGE' => false, 'INTERVALS' => $blinkInt, 'MIN' => 0, 'MAX' => 3];
+$mB = freshModule(['NotificationsActive' => false]);
+mkinst(8971, 'Blink Garten', 'Z-Wave Module');
+mkvar(8972, 8971, 'BatteryVariable', 'Batterie', 1, 3, $GLOBALS['CLOCK'] - 600, '', ['VariablePresentation' => $blinkPres]);
+$mB->Search(); $mB->Check();
+$bd = reachDev($mB, 'Blink Garten');
+check('Blink: Stufe 3 „Gut“ ist in Ordnung (kein „3 % leer“)', $bd !== null && $bd['status'] === 'ok' && $bd['percent'] == 100, json_encode($bd, JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][8972]['var']['value'] = 1;
+check('Blink: Stufe 1 „Niedrig“ ist schwach', reachDev($mB, 'Blink Garten')['status'] === 'schwach');
+$GLOBALS['OBJ'][8972]['var']['value'] = 0;
+$bu = reachDev($mB, 'Blink Garten');
+check('Blink: Stufe 0 „Unbekannt“ ist unbekannt, nicht leer, mit Grund', $bu['status'] === 'unbekannt' && $bu['percent'] === null && in_array('Gerät meldet die Batteriestufe „unbekannt“', $bu['reasons'], true), json_encode($bu, JSON_UNESCAPED_UNICODE));
+$blinkPres['PERCENTAGE'] = true; $GLOBALS['OBJ'][8972]['var']['VariablePresentation'] = $blinkPres; $GLOBALS['OBJ'][8972]['var']['value'] = 3;
+$mB->Search(); $mB->Check();
+check('Blink: Darstellung als Prozent gilt nicht als Stufenliste', reachDev($mB, 'Blink Garten')['percent'] == 3);
+
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);
