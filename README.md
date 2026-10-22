@@ -45,7 +45,7 @@
 - Die **Prognose** braucht Wochen Verlauf und Geräte, die den Ladezustand fein genug melden. Z-Wave-Sensoren, die bis kurz vor leer „100 %“ zeigen, bekommen keine; dort hilft nur „leer/schwach“ und die Funkstille-Erkennung.
 - **Lebensdauer, Kälteeinfluss und der Gleichartigen-Vergleich** brauchen Daten, die erst über Monate entstehen. Im Prüfstand sind sie mit simulierten Verläufen belegt, nicht mit Langzeitdaten echter Geräte.
 - Eine **Zelltyp-Bibliothek nach Gerätemodell** gibt es bewusst nicht: Ohne eine belastbare, gepflegte Quelle würde sie Modelle raten. Der Wächter nennt Kandidaten aus der Spannung, der Zelltyp wird je Gerät von Hand gewählt.
-- Zigbee2MQTT und HomeMatic sind nach Dokumentation angebunden, aber nicht an echten Batteriegeräten geprüft. Matter ist an einem Gerät geprüft (IKEA-Öffnungskontakt: Batteriestand, „Ersatz erforderlich“, Ersatz-Beschreibung); die Batteriespannung über Matter wurde noch an keinem Gerät gesehen. Matter-Batterien stehen in einer eigenen Instanz für den Endpunkt 0 (Stromversorgung). Der Matter Konfigurator bietet sie nicht an: man legt sie von Hand an (Instanz hinzufügen, Matter Gerät, Knoten-ID, Endpunkt 0) und sieht sie dort rot, sie arbeiten trotzdem.
+- Zigbee2MQTT ist nach Dokumentation angebunden, aber nicht an einem echten Batteriegerät geprüft; HomeMatic und Netatmo sind durch Rückmeldungen aus dem Forum bestätigt. Matter ist an einem Gerät geprüft (IKEA-Öffnungskontakt: Batteriestand, „Ersatz erforderlich“, Ersatz-Beschreibung); die Batteriespannung über Matter wurde noch an keinem Gerät gesehen. Matter-Batterien stehen in einer eigenen Instanz für den Endpunkt 0 (Stromversorgung). Der Matter Konfigurator bietet sie nicht an: man legt sie von Hand an (Instanz hinzufügen, Matter Gerät, Knoten-ID, Endpunkt 0) und sieht sie dort rot, sie arbeiten trotzdem.
 
 ## Kachel
 
@@ -72,9 +72,13 @@ Unter „✅ Quittieren und Batterietagebuch“ Gerät und Aktion wählen: **Hab
 |---|---|---|
 | Z-Wave (`BatteryVariable`, `BatteryLowVariable`), Symcon-Profile `~Battery*` | Profil, Ident | an einer echten Anlage geprüft |
 | CometWiFi, Shelly (Prozent und Spannung), Froggit, Botvac | Profil, Ident | an einer echten Anlage geprüft |
-| Zigbee2MQTT (`battery`, `battery_low`), HomeMatic (`LOWBAT`, `LOW_BAT`, `OPERATING_VOLTAGE`), Matter (`BatPercentRemaining`, Halbprozent; `BatReplacementNeeded`) | Ident | Zigbee2MQTT und HomeMatic **nach Dokumentation, nicht an echtem Gerät geprüft**; Matter-Batteriestand und „Ersatz erforderlich“ an einem IKEA-Kontakt gesehen — Rückmeldungen willkommen |
+| HomeMatic (`LOWBAT`, `LOW_BAT`, `OPERATING_VOLTAGE`, `UNREACH`), zusammengeführte Kanäle eines Geräts | Ident | durch Rückmeldungen aus dem Forum bestätigt |
+| Matter (`BatPercentRemaining`, Halbprozent; `BatReplacementNeeded`; Ersatz-Beschreibung), zusammengesetzter Wert ab Symcon 9.1 | Ident | an einem IKEA-Kontakt gesehen, Matter 9.1 durch Rückmeldung bestätigt; die Batteriespannung über Matter noch an keinem Gerät gesehen |
+| Netatmo (Stufenanzeige 0 bis 5 mit Profil) | Profil, Ident | durch Rückmeldung bestätigt |
+| Blink (Stufen aus den Intervallen einer Symcon-Darstellung, 0 = Unbekannt) | Darstellung, Ident | nach dem Export einer Variable gebaut, Rückmeldung steht aus |
+| Zigbee2MQTT (`battery`, `battery_low`) | Ident | **nach Dokumentation, nicht an echtem Gerät geprüft** |
 
-Spannungswerte werden angezeigt, aber noch nicht in Prozent umgerechnet (die Auswertung nach Zelltyp ist für eine spätere Version vorgesehen), weil die Spannung allein den Zelltyp nicht verrät.
+Erkannt werden Prozent, „schwach“-Flag (auch als Text), Spannung und benannte Stufen. Nicht gezählt werden Netzspannung (30 bis 400 V), „Last“ oder „Auslastung“ in Prozent und HomeMatic-Geräte, die nie einen Wert geliefert haben. Spannungswerte rechnet der Wächter mit dem gewählten Zelltyp in einen Ladezustand um (Näherung, immer als „aus Spannung berechnet“ gekennzeichnet). Eingebaute Zelltypen: CR2032, CR2450, CR2025, CR2016, CR1632, CR1220, CR2477, CR2, CR123A, RCR123A, AA und AAA (Alkali, NiMH), AA Lithium, LR44, SR44, A23, 9-V-Block, LTO und Li-Ion/LiPo; weitere lassen sich als eigene Typen anlegen.
 
 ## Bedeutung der Status
 
