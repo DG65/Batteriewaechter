@@ -1258,7 +1258,7 @@ check('Geräte nach Dringlichkeit sortiert, kritisches schwaches Gerät zuerst',
 $ok0 = array_values(array_filter($pl['devices'], function ($d) { return $d['name'] === 'Sensor Schlafzimmer'; }))[0];
 $est = array_values(array_filter($pl['devices'], function ($d) { return $d['name'] === 'Thermostat Esszimmer'; }))[0];
 check('Unterzeile nennt den Hauptbefund (Funkstille), nicht den nachrangigen (veralteter Wert)', strpos($est['headline'], 'Funkstille') === 0 && strpos($est['headline'], 'Tagen') !== false, $est['headline']);
-check('Unterzeile bei leerer Batterie: „Batterie leer“ vor allem anderen', (function () { $r = BWACHLogik::evaluate(['percent' => ['value' => 2, 'updated' => 1, 'scale' => 1.0]], 1, 5000000, ['valueOldDays' => 1]); return strpos($r['reasons'][0], 'Batterie leer') === 0; })());
+check('Unterzeile bei leerer Batterie: „Batterie leer“ vor allem anderen', (function () { $r = BWACHLogik::evaluate(['percent' => ['value' => 2, 'updated' => 1, 'scale' => 1.0]], 4999000, 5000000, ['valueOldDays' => 1]); return strpos($r['reasons'][0], 'Batterie leer') === 0; })());
 check('Gerät ohne Befund: Prozent als Zahl und Text, Alter und Lebenszeichen formuliert', $ok0['percent'] == 100 && $ok0['percentText'] === '100 %' && strpos($ok0['valueAgeText'], 'vor 2 Tagen') === 0 && strpos($ok0['lifeText'], 'vor ') === 0 && $ok0['urgency'] === 0);
 $shel = array_values(array_filter($pl['devices'], function ($d) { return $d['name'] === 'Shelly H&T'; }))[0];
 check('Prozentgerät mit Spannung zeigt Prozent; Gerät ohne Prozent zeigt Spannung', $shel['percentText'] === '35 %' && $shel['place'] === 'Sensoren');
@@ -2710,7 +2710,7 @@ mkvar(8952, 8951, 'BatteryVariable', 'Batterie', 1, 80, $GLOBALS['CLOCK'] - 600,
 mkvar(8953, 8951, 'UNREACH', 'Nicht erreichbar', 0, true, $GLOBALS['CLOCK'] - 3600);
 $mU->Search(); $mU->Check();
 $u1 = reachDev($mU, 'Sensor Flur');
-check('Erreichbarkeit: UNREACH seit einer Stunde (Wartezeit 30 Minuten) ist Funkstille, auch bei frischem Lebenszeichen', $u1 !== null && $u1['funk'] === 'still' && in_array('Gerät meldet sich seit 1 Stunde als nicht erreichbar', $u1['reasons'], true), json_encode($u1['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
+check('Erreichbarkeit: UNREACH seit einer Stunde (Wartezeit 30 Minuten) ist Funkstille, auch bei frischem Lebenszeichen', $u1 !== null && $u1['funk'] === 'still' && in_array('Nicht erreichbar: seit 1 Stunde meldet sich das Gerät als nicht erreichbar', $u1['reasons'], true), json_encode($u1['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
 $GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 600;
 check('Erreichbarkeit: erst seit 10 Minuten nicht erreichbar zählt noch nicht (Flackern)', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
 $GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 1800;
@@ -2788,6 +2788,35 @@ check('Zelltypen C und D sind wählbar, mit Einkaufsbezeichnung', BWACHZelle::is
 check('C und D rechnen Spannung wie Alkali (4 Zellen bei 6,4 V voll, bei 4,0 V leer)', BWACHZelle::percentFromVoltage('c_alkali', 4, 6.4) === 100.0 && BWACHZelle::percentFromVoltage('d_alkali', 4, 4.0) === 0.0 && BWACHZelle::percentFromVoltage('c_alkali', 1, 1.4) === BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.4));
 check('C und D als NiMH-Akku: wählbar, Einkaufsbezeichnung mit „Akku“, Kurve wie AA-Akku', BWACHZelle::isKnown('c_nimh') && BWACHZelle::isKnown('d_nimh') && BWACHZelle::shopLabel('c_nimh') === 'C (Baby, Akku)' && BWACHZelle::shopLabel('d_nimh') === 'D (Mono, Akku)' && BWACHZelle::percentFromVoltage('c_nimh', 1, 1.2) === BWACHZelle::percentFromVoltage('aa_nimh', 1, 1.2) && BWACHZelle::percentFromVoltage('d_nimh', 4, 5.6) === 100.0);
 check('Beschreibung „LR14“ ist C, „LR20“ ist D', BWACHZelle::fromDescription('LR14') === 'c_alkali' && BWACHZelle::fromDescription('LR 20') === 'd_alkali');
+
+// 0.18.3: UNREACH ist kein Lebenszeichen; bei Funkstille/„nicht erreichbar“ steht der letzte Batteriestand dahinter
+$mL = freshModule(['NotificationsActive' => false]);
+mkinst(8981, 'Wetterstation 2', 'HomeMatic Device');
+mkvar(8982, 8981, 'LOWBAT', 'LOWBAT', 0, true, $GLOBALS['CLOCK'] - 31 * 86400);
+mkvar(8983, 8981, 'RSSI_DEVICE', 'RSSI', 1, -80, $GLOBALS['CLOCK'] - 31 * 86400);
+mkvar(8984, 8981, 'UNREACH', 'UNREACH', 0, true, $GLOBALS['CLOCK'] - 60);
+mkvar(8985, 8981, 'STICKY_UNREACH', 'STICKY_UNREACH', 0, true, $GLOBALS['CLOCK'] - 60);
+$mL->Search(); $mL->Check();
+$ws = reachDev($mL, 'Wetterstation 2');
+check('UNREACH und STICKY_UNREACH sind kein Lebenszeichen: Funkstille seit 31 Tagen trotz neuer UNREACH-Meldung', $ws !== null && $ws['funk'] === 'still' && $ws['lifeAgeSec'] >= 31 * 86400 - 5, json_encode([$ws['funk'] ?? null, $ws['lifeAgeSec'] ?? null]));
+check('Nicht erreichbar zuerst, danach „Letzte Batteriemeldung: schwach … möglicherweise leer“', strpos($ws['reasons'][0] ?? '', 'Funkstille') === 0 && strpos($ws['reasons'][1] ?? '', 'Letzte Batteriemeldung: schwach') === 0 && strpos($ws['reasons'][1], 'möglicherweise leer') !== false && strpos($ws['headline'], 'Funkstille') === 0, json_encode($ws['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
+// gewählte Erreichbarkeits-Variable (UNREACH2) zählt ebenfalls nicht
+mkvar(8986, 8981, 'UNREACH2', 'UNREACH2', 0, true, $GLOBALS['CLOCK'] - 30);
+$GLOBALS['OBJ'][8984]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 31 * 86400; $GLOBALS['OBJ'][8985]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 31 * 86400;
+$mL->props['DeviceSettings'] = json_encode([['Instance' => 8981, 'ReachVar' => 8986, 'ReachInv' => false]]);
+$GLOBALS['OBJ'][8986]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 40 * 86400;
+$w2 = reachDev($mL, 'Wetterstation 2');
+check('Die gewählte Erreichbarkeits-Variable ist kein Lebenszeichen, „Nicht erreichbar“ steht zuerst', $w2['funk'] === 'still' && $w2['lifeAgeSec'] >= 31 * 86400 - 5 && strpos($w2['headline'], 'Nicht erreichbar: seit 40 Tagen') === 0 && strpos($w2['reasons'][0], 'Nicht erreichbar') === 0 && strpos($w2['reasons'][1], 'Funkstille') === 0 && strpos($w2['reasons'][2], 'Letzte Batteriemeldung') === 0, json_encode($w2['reasons'], JSON_UNESCAPED_UNICODE));
+// Reines Zeichen: leer + Funkstille
+$rE = BWACHLogik::evaluate(['percent' => ['value' => 2, 'updated' => 4000000, 'scale' => 1.0]], 1000000, 5000000, ['stillDays' => 7]);
+check('Leer und Funkstille: „vermutlich leer“, Funkstille zuerst', strpos($rE['reasons'][0], 'Funkstille') === 0 && strpos($rE['reasons'][1], 'Letzte Batteriemeldung: leer') === 0 && strpos($rE['reasons'][1], 'vermutlich leer') !== false, json_encode($rE['reasons'], JSON_UNESCAPED_UNICODE));
+$rA = BWACHLogik::evaluate(['percent' => ['value' => 2, 'updated' => 4000000, 'scale' => 1.0]], 4999000, 5000000, ['stillDays' => 7]);
+check('Ohne Funkstille bleibt „Batterie leer“ die erste Begründung', strpos($rA['reasons'][0], 'Batterie leer') === 0);
+$htmlSrc = file_get_contents($MODDIR . '/module.html');
+check('Kachel: Funkstille geht in Symbol und Farbe dem letzten Batteriestand vor', strpos($htmlSrc, "if (d.funk === 'still') { return '🔇'; }   // nicht erreichbar") !== false && strpos($htmlSrc, "if (d.funk === 'still') { return 's-still'; }\n        if (d.status === 'leer')") !== false);
+$hl = new ReflectionMethod('Batteriewaechter', 'headline'); $hlm = freshModule(['NotificationsActive' => false]);
+check('Unterzeile ohne Funkstille: bei schwach die Batterie-Begründung, bei „bald leer“ diese, nicht die erste', $hl->invoke($hlm, ['status' => 'schwach', 'funk' => 'aktiv', 'reasons' => ['Widerspruch: x', 'Batterie schwach (10 %)']]) === 'Batterie schwach (10 %)' && $hl->invoke($hlm, ['status' => 'ok', 'funk' => 'aktiv', 'soon' => true, 'reasons' => ['Batteriewert ist 100 Tage alt', 'Batterie bald leer: 5 Tage']]) === 'Batterie bald leer: 5 Tage' && $hl->invoke($hlm, ['status' => 'ok', 'funk' => 'aktiv', 'reasons' => ['Batteriewert ist 100 Tage alt']]) === 'Batteriewert ist 100 Tage alt');
+check('Unterzeile bei Funkstille: „Nicht erreichbar“ vor „Funkstille“, beides vor dem Batteriestand', $hl->invoke($hlm, ['status' => 'schwach', 'funk' => 'still', 'reasons' => ['Batterie schwach', 'Funkstille: seit 3 Tagen', 'Nicht erreichbar: seit 2 Tagen']]) === 'Nicht erreichbar: seit 2 Tagen' && $hl->invoke($hlm, ['status' => 'schwach', 'funk' => 'still', 'reasons' => ['Batterie schwach', 'Funkstille: seit 3 Tagen']]) === 'Funkstille: seit 3 Tagen');
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

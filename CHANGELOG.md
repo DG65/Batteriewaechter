@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.3] - 2026-10-24
+
+### Fixed
+- **UNREACH zählte als Lebenszeichen** (Forum: Zweit-Wetterstation, Batterie leer): Meldete die CCU „UNREACH = true“ erneut, sah der Wächter ein Lebenszeichen, obwohl es nur eine weitere Offline-Meldung war. `UNREACH`, `STICKY_UNREACH` und die in den Geräte-Einstellungen gewählte Erreichbarkeits-Variable zählen nie mehr als Lebenszeichen.
+
+### Changed
+- **Nicht erreichbar vor letztem Batteriestand:** Ist ein Gerät in Funkstille oder nicht erreichbar und sein letzter Batteriestand „leer“ oder „schwach“, steht zuerst „Nicht erreichbar“ bzw. „Funkstille“ und danach „Letzte Batteriemeldung: schwach (…), vor … Tagen, Batterie möglicherweise leer“ (bei „leer“: „vermutlich leer“). Das gilt für Kachel, Tabellen und Meldungen. In der Kachel zeigt das Gerät dann 🔇 statt ⚠️ oder 🪫. Zähler und Sortierung bleiben unverändert.
+
 ## [0.18.2] - 2026-10-24
 
 ### Added

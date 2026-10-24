@@ -880,11 +880,26 @@ final class BWACHLogik
         $unreach = (int)($p['unreachSince'] ?? 0);
         if ($unreach > 0 && (empty($p['noStill']) || !empty($p['reachExplicit']))) {
             $funk = 'still';
-            $reasons[] = 'Gerät meldet sich seit ' . self::daysDat(max(0, $now - $unreach)) . ' als nicht erreichbar';
+            $reasons[] = 'Nicht erreichbar: seit ' . self::daysDat(max(0, $now - $unreach)) . ' meldet sich das Gerät als nicht erreichbar';
         }
 
         $pctText = $pct !== null ? ' (' . ($derived ? '≈' : '') . self::num($pct) . ' %' . ($derived ? ', aus Spannung berechnet' : '') . ')' : '';
-        if ($status === self::ST_EMPTY) {
+        if ($funk === 'still' && ($status === self::ST_EMPTY || $status === self::ST_LOW)) {
+            // Ein Gerät, das nicht mehr sendet: der letzte Batteriestand ist nur der letzte bekannte, nicht der jetzige.
+            // Zuerst steht, dass es nicht erreichbar ist, danach, was die letzte Batteriemeldung sagte.
+            $silent = [];
+            foreach ($reasons as $i => $rs) {
+                if (strpos($rs, 'Funkstille') === 0 || strpos($rs, 'Nicht erreichbar') === 0) {
+                    $silent[] = $rs;
+                    unset($reasons[$i]);
+                }
+            }
+            usort($silent, function ($a, $b) { return (int)(strpos($b, 'Nicht erreichbar') === 0) - (int)(strpos($a, 'Nicht erreichbar') === 0); });
+            array_unshift($reasons, 'Letzte Batteriemeldung: ' . ($status === self::ST_EMPTY ? 'leer' : 'schwach') . $pctText
+                . ($valueAge !== null ? ', vor ' . self::daysDat($valueAge) : '') . ', Batterie '
+                . ($status === self::ST_EMPTY ? 'vermutlich' : 'möglicherweise') . ' leer');
+            $reasons = array_merge($silent, array_values($reasons));
+        } elseif ($status === self::ST_EMPTY) {
             array_unshift($reasons, 'Batterie leer' . $pctText);
         } elseif ($status === self::ST_LOW) {
             array_unshift($reasons, 'Batterie schwach' . $pctText);

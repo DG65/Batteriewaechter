@@ -1862,14 +1862,14 @@ class Batteriewaechter extends IPSModule
                 continue;
             }
             $sig  = $this->readSignals($d['signals']);
-            $life = $this->lifeSign($id, $isInstance, $d['signals']);
+            $life = $this->lifeSign($id, $isInstance, $d['signals'], (int)($st['reach'] ?? 0));
             foreach ($sibs as $sb) {
-                $life = max($life, $this->lifeSign($sb, true, []));
+                $life = max($life, $this->lifeSign($sb, true, [], (int)($st['reach'] ?? 0)));
             }
             // HomeMatic: zusammengeführte Kanäle, das jüngste Lebenszeichen aller zählt
             foreach ($d['members'] ?? [] as $mb) {
                 if ((int)$mb !== $id && IPS_InstanceExists((int)$mb)) {
-                    $life = max($life, $this->lifeSign((int)$mb, true, []));
+                    $life = max($life, $this->lifeSign((int)$mb, true, [], (int)($st['reach'] ?? 0)));
                 }
             }
             // Zelltyp: was der Nutzer gewählt hat; sonst, was das Gerät selbst als Ersatz nennt
@@ -2116,13 +2116,18 @@ class Batteriewaechter extends IPSModule
     }
 
     /** Jüngste Aktualisierung einer Variable der Geräteinstanz, die NICHT schaltbar ist (also vom Gerät kommt). */
-    private function lifeSign(int $id, bool $isInstance, array $signals): int
+    private function lifeSign(int $id, bool $isInstance, array $signals, int $skipVar = 0): int
     {
         $max = 0;
         if ($isInstance) {
             foreach (IPS_GetChildrenIDs($id) as $c) {
                 $o = IPS_GetObject($c);
                 if ((int)($o['ObjectType'] ?? 0) !== 2) {
+                    continue;
+                }
+                // Erreichbarkeit (UNREACH, STICKY_UNREACH, die gewählte Variable) ist kein Lebenszeichen: eine erneute
+                // Offline-Meldung heißt nicht, dass das Gerät sendet
+                if ($c === $skipVar || preg_match('/^(sticky_)?unreach$/i', (string)($o['ObjectIdent'] ?? ''))) {
                     continue;
                 }
                 $var = IPS_GetVariable($c);
@@ -2650,7 +2655,17 @@ class Batteriewaechter extends IPSModule
     /** Die wichtigste Begründung eines Geräts für die Unterzeile der Kachel. */
     private function headline(array $r): string
     {
-        $want = $r['status'] === BWACHLogik::ST_EMPTY || $r['status'] === BWACHLogik::ST_LOW ? 'Batterie ' : ($r['funk'] === 'still' ? 'Funkstille' : (!empty($r['soon']) ? 'Batterie bald leer' : ''));
+        if ($r['funk'] === 'still') {
+            // Nicht erreichbar / Funkstille geht dem letzten Batteriestand vor
+            foreach (['Nicht erreichbar', 'Funkstille'] as $prefix) {
+                foreach ($r['reasons'] as $reason) {
+                    if (strpos($reason, $prefix) === 0) {
+                        return $reason;
+                    }
+                }
+            }
+        }
+        $want = $r['status'] === BWACHLogik::ST_EMPTY || $r['status'] === BWACHLogik::ST_LOW ? 'Batterie ' : (!empty($r['soon']) ? 'Batterie bald leer' : '');
         foreach ($r['reasons'] as $reason) {
             if ($want !== '' && strpos($reason, $want) === 0) {
                 return $reason;

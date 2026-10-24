@@ -217,19 +217,19 @@
     }
 
     function bwIcon(d) {
+        if (d.funk === 'still') { return '🔇'; }   // nicht erreichbar: der letzte Batteriestand ist nur der letzte bekannte
         if (d.status === 'leer') { return '🪫'; }
         if (d.status === 'schwach') { return '⚠️'; }
-        if (d.soon && d.funk !== 'still') { return '⏳'; }
-        if (d.funk === 'still') { return '🔇'; }
+        if (d.soon) { return '⏳'; }
         if (d.preventive) { return '🗓'; }
         if (bwHasCheck(d) || d.status === 'unbekannt') { return '❔'; }
         return '✅';
     }
 
     function bwClass(d) {
-        if (d.status === 'leer') { return 's-leer'; }
-        if (d.status === 'schwach' || (d.soon && d.funk !== 'still') || d.preventive) { return 's-schwach'; }
         if (d.funk === 'still') { return 's-still'; }
+        if (d.status === 'leer') { return 's-leer'; }
+        if (d.status === 'schwach' || d.soon || d.preventive) { return 's-schwach'; }
         if (bwHasCheck(d) || d.status === 'unbekannt') { return 's-check'; }
         return 's-ok';
     }
