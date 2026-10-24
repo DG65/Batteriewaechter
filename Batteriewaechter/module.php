@@ -662,7 +662,7 @@ class Batteriewaechter extends IPSModule
             return $text;
         }
         // AA/AAA nennen nur die Bauform, ob Alkali oder Akku, weiß das Gerät nicht
-        $form = in_array($row['cell'], ['aa_alkali', 'aaa_alkali'], true);
+        $form = in_array($row['cell'], ['aa_alkali', 'aaa_alkali', 'c_alkali', 'd_alkali'], true);
         return $text . ' — laut Gerät („' . $row['cellHint'] . '“)' . ($form ? ', nur die Bauform: ob Alkali oder Akku, ist unbekannt' : '');
     }
 

@@ -385,6 +385,7 @@ $mutations = [
     ['BWACHLogik.php', "(empty(\$p['noStill']) || !empty(\$p['reachExplicit']))", "empty(\$p['noStill'])", 'Ausdrückliche Erreichbarkeit schlägt „ohne Funkstille-Prüfung“ nicht'],
     ['BWACHLogik.php', "if (\$unreach > 0 && (empty(\$p['noStill']) || !empty(\$p['reachExplicit']))) {", "if (false) {", 'Nicht erreichbar zählt nicht als Funkstille'],
     ['module.php', "\$this->now() - \$changed >= \$wait", "\$this->now() - \$changed > \$wait", 'Nicht erreichbar: Wartezeit ≥ → >'],
+    ['BWACHZelle.php', "'LR14' => 'c_alkali', 'LR20' => 'd_alkali',", "'LR14' => 'd_alkali', 'LR20' => 'c_alkali',", 'LR14/LR20 vertauscht'],
     ['module.php', "\$unreach = (bool)GetValue(\$vid) !== \$invert;", "\$unreach = (bool)GetValue(\$vid);", 'Nicht erreichbar: Umkehr entfällt'],
     ['module.php', "} elseif (\$wait > 0 && \$isInstance) {", "} if (\$wait > 0 && \$isInstance) {", 'Nicht erreichbar: eigene Variable geht UNREACH nicht vor'],
     ['BWACHLogik.php', "if (\$reachUp) {\n            \$funk = 'aktiv';", "if (false) {\n            \$funk = 'aktiv';", 'Ausdrücklich erreichbar geht der Zeit-Schwelle nicht vor'],

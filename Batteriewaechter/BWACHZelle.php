@@ -41,6 +41,11 @@ final class BWACHZelle
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
         'aaa_alkali' => ['label' => 'AAA Alkali (1,5 V)', 'shop' => 'AAA',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+        // C (Baby) und D (Mono): dieselbe typische Alkali-Spannungskurve wie AA/AAA, nur die Kapazität ist größer
+        'c_alkali' => ['label' => 'C (Baby) Alkali (1,5 V)', 'shop' => 'C (Baby)',
+            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+        'd_alkali' => ['label' => 'D (Mono) Alkali (1,5 V)', 'shop' => 'D (Mono)',
+            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
         'lr44' => ['label' => 'LR44 / AG13 (Alkali-Knopfzelle, 1,5 V)', 'shop' => 'LR44',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
         // Silberoxid hält die Spannung lange flach und fällt zum Ende steil: aus der Spannung nur eine grobe Näherung
@@ -76,7 +81,7 @@ final class BWACHZelle
     {
         $t = strtoupper((string)preg_replace('/[\s\-_.]+/', '', $text));
         $map = ['CR2032' => 'cr2032', 'CR2450' => 'cr2450', 'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a', '16340' => 'rcr123a',
-            'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali', '9V' => 'block9v', '6LR61' => 'block9v',
+            'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali', 'LR14' => 'c_alkali', 'LR20' => 'd_alkali', '9V' => 'block9v', '6LR61' => 'block9v',
             'CR2025' => 'cr2025', 'CR2016' => 'cr2016', 'CR1632' => 'cr1632', 'CR1220' => 'cr1220', 'CR2477' => 'cr2477',
             'LR44' => 'lr44', 'AG13' => 'lr44', 'SR44' => 'sr44', 'CR2' => 'cr2', 'A23' => 'a23', '23A' => 'a23'];
         return $map[$t] ?? null;

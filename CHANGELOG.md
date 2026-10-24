@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.2] - 2026-10-24
+
+### Added
+- **Zelltypen C (Baby) und D (Mono)**, jeweils Alkali, 1,5 V (Forum: Alarmsirene HomeMatic HM-Sec-Sir-WM). Die Umrechnung von Spannung in Prozent nutzt dieselbe typische Alkali-Kurve wie bei AA und AAA, die Einkaufsliste führt sie als „C (Baby)“ und „D (Mono)“. Nennt ein Gerät als Ersatz „LR14“ oder „LR20“, wird der Zelltyp daraus erkannt.
+
 ## [0.18.1] - 2026-10-19
 
 ### Added
