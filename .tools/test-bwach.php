@@ -1521,7 +1521,7 @@ check('Vorschlag bei 4,0 V nennt den RCR123A-Akku; bei 6,0 V auch 2× CR123A; Kn
 check('Einkaufsliste trennt CR123A-Batterien und RCR123A-Akkus', (function () { $r = BWACHPrognose::shopping([['name' => 'A', 'place' => '', 'cell' => 'cr123a', 'cells' => 2, 'status' => 'leer', 'days' => null], ['name' => 'B', 'place' => '', 'cell' => 'rcr123a', 'cells' => 1, 'status' => 'schwach', 'days' => null]], 30); sort($r['lines']); return $r['lines'] === ['1× RCR123A (Akku)', '2× CR123A']; })());
 check('Vorschlag bei unmöglicher Spannung (20 V)', BWACHZelle::suggest(20.0) === 'passt zu keinem bekannten Zelltyp');
 check('Einkaufsbezeichnungen: CR2032, AAA, AA (Akku)', BWACHZelle::shopLabel('cr2032') === 'CR2032' && BWACHZelle::shopLabel('aaa_alkali') === 'AAA' && BWACHZelle::shopLabel('aa_nimh') === 'AA (Akku)' && BWACHZelle::shopLabel('unbekannt') === null);
-check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 24);
+check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZelle::options()[0]['value'] === 'unbekannt' && count(BWACHZelle::options()) === 26);
 
 $n = $NOW;
 $volt = ['voltage' => ['value' => 4.71, 'updated' => $n - 60]];
@@ -2786,6 +2786,7 @@ check('Blink: Darstellung als Prozent gilt nicht als Stufenliste', reachDev($mB,
 // 0.18.2: Zelltypen C (Baby) und D (Mono)
 check('Zelltypen C und D sind wählbar, mit Einkaufsbezeichnung', BWACHZelle::isKnown('c_alkali') && BWACHZelle::isKnown('d_alkali') && BWACHZelle::shopLabel('c_alkali') === 'C (Baby)' && BWACHZelle::shopLabel('d_alkali') === 'D (Mono)');
 check('C und D rechnen Spannung wie Alkali (4 Zellen bei 6,4 V voll, bei 4,0 V leer)', BWACHZelle::percentFromVoltage('c_alkali', 4, 6.4) === 100.0 && BWACHZelle::percentFromVoltage('d_alkali', 4, 4.0) === 0.0 && BWACHZelle::percentFromVoltage('c_alkali', 1, 1.4) === BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.4));
+check('C und D als NiMH-Akku: wählbar, Einkaufsbezeichnung mit „Akku“, Kurve wie AA-Akku', BWACHZelle::isKnown('c_nimh') && BWACHZelle::isKnown('d_nimh') && BWACHZelle::shopLabel('c_nimh') === 'C (Baby, Akku)' && BWACHZelle::shopLabel('d_nimh') === 'D (Mono, Akku)' && BWACHZelle::percentFromVoltage('c_nimh', 1, 1.2) === BWACHZelle::percentFromVoltage('aa_nimh', 1, 1.2) && BWACHZelle::percentFromVoltage('d_nimh', 4, 5.6) === 100.0);
 check('Beschreibung „LR14“ ist C, „LR20“ ist D', BWACHZelle::fromDescription('LR14') === 'c_alkali' && BWACHZelle::fromDescription('LR 20') === 'd_alkali');
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");

@@ -78,7 +78,7 @@ Unter „✅ Quittieren und Batterietagebuch“ Gerät und Aktion wählen: **Hab
 | Blink (Stufen aus den Intervallen einer Symcon-Darstellung, 0 = Unbekannt) | Darstellung, Ident | nach dem Export einer Variable gebaut, Rückmeldung steht aus |
 | Zigbee2MQTT (`battery`, `battery_low`) | Ident | **nach Dokumentation, nicht an echtem Gerät geprüft** |
 
-Erkannt werden Prozent, „schwach“-Flag (auch als Text), Spannung und benannte Stufen. Nicht gezählt werden Netzspannung (30 bis 400 V), „Last“ oder „Auslastung“ in Prozent und HomeMatic-Geräte, die nie einen Wert geliefert haben. Spannungswerte rechnet der Wächter mit dem gewählten Zelltyp in einen Ladezustand um (Näherung, immer als „aus Spannung berechnet“ gekennzeichnet). Eingebaute Zelltypen: CR2032, CR2450, CR2025, CR2016, CR1632, CR1220, CR2477, CR2, CR123A, RCR123A, AA und AAA (Alkali, NiMH), C (Baby) und D (Mono) Alkali, AA Lithium, LR44, SR44, A23, 9-V-Block, LTO und Li-Ion/LiPo; weitere lassen sich als eigene Typen anlegen.
+Erkannt werden Prozent, „schwach“-Flag (auch als Text), Spannung und benannte Stufen. Nicht gezählt werden Netzspannung (30 bis 400 V), „Last“ oder „Auslastung“ in Prozent und HomeMatic-Geräte, die nie einen Wert geliefert haben. Spannungswerte rechnet der Wächter mit dem gewählten Zelltyp in einen Ladezustand um (Näherung, immer als „aus Spannung berechnet“ gekennzeichnet). Eingebaute Zelltypen: CR2032, CR2450, CR2025, CR2016, CR1632, CR1220, CR2477, CR2, CR123A, RCR123A, AA und AAA (Alkali, NiMH), C (Baby) und D (Mono) als Alkali und NiMH, AA Lithium, LR44, SR44, A23, 9-V-Block, LTO und Li-Ion/LiPo; weitere lassen sich als eigene Typen anlegen.
 
 ## Bedeutung der Status
 
