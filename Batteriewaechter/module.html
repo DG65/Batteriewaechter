@@ -51,6 +51,20 @@
     .bw-sorts .lbl { opacity: .65; margin-right: 2px; }
     .bw-sorts .bw-chip { font-size: .95em; padding: 3px 9px; }
 
+    /* Ortsfilter */
+    .bw-placesel {
+        background: var(--bw-el1);
+        color: inherit;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font: inherit;
+        font-size: .9em;
+        max-width: 100%;
+    }
+    .bw-placesel.on { border-color: var(--bw-primary); background: var(--bw-chip-on); }
+    .bw-placesel.off { opacity: .55; }
+
     /* Suchfeld */
     .bw-searchrow { margin: -2px 0 10px; }
     .bw-search {
@@ -148,6 +162,9 @@
     var bwSearchEl = null;
     var bwGroup = false;
     try { bwGroup = window.localStorage.getItem('bw-group') === '1'; } catch (e) { /* Speicher gesperrt */ }
+    var BW_NO_PLACE = '__ohne_ort__';
+    var bwPlace = '';
+    try { bwPlace = window.localStorage.getItem('bw-place') || ''; } catch (e) { /* Speicher gesperrt */ }
     var bwSort = { key: 'urgency', dir: 'desc' };
     try {
         var bwSaved = JSON.parse(window.localStorage.getItem('bw-sort') || 'null');
@@ -159,6 +176,34 @@
         if (cls) { e.className = cls; }
         if (text !== undefined && text !== null) { e.textContent = text; }
         return e;
+    }
+
+    // Die Orte der überwachten Geräte, sortiert; „ohne Ort“ als eigener Eintrag, wenn es solche Geräte gibt
+    function bwPlaces() {
+        var seen = {}, list = [], none = false;
+        BW.devices.forEach(function (d) {
+            var p = String(d.place || '').trim();
+            if (p === '') { none = true; } else if (!seen[p]) { seen[p] = true; list.push(p); }
+        });
+        list.sort(function (a, b) { return a.localeCompare(b, 'de', { numeric: true, sensitivity: 'base' }); });
+        if (none) { list.push(BW_NO_PLACE); }
+        return list;
+    }
+
+    // Der wirksame Ort: ein gemerkter Ort, den es nicht mehr gibt, gilt als „alle Orte“
+    function bwActivePlace() {
+        if (bwPlace === '') { return ''; }
+        var pl = bwPlaces();
+        return pl.length >= 2 && pl.indexOf(bwPlace) >= 0 ? bwPlace : '';
+    }
+
+    function bwScope(list) {
+        var p = bwActivePlace();
+        if (p === '') { return list; }
+        return list.filter(function (d) {
+            var dp = String(d.place || '').trim();
+            return p === BW_NO_PLACE ? dp === '' : dp === p;
+        });
     }
 
     function bwHasCheck(d) { return d.quality && d.quality.length > 0; }
@@ -467,8 +512,9 @@
         while (root.firstChild) { root.removeChild(root.firstChild); }
 
         var chips = bwEl('div', 'bw-chips');
+        var scoped = bwScope(BW.devices);
         BW_FILTERS.forEach(function (f) {
-            var n = BW.devices.filter(f.test).length;
+            var n = scoped.filter(f.test).length;
             if (!f.always && n === 0) { return; }
             var c = bwEl('button', 'bw-chip' + (bwFilter === f.id ? ' on' : ''));
             c.type = 'button';
@@ -477,6 +523,29 @@
             c.onclick = function () { bwFilter = f.id; bwOpen = null; bwSure = null; bwRender(); };
             chips.appendChild(c);
         });
+        var places = bwPlaces();
+        if (places.length >= 2) {
+            var active = bwActivePlace();
+            var onList = bwFilter !== 'shop' && bwFilter !== 'stats' && bwFilter !== 'diary';
+            var sel = bwEl('select', 'bw-placesel' + (active !== '' ? ' on' : '') + (onList ? '' : ' off'));
+            sel.title = onList ? 'Zeigt nur die Geräte dieses Orts' : 'Gilt nur für die Geräteliste; Einkauf, Statistik und Tagebuch zeigen alle Orte';
+            var all = bwEl('option', '', '📍 Alle Orte');
+            all.value = '';
+            sel.appendChild(all);
+            places.forEach(function (p) {
+                var o = bwEl('option', '', p === BW_NO_PLACE ? '(ohne Ort)' : p);
+                o.value = p;
+                if (p === active) { o.selected = true; }
+                sel.appendChild(o);
+            });
+            sel.value = active;
+            sel.onchange = function () {
+                bwPlace = sel.value;
+                try { window.localStorage.setItem('bw-place', bwPlace); } catch (e) { /* nur Komfort */ }
+                bwOpen = null; bwSure = null; bwRender();
+            };
+            chips.appendChild(sel);
+        }
         [['shop', '🛒 Einkauf'], ['stats', '📈 Statistik']].forEach(function (v) {
             var b = bwEl('button', 'bw-chip' + (bwFilter === v[0] ? ' on' : ''), v[1]);
             b.type = 'button';
@@ -497,7 +566,7 @@
             bwStats(root);
         } else {
             var f = BW_FILTERS.filter(function (x) { return x.id === bwFilter; })[0] || BW_FILTERS[0];
-            var shown = BW.devices.filter(f.test);
+            var shown = scoped.filter(f.test);
             var q = bwSearch.trim().toLowerCase();
             if (q !== '') {
                 shown = shown.filter(function (d) {

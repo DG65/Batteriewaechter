@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.4] - 2026-10-25
+
+### Added
+- **Ortsfilter in der Kachel** (Forum): Vor „🛒 Einkauf“ steht eine Auswahl „📍 Alle Orte“ mit den Orten der überwachten Geräte (Kategorie, „Ort (eigen)“ oder Regel „Ort setzen“), sortiert, mit „(ohne Ort)“ zuletzt. Der Ort wirkt zusammen mit den Statusfiltern: Die Zähler an den Filterchips zählen nur die Geräte des gewählten Orts, die Liste und die Suche ebenso. Die Auswahl bleibt im Browser gemerkt; ein Ort, den es nicht mehr gibt, gilt als „alle Orte“. Die Auswahl erscheint erst ab zwei Orten. Einkauf, Statistik und Tagebuch zeigen weiter alle Orte, der Filter ist dort abgeblendet.
+
 ## [0.18.3] - 2026-10-24
 
 ### Fixed

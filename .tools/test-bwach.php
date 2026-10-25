@@ -1417,6 +1417,31 @@ chk('Statistik: Lebensdauer und Restlaufzeit je Gerät', t.indexOf('Zelle CR2032
 function order(){ return all(global.ROOT).filter(function(e){return e.className==='bw-name';}).map(function(e){return e.textContent.replace(/ ❗.*/,'').replace(/ 💤.*/,'');}); }
 click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='Alle'; });
 chk('Standard: nach Dringlichkeit (Alpha 1100, Beta 600, Gamma 0)', order().join()==='Alpha <b>,Beta,Gamma');
+// Ortsfilter (0.18.4)
+function placeSel(){ return all(global.ROOT).filter(function(e){ return String(e.className).indexOf('bw-placesel')===0; })[0]; }
+function chipCount(label){ var c=all(global.ROOT).filter(function(e){ return String(e.className).indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent===label; })[0]; return c && c.children[1] ? c.children[1].textContent : null; }
+var ps = placeSel();
+chk('Ortsfilter steht in der Filterzeile vor „Einkauf“', !!ps && (function(){ var row=all(global.ROOT).filter(function(e){ return e.className==='bw-chips'; })[0]; var idx=row.children.indexOf(ps); var shop=row.children.map(function(c){return c.textContent;}).indexOf('🛒 Einkauf'); return idx>=0 && shop>idx; })());
+chk('Auswahl: Alle Orte, die Orte sortiert, „(ohne Ort)“ zuletzt', ps.children.map(function(o){return o.textContent;}).join('|')==='📍 Alle Orte|Bad|Flur|(ohne Ort)');
+ps.value='Bad'; ps.onchange();
+chk('Ort „Bad“: nur Gamma in der Liste', order().join()==='Gamma');
+chk('Ort „Bad“: Zähler zählen nur diesen Ort (Alle 1, Handlungsbedarf 0)', chipCount('Alle')==='1' && chipCount('Handlungsbedarf')==='0');
+ps=placeSel(); ps.value='Flur'; ps.onchange();
+chk('Ort „Flur“: nur Alpha, Handlungsbedarf 1', order().join()==='Alpha <b>' && chipCount('Handlungsbedarf')==='1');
+ps=placeSel(); ps.value='__ohne_ort__'; ps.onchange();
+chk('„(ohne Ort)“: nur Beta', order().join()==='Beta');
+chk('Der gewählte Ort ist markiert', String(placeSel().className).indexOf(' on')>=0);
+ps=placeSel(); ps.value=''; ps.onchange();
+chk('Alle Orte: wieder alle drei, Auswahl nicht mehr markiert', order().length===3 && String(placeSel().className).indexOf(' on')<0);
+bwPlace='Keller'; handleMessage(P);
+chk('Ein gemerkter Ort, den es nicht mehr gibt, gilt als „alle Orte“', order().length===3);
+bwPlace='Bad'; handleMessage(P); click(function(e){ return e.textContent==='🛒 Einkauf'; });
+chk('In Einkauf ist der Ortsfilter abgeblendet und der Einkauf zeigt weiter alle Orte', String(placeSel().className).indexOf(' off')>=0 && texts(global.ROOT).indexOf('Flur')>=0);
+bwPlace=''; handleMessage(P);
+click(function(e){ return e.className.indexOf('bw-chip')===0 && e.children[0] && e.children[0].textContent==='Alle'; });
+var keep = P.devices; P.devices=[keep[0]]; handleMessage(P);
+chk('Mit nur einem Ort gibt es keinen Ortsfilter', !placeSel());
+P.devices = keep; handleMessage(P);
 click(function(e){ return e.textContent==='Name'; });
 chk('Sortierung nach Name aufsteigend', order().join()==='Alpha <b>,Beta,Gamma' && texts(global.ROOT).indexOf('Name ↑')>=0);
 click(function(e){ return e.textContent==='Name ↑'; });

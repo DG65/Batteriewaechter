@@ -49,7 +49,7 @@
 
 ## Kachel
 
-Die Instanz lässt sich in der Kachel-Visualisierung als Kachel hinzufügen. Sie zeigt die Geräte nach Dringlichkeit; die Filterzeile oben blendet nur ein, was gerade wichtig ist (Handlungsbedarf, leer, schwach, Funkstille, Daten prüfen), „📓 Tagebuch“ zeigt die erfassten Batteriewechsel. Antippen einer Zeile klappt sie auf: Gründe, Alter des Batteriewerts, Lebenszeichen und die Schaltflächen zum Quittieren (abschaltbar unter „Zustand“). Die Kachel hat keinen eigenen Titel, den liefert der Instanzname. Zusätzlich liegen „Handlungsbedarf“, „Alle Geräte“ und „Batterietagebuch“ als HTML-Variablen unter der Instanz im Objektbaum.
+Die Instanz lässt sich in der Kachel-Visualisierung als Kachel hinzufügen. Sie zeigt die Geräte nach Dringlichkeit; die Filterzeile oben blendet nur ein, was gerade wichtig ist (Handlungsbedarf, leer, schwach, Funkstille, Daten prüfen), „📓 Tagebuch“ zeigt die erfassten Batteriewechsel. Ein Ortsfilter vor „Einkauf“ beschränkt Liste und Zähler auf einen Ort (Einkauf, Statistik und Tagebuch zeigen immer alle). Antippen einer Zeile klappt sie auf: Gründe, Alter des Batteriewerts, Lebenszeichen und die Schaltflächen zum Quittieren (abschaltbar unter „Zustand“). Die Kachel hat keinen eigenen Titel, den liefert der Instanzname. Zusätzlich liegen „Handlungsbedarf“, „Alle Geräte“ und „Batterietagebuch“ als HTML-Variablen unter der Instanz im Objektbaum.
 
 ## Meldungen (standardmäßig aus)
 
