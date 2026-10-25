@@ -2843,5 +2843,25 @@ $hl = new ReflectionMethod('Batteriewaechter', 'headline'); $hlm = freshModule([
 check('Unterzeile ohne Funkstille: bei schwach die Batterie-Begründung, bei „bald leer“ diese, nicht die erste', $hl->invoke($hlm, ['status' => 'schwach', 'funk' => 'aktiv', 'reasons' => ['Widerspruch: x', 'Batterie schwach (10 %)']]) === 'Batterie schwach (10 %)' && $hl->invoke($hlm, ['status' => 'ok', 'funk' => 'aktiv', 'soon' => true, 'reasons' => ['Batteriewert ist 100 Tage alt', 'Batterie bald leer: 5 Tage']]) === 'Batterie bald leer: 5 Tage' && $hl->invoke($hlm, ['status' => 'ok', 'funk' => 'aktiv', 'reasons' => ['Batteriewert ist 100 Tage alt']]) === 'Batteriewert ist 100 Tage alt');
 check('Unterzeile bei Funkstille: „Nicht erreichbar“ vor „Funkstille“, beides vor dem Batteriestand', $hl->invoke($hlm, ['status' => 'schwach', 'funk' => 'still', 'reasons' => ['Batterie schwach', 'Funkstille: seit 3 Tagen', 'Nicht erreichbar: seit 2 Tagen']]) === 'Nicht erreichbar: seit 2 Tagen' && $hl->invoke($hlm, ['status' => 'schwach', 'funk' => 'still', 'reasons' => ['Batterie schwach', 'Funkstille: seit 3 Tagen']]) === 'Funkstille: seit 3 Tagen');
 
+// 0.18.5: BWACH_DeviceListJson
+$mJ0 = freshModule(['NotificationsActive' => false]);
+$mJ0->WriteAttributeString('Found', ''); $j0 = json_decode($mJ0->DeviceListJson(false), true);
+check('JSON-Geräteliste vor der ersten Suche: gültig, „searched“ falsch, keine Geräte', is_array($j0) && $j0['searched'] === false && $j0['devices'] === [] && isset($j0['version'], $j0['asOf'], $j0['asOfTs']));
+$mJ = freshModule(['NotificationsActive' => false]);
+mkinst(8991, 'Wetterstation 2', 'HomeMatic Device');
+mkvar(8992, 8991, 'LOWBAT', 'LOWBAT', 0, true, $GLOBALS['CLOCK'] - 31 * 86400);
+mkvar(8993, 8991, 'UNREACH', 'UNREACH', 0, true, $GLOBALS['CLOCK'] - 40 * 86400);
+$mJ->Search(); $mJ->Check();
+$jAll = json_decode($mJ->DeviceListJson(false), true);
+$jWs = null; foreach ($jAll['devices'] as $jd) { if ($jd['name'] === 'Wetterstation 2') { $jWs = $jd; } }
+check('JSON-Geräteliste: Kopf (Version, Stand, searched) und Gerätefelder in fester Reihenfolge', $jAll['searched'] === true && $jAll['asOfTs'] === $GLOBALS['CLOCK'] && $jWs !== null
+    && array_keys($jWs) === ['key', 'name', 'place', 'module', 'status', 'percent', 'derived', 'voltage', 'funk', 'unreachable', 'unreachSince', 'critical', 'urgency', 'soon', 'finding', 'reasons', 'valueAgeSec', 'lifeAgeSec', 'cell', 'cells'], json_encode($jWs === null ? null : array_keys($jWs)));
+check('JSON-Gerät: schwach, Funkstille, nicht erreichbar seit 40 Tagen, Befund nennt es zuerst', $jWs['status'] === 'schwach' && $jWs['funk'] === 'still' && $jWs['unreachable'] === true && $jWs['unreachSince'] === $GLOBALS['CLOCK'] - 40 * 86400 && strpos($jWs['finding'], 'Nicht erreichbar: seit 40 Tagen') === 0 && count($jWs['reasons']) >= 3 && $jWs['critical'] === false && $jWs['urgency'] > 0 && is_string($jWs['key']) && $jWs['key'] !== '', json_encode($jWs, JSON_UNESCAPED_UNICODE));
+$jOnly = json_decode($mJ->DeviceListJson(true), true);
+$allUrg = array_map(function ($d) { return $d['urgency'] > 0; }, $jOnly['devices']);
+check('JSON nur Handlungsbedarf: alle Einträge haben Dringlichkeit, es sind weniger als insgesamt', count($jOnly['devices']) > 0 && !in_array(false, $allUrg, true) && count($jOnly['devices']) < count($jAll['devices']), count($jOnly['devices']) . ' von ' . count($jAll['devices']));
+$jNames = array_map(function ($d) { return $d['place'] . "\0" . $d['name']; }, $jAll['devices']); $jSorted = $jNames; usort($jSorted, 'strcasecmp');
+check('JSON-Geräteliste: nach Ort und Name sortiert, Umlaute unmaskiert', $jNames === $jSorted && strpos($mJ->DeviceListJson(false), '\\u') === false);
+
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

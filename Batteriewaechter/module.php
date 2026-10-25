@@ -980,6 +980,54 @@ class Batteriewaechter extends IPSModule
     }
 
     /**
+     * Die ausgewerteten Geräte als JSON, für eigene Skripte (z. B. eine tägliche Übersicht per Telegram). Rechnet bei
+     * jedem Aufruf neu und speichert nichts. Die Felder bleiben stabil und werden nur erweitert. Ohne Schnittstelle zu
+     * anderen Modulen: es ist eine Funktion für den eigenen Gebrauch.
+     *
+     * @param bool $OnlyProblems nur Geräte mit Handlungsbedarf (dieselben wie in der Tabelle „Handlungsbedarf“)
+     */
+    public function DeviceListJson(bool $OnlyProblems): string
+    {
+        $now = $this->now();
+        $out = ['version' => $this->installedVersion(), 'asOf' => date('c', $now), 'asOfTs' => $now, 'searched' => false, 'devices' => []];
+        $found = $this->found();
+        if ($found !== null) {
+            $out['searched'] = true;
+            $rows = $this->evaluateAll($found);
+            usort($rows, function ($a, $b) { return strcasecmp($a['place'] . "\0" . $a['name'], $b['place'] . "\0" . $b['name']); });
+            foreach ($rows as $row) {
+                $r = $row['r'];
+                if ($OnlyProblems && $r['urgency'] <= 0) {
+                    continue;
+                }
+                $out['devices'][] = [
+                    'key'          => (string)$row['id'],
+                    'name'         => $row['name'],
+                    'place'        => $row['place'],
+                    'module'       => $row['module'],
+                    'status'       => $r['status'],
+                    'percent'      => $r['percent'] === null ? null : round($r['percent'], 1),
+                    'derived'      => !empty($r['derived']),
+                    'voltage'      => $r['voltage'],
+                    'funk'         => $r['funk'],
+                    'unreachable'  => !empty($r['unreachSince']),
+                    'unreachSince' => !empty($r['unreachSince']) ? (int)$r['unreachSince'] : null,
+                    'critical'     => (bool)$r['critical'],
+                    'urgency'      => (int)$r['urgency'],
+                    'soon'         => !empty($r['soon']),
+                    'finding'      => $this->headline($r),
+                    'reasons'      => array_values($r['reasons']),
+                    'valueAgeSec'  => $r['valueAge'],
+                    'lifeAgeSec'   => $r['lifeAge'],
+                    'cell'         => BWACHZelle::isKnown($row['cell']) ? (string)BWACHZelle::shopLabel($row['cell']) : '',
+                    'cells'        => BWACHZelle::isKnown($row['cell']) ? (int)$row['cells'] : null,
+                ];
+            }
+        }
+        return (string)json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+    }
+
+    /**
      * Übernimmt die Einstellungen einer alten BY_BatterieMonitor-Instanz in die OFFENE Maske. Es wird nichts
      * gespeichert (Store-Review: keine Selbstpersistenz in Buttons): der Nutzer prüft und klickt „Übernehmen“.
      */

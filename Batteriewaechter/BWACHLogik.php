@@ -928,6 +928,7 @@ final class BWACHLogik
             'critical' => $critical,
             'derived'  => $derived,
             'orphan'   => $orphan,
+            'unreachSince' => $unreach > 0 ? $unreach : null,
             'cell'     => $cell,
             'urgency'  => $score,
             'reasons'  => $reasons,

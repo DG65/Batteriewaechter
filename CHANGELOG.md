@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.5] - 2026-10-25
+
+### Added
+- **`BWACH_DeviceListJson(<InstanzID>, true|false)`** (Forum: tägliche Übersicht und Warnungen per Telegram, ohne die Auswertung nachzubauen): Die ausgewerteten Geräte als JSON, mit Kopf (Modulversion, Stand, ob schon gesucht wurde) und je Gerät Schlüssel, Name, Ort, System, Status, Prozent, Spannung, Funkstatus, nicht erreichbar (und seit wann), kritisch, Dringlichkeit, Befund samt allen Gründen, Alter von Wert und Lebenszeichen, Zelltyp. `true` liefert nur die Geräte mit Handlungsbedarf. Die Funktion rechnet bei jedem Aufruf neu und speichert nichts; die Felder bleiben stabil und werden nur erweitert. Sie ist für eigene Skripte gedacht, keine Schnittstelle zu anderen Modulen.
+
 ## [0.18.4] - 2026-10-25
 
 ### Added
