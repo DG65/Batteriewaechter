@@ -2737,11 +2737,11 @@ check('Tabelle nennt Instanz, Panel und Spalte', strpos($mH2->GetValue('TableSho
 function reachDev(BWTest $m, string $name): ?array { $m->RequestAction('refresh', ''); foreach (json_decode(end($m->visUpdates), true)['devices'] as $dv) { if ($dv['name'] === $name) { return $dv; } } return null; }
 $mU = freshModule(['NotificationsActive' => false]);
 mkinst(8951, 'Sensor Flur', 'Z-Wave Module');
-mkvar(8952, 8951, 'BatteryVariable', 'Batterie', 1, 80, $GLOBALS['CLOCK'] - 600, '~Battery.100');
+mkvar(8952, 8951, 'BatteryVariable', 'Batterie', 1, 80, $GLOBALS['CLOCK'] - 7200, '~Battery.100');
 mkvar(8953, 8951, 'UNREACH', 'Nicht erreichbar', 0, true, $GLOBALS['CLOCK'] - 3600);
 $mU->Search(); $mU->Check();
 $u1 = reachDev($mU, 'Sensor Flur');
-check('Erreichbarkeit: UNREACH seit einer Stunde (Wartezeit 30 Minuten) ist Funkstille, auch bei frischem Lebenszeichen', $u1 !== null && $u1['funk'] === 'still' && in_array('Nicht erreichbar: seit 1 Stunde meldet sich das Gerät als nicht erreichbar', $u1['reasons'], true), json_encode($u1['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
+check('Erreichbarkeit: UNREACH seit einer Stunde (Wartezeit 30 Minuten), letzte Meldung davor, ist Funkstille', $u1 !== null && $u1['funk'] === 'still' && in_array('Nicht erreichbar: seit 1 Stunde meldet sich das Gerät als nicht erreichbar', $u1['reasons'], true), json_encode($u1['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
 $GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 600;
 check('Erreichbarkeit: erst seit 10 Minuten nicht erreichbar zählt noch nicht (Flackern)', reachDev($mU, 'Sensor Flur')['funk'] === 'aktiv');
 $GLOBALS['OBJ'][8953]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 1800;
@@ -2856,13 +2856,13 @@ check('JSON-Geräteliste vor der ersten Suche: gültig, „searched“ falsch, k
 $mJ = freshModule(['NotificationsActive' => false]);
 mkinst(8991, 'Wetterstation 2', 'HomeMatic Device');
 mkvar(8992, 8991, 'LOWBAT', 'LOWBAT', 0, true, $GLOBALS['CLOCK'] - 31 * 86400);
-mkvar(8993, 8991, 'UNREACH', 'UNREACH', 0, true, $GLOBALS['CLOCK'] - 40 * 86400);
+mkvar(8993, 8991, 'UNREACH', 'UNREACH', 0, true, $GLOBALS['CLOCK'] - 20 * 86400);
 $mJ->Search(); $mJ->Check();
 $jAll = json_decode($mJ->DeviceListJson(false), true);
 $jWs = null; foreach ($jAll['devices'] as $jd) { if ($jd['name'] === 'Wetterstation 2') { $jWs = $jd; } }
 check('JSON-Geräteliste: Kopf (Version, Stand, searched) und Gerätefelder in fester Reihenfolge', $jAll['searched'] === true && $jAll['asOfTs'] === $GLOBALS['CLOCK'] && $jWs !== null
     && array_keys($jWs) === ['key', 'name', 'place', 'module', 'status', 'percent', 'derived', 'voltage', 'funk', 'unreachable', 'unreachSince', 'critical', 'urgency', 'soon', 'finding', 'reasons', 'valueAgeSec', 'lifeAgeSec', 'cell', 'cells', 'instance', 'members', 'sources'], json_encode($jWs === null ? null : array_keys($jWs)));
-check('JSON-Gerät: schwach, Funkstille, nicht erreichbar seit 40 Tagen, Befund nennt es zuerst', $jWs['status'] === 'schwach' && $jWs['funk'] === 'still' && $jWs['unreachable'] === true && $jWs['unreachSince'] === $GLOBALS['CLOCK'] - 40 * 86400 && strpos($jWs['finding'], 'Nicht erreichbar: seit 40 Tagen') === 0 && count($jWs['reasons']) >= 3 && $jWs['critical'] === false && $jWs['urgency'] > 0 && is_string($jWs['key']) && $jWs['key'] !== '', json_encode($jWs, JSON_UNESCAPED_UNICODE));
+check('JSON-Gerät: schwach, Funkstille, nicht erreichbar seit 20 Tagen (letzte Meldung davor), Befund nennt es zuerst', $jWs['status'] === 'schwach' && $jWs['funk'] === 'still' && $jWs['unreachable'] === true && $jWs['unreachSince'] === $GLOBALS['CLOCK'] - 20 * 86400 && strpos($jWs['finding'], 'Nicht erreichbar: seit 20 Tagen') === 0 && count($jWs['reasons']) >= 3 && $jWs['critical'] === false && $jWs['urgency'] > 0 && is_string($jWs['key']) && $jWs['key'] !== '', json_encode($jWs, JSON_UNESCAPED_UNICODE));
 $jOnly = json_decode($mJ->DeviceListJson(true), true);
 $allUrg = array_map(function ($d) { return $d['urgency'] > 0; }, $jOnly['devices']);
 check('JSON nur Handlungsbedarf: alle Einträge haben Dringlichkeit, es sind weniger als insgesamt', count($jOnly['devices']) > 0 && !in_array(false, $allUrg, true) && count($jOnly['devices']) < count($jAll['devices']), count($jOnly['devices']) . ' von ' . count($jAll['devices']));
@@ -2916,6 +2916,35 @@ mkvar(8999, 8998, 'X1', 'Batteriestand', 1, 55, $GLOBALS['CLOCK'] - 300);
 $mNm->Search(); $mNm->Check();
 $jN = null; foreach (json_decode($mNm->DeviceListJson(false), true)['devices'] as $jd) { if ($jd['name'] === 'Sensor Keller') { $jN = $jd; } }
 check('JSON-Quellen: eine über den Namen übernommene Variable trägt die Grundlage „name“, die Quellen oben „ident“ und „profil“', $jN !== null && count($jN['sources']) === 1 && $jN['sources'][0]['basis'] === 'name' && $jS['sources'][0]['basis'] === 'ident' && in_array($jS['sources'][1]['basis'], ['ident', 'profil'], true) && $jS['sources'][0]['basis'] !== 'name', json_encode($jN['sources'] ?? null));
+
+// 0.18.8: ein automatisch erkanntes UNREACH, das von einem neueren Messwert überholt ist, gilt nicht
+$mS = freshModule(['NotificationsActive' => false]);
+mkinst(9201, 'Thermostat Büro', 'HomeMatic Device');
+mkvar(9202, 9201, 'LOWBAT', 'LOWBAT', 0, false, $GLOBALS['CLOCK'] - 300);
+mkvar(9203, 9201, 'ACTUAL_TEMPERATURE', 'Temperatur', 2, 21.5, $GLOBALS['CLOCK'] - 120);
+mkvar(9204, 9201, 'UNREACH', 'UNREACH', 0, true, $GLOBALS['CLOCK'] - 31 * 86400);
+$mS->Search(); $mS->Check();
+$sd = reachDev($mS, 'Thermostat Büro');
+check('Altes UNREACH (seit 31 Tagen wahr), aber Temperatur vor 2 Minuten gemeldet: erreichbar, keine Funkstille', $sd !== null && $sd['funk'] === 'aktiv' && !array_filter($sd['reasons'], function ($x) { return strpos($x, 'Nicht erreichbar') === 0; }), json_encode($sd['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
+$jSd = null; foreach (json_decode($mS->DeviceListJson(false), true)['devices'] as $jd) { if ($jd['name'] === 'Thermostat Büro') { $jSd = $jd; } }
+check('JSON meldet das Gerät dann nicht als nicht erreichbar', $jSd !== null && $jSd['unreachable'] === false && $jSd['unreachSince'] === null);
+$GLOBALS['OBJ'][9203]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 40 * 86400; $GLOBALS['OBJ'][9202]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 40 * 86400;
+$sd = reachDev($mS, 'Thermostat Büro');
+check('Ist das UNREACH neuer als der letzte Messwert (Gerät schweigt, UNREACH seit 31 Tagen), gilt es', $sd['funk'] === 'still' && strpos($sd['headline'], 'Nicht erreichbar: seit 31 Tagen') === 0, json_encode($sd['reasons'], JSON_UNESCAPED_UNICODE));
+$GLOBALS['OBJ'][9203]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 120;
+$sd = reachDev($mS, 'Thermostat Büro');
+check('Meldet das Gerät danach wieder einen Wert, ist das alte UNREACH überholt', $sd['funk'] === 'aktiv');
+$GLOBALS['OBJ'][9203]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 40 * 86400;
+$GLOBALS['OBJ'][9204]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 31 * 86400; $GLOBALS['OBJ'][9204]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 20;
+$sd = reachDev($mS, 'Thermostat Büro');
+check('Auch ein heute erneut geschriebenes UNREACH (nur aktualisiert, nicht geändert) ist kein Lebenszeichen', $sd['funk'] === 'still');
+$GLOBALS['OBJ'][9203]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 31 * 86400;   // genau gleichzeitig mit der UNREACH-Änderung
+$GLOBALS['OBJ'][9202]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 31 * 86400;
+check('Gleichzeitig mit der UNREACH-Änderung gemeldet: UNREACH gilt (nur ein neuerer Wert überholt es)', strpos(reachDev($mS, 'Thermostat Büro')['headline'], 'Nicht erreichbar: seit 31 Tagen') === 0);
+// eine gewählte Erreichbarkeits-Variable bleibt maßgeblich, auch bei neuerem Messwert
+$GLOBALS['OBJ'][9203]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 120;
+$mS->props['DeviceSettings'] = json_encode([['Instance' => 9201, 'ReachVar' => 9204, 'ReachInv' => false]]);
+check('Eine ausdrücklich gewählte Erreichbarkeits-Variable gilt auch bei neuerem Messwert', reachDev($mS, 'Thermostat Büro')['funk'] === 'still');
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

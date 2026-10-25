@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.8] - 2026-10-25
+
+### Fixed
+- **Altes UNREACH überstimmte neuere Messwerte** (Forum: alle HomeMatic-Thermostate und Fensterkontakte zeigten „Funkstille, seit 31 Tagen“, obwohl die Temperatur aktuell war): Das automatisch erkannte `UNREACH` (seit 0.18.0) zählt jetzt nur noch, solange das Gerät seitdem nichts anderes gemeldet hat. Hat eine andere Variable des Geräts (ohne `UNREACH` und `STICKY_UNREACH`) nach der letzten Änderung von `UNREACH` einen neueren Wert geliefert, ist die Offline-Meldung überholt (z. B. nach einem CCU-Neustart nie zurückgesetzt) und das Gerät gilt als erreichbar. Eine in den Geräte-Einstellungen **ausdrücklich gewählte** Erreichbarkeits-Variable bleibt in beide Richtungen maßgeblich.
+
 ## [0.18.7] - 2026-10-25
 
 ### Added

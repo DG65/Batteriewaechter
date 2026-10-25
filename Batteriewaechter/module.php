@@ -2011,7 +2011,7 @@ class Batteriewaechter extends IPSModule
                 }
             }
 
-            $reach = $this->reachState($id, $isInstance, $sibs, $d['members'] ?? [], (int)($st['reach'] ?? 0), !empty($st['reachInv']));
+            $reach = $this->reachState($id, $isInstance, $sibs, $d['members'] ?? [], (int)($st['reach'] ?? 0), !empty($st['reachInv']), $life);
             $defaultStill = ($st['group'] === BWACHLogik::GROUP_EVENT ? $this->ReadPropertyInteger('StillDaysEvent') : $this->ReadPropertyInteger('StillDays')) * 86400;
             $stillSec = $learn ? BWACHPrognose::learnedThreshold($lifeObs[(string)$key] ?? [], $defaultStill) : $defaultStill;
             $r = BWACHLogik::evaluate($sig, $life, $now, [
@@ -2284,11 +2284,12 @@ class Batteriewaechter extends IPSModule
     /**
      * Erreichbarkeit des Geräts. Quelle: die im Gerät gewählte Variable (true = nicht erreichbar, umkehrbar), sonst eine
      * Variable mit dem Ident UNREACH an der Instanz, ihren Matter-/HomeMatic-Geschwistern oder zusammengeführten Kanälen.
-     * Eine ausdrücklich gewählte Variable geht in beide Richtungen vor der Zeit-Schwelle der Funkstille.
+     * Eine ausdrücklich gewählte Variable geht in beide Richtungen vor der Zeit-Schwelle der Funkstille; das automatisch
+     * erkannte UNREACH gilt nur, solange das Gerät seitdem nichts anderes gemeldet hat ($life = jüngstes Lebenszeichen).
      *
      * @return array ['since'=>?int (seit wann nicht erreichbar, nach Abzug der Wartezeit gegen Flackern),'up'=>bool (ausdrücklich erreichbar),'explicit'=>bool]
      */
-    private function reachState(int $id, bool $isInstance, array $sibs, array $members, int $own, bool $inv): array
+    private function reachState(int $id, bool $isInstance, array $sibs, array $members, int $own, bool $inv, int $life): array
     {
         $res  = ['since' => null, 'up' => false, 'explicit' => false];
         $wait = $this->ReadPropertyInteger('UnreachMinutes') * 60;
@@ -2317,6 +2318,11 @@ class Batteriewaechter extends IPSModule
             $unreach = (bool)GetValue($vid) !== $invert;
             $changed = (int)($info['VariableChanged'] ?? 0);
             if ($unreach) {
+                // Das automatisch erkannte UNREACH ist nur ein Hinweis: hat das Gerät seitdem etwas anderes gemeldet,
+                // ist die Meldung überholt (CCU-Neustart, nie zurückgesetzt). Eine gewählte Variable gilt immer.
+                if (!$res['explicit'] && $life > $changed) {
+                    continue;
+                }
                 if ($wait > 0 && $changed > 0 && $this->now() - $changed >= $wait) {
                     $res['since'] = $res['since'] === null ? $changed : min($res['since'], $changed);
                 }
