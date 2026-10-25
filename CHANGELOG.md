@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.9] - 2026-10-25
+
+### Changed
+- **`UNREACH2` zählt nie als Lebenszeichen** (Forum: Hilfsskripte schreiben die Variable regelmäßig, auch ohne neue Gerätedaten, und würden echte Funkstille verdecken, wenn die Zuordnung unter „Erreichbarkeit (Variable)“ entfernt wird): Wie `UNREACH` und `STICKY_UNREACH` zählen jetzt auch `UNREACH2`, `UNREACH3` … (und `STICKY_UNREACH2` …) nicht mehr als Lebenszeichen. Ausgewertet wird `UNREACH2` dadurch nicht, das bleibt die Auswahl unter „Erreichbarkeit (Variable)“. Variablen mit ähnlichem Namen (z. B. `UNREACHABLE_COUNT`) zählen weiter.
+
 ## [0.18.8] - 2026-10-25
 
 ### Fixed

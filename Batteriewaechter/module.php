@@ -2253,9 +2253,9 @@ class Batteriewaechter extends IPSModule
                 if ((int)($o['ObjectType'] ?? 0) !== 2) {
                     continue;
                 }
-                // Erreichbarkeit (UNREACH, STICKY_UNREACH, die gewählte Variable) ist kein Lebenszeichen: eine erneute
+                // Erreichbarkeit (UNREACH, STICKY_UNREACH, UNREACH2 …, die gewählte Variable) ist kein Lebenszeichen: eine erneute
                 // Offline-Meldung heißt nicht, dass das Gerät sendet
-                if ($c === $skipVar || preg_match('/^(sticky_)?unreach$/i', (string)($o['ObjectIdent'] ?? ''))) {
+                if ($c === $skipVar || preg_match('/^(sticky_)?unreach\d*$/i', (string)($o['ObjectIdent'] ?? ''))) {
                     continue;
                 }
                 $var = IPS_GetVariable($c);

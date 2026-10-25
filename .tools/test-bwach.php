@@ -2832,7 +2832,7 @@ $ws = reachDev($mL, 'Wetterstation 2');
 check('UNREACH und STICKY_UNREACH sind kein Lebenszeichen: Funkstille seit 31 Tagen trotz neuer UNREACH-Meldung', $ws !== null && $ws['funk'] === 'still' && $ws['lifeAgeSec'] >= 31 * 86400 - 5, json_encode([$ws['funk'] ?? null, $ws['lifeAgeSec'] ?? null]));
 check('Nicht erreichbar zuerst, danach „Letzte Batteriemeldung: schwach … möglicherweise leer“', strpos($ws['reasons'][0] ?? '', 'Funkstille') === 0 && strpos($ws['reasons'][1] ?? '', 'Letzte Batteriemeldung: schwach') === 0 && strpos($ws['reasons'][1], 'möglicherweise leer') !== false && strpos($ws['headline'], 'Funkstille') === 0, json_encode($ws['reasons'] ?? null, JSON_UNESCAPED_UNICODE));
 // gewählte Erreichbarkeits-Variable (UNREACH2) zählt ebenfalls nicht
-mkvar(8986, 8981, 'UNREACH2', 'UNREACH2', 0, true, $GLOBALS['CLOCK'] - 30);
+mkvar(8986, 8981, 'MeinPing', 'Erreichbarkeit (eigen)', 0, true, $GLOBALS['CLOCK'] - 30);
 $GLOBALS['OBJ'][8984]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 31 * 86400; $GLOBALS['OBJ'][8985]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 31 * 86400;
 $mL->props['DeviceSettings'] = json_encode([['Instance' => 8981, 'ReachVar' => 8986, 'ReachInv' => false]]);
 $GLOBALS['OBJ'][8986]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 40 * 86400;
@@ -2945,6 +2945,22 @@ check('Gleichzeitig mit der UNREACH-Änderung gemeldet: UNREACH gilt (nur ein ne
 $GLOBALS['OBJ'][9203]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 120;
 $mS->props['DeviceSettings'] = json_encode([['Instance' => 9201, 'ReachVar' => 9204, 'ReachInv' => false]]);
 check('Eine ausdrücklich gewählte Erreichbarkeits-Variable gilt auch bei neuerem Messwert', reachDev($mS, 'Thermostat Büro')['funk'] === 'still');
+
+// 0.18.9: Idents UNREACH2, UNREACH3 … zählen nie als Lebenszeichen (Hilfsskripte schreiben sie regelmäßig)
+$mU2 = freshModule(['NotificationsActive' => false]);
+mkinst(9301, 'Fensterkontakt Bad', 'HomeMatic Device');
+mkvar(9302, 9301, 'LOWBAT', 'LOWBAT', 0, false, $GLOBALS['CLOCK'] - 20 * 86400);
+mkvar(9303, 9301, 'UNREACH2', 'UNREACH2', 0, false, $GLOBALS['CLOCK'] - 30);
+mkvar(9304, 9301, 'unreach3', 'UNREACH3', 0, false, $GLOBALS['CLOCK'] - 30);
+mkvar(9305, 9301, 'STICKY_UNREACH2', 'STICKY_UNREACH2', 0, false, $GLOBALS['CLOCK'] - 30);
+$mU2->Search(); $mU2->Check();
+$u2 = reachDev($mU2, 'Fensterkontakt Bad');
+check('UNREACH2, UNREACH3 und STICKY_UNREACH2 sind kein Lebenszeichen: 20 Tage still bleibt Funkstille', $u2 !== null && $u2['funk'] === 'still' && $u2['lifeAgeSec'] >= 20 * 86400 - 5, json_encode([$u2['funk'] ?? null, $u2['lifeAgeSec'] ?? null]));
+mkvar(9306, 9301, 'UNREACHABLE_COUNT', 'Zähler', 1, 5, $GLOBALS['CLOCK'] - 30);
+$u2 = reachDev($mU2, 'Fensterkontakt Bad');
+check('Eine Variable mit ähnlichem Namen (UNREACHABLE_COUNT) bleibt ein Lebenszeichen', $u2['funk'] === 'aktiv');
+$GLOBALS['OBJ'][9303]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 20;
+check('UNREACH2 wird nicht automatisch als Erreichbarkeit ausgewertet (wahr = nicht erreichbar gilt nur bei gewählter Variable)', (function () use ($mU2) { $GLOBALS['OBJ'][9303]['var']['value'] = true; $GLOBALS['OBJ'][9303]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 3600; return strpos(reachDev($mU2, 'Fensterkontakt Bad')['headline'], 'Nicht erreichbar') !== 0; })());
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);
