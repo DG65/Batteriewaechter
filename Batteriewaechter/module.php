@@ -176,6 +176,7 @@ class Batteriewaechter extends IPSModule
             }
         }
 
+        $this->notifyReset();   // geänderte Einstellungen: sofort wieder versuchen
         $this->SetStatus(102);
 
         if (IPS_GetKernelRunlevel() !== KR_READY) {
@@ -1159,9 +1160,44 @@ class Batteriewaechter extends IPSModule
         if ($this->ReadPropertyBoolean('NotifyMail')) {
             $parts[] = 'E-Mail: ' . ($this->sendMail($m['title'], $m['text']) ? '✅ gesendet' : '⚠️ nicht gesendet — ' . $this->lastMailError);
         }
+        if (strpos(implode(' ', $parts), '✅') !== false) {
+            $this->notifyReset();   // der Zustellweg funktioniert wieder
+        }
         $out = $parts ? implode(' · ', $parts) : 'ℹ️ Kein Zustellweg ausgewählt (Push oder E-Mail unter „Meldungen“ ankreuzen).';
         $this->UpdateFormField('NotifyStatus', 'caption', $out);
         return $out;
+    }
+
+    /** Pause nach fehlgeschlagener Zustellung: 30 Minuten, dann verdoppelt, höchstens 6 Stunden. */
+    private const RETRY_BASE_SEC = 1800;
+    private const RETRY_MAX_SEC  = 21600;
+
+    /** Läuft gerade die Pause nach einer fehlgeschlagenen Zustellung? */
+    private function notifyBlocked(int $now): bool
+    {
+        return (int)($this->loadJson('Meta')['retryAfter'] ?? 0) > $now;
+    }
+
+    /** Merkt einen Fehlschlag und setzt die nächste Wartezeit (Limit erreicht, Ziel weg, SMTP aus …). */
+    private function notifyFailed(int $now): void
+    {
+        $meta  = $this->loadJson('Meta');
+        $fails = (int)($meta['retryFails'] ?? 0) + 1;
+        $wait  = min(self::RETRY_MAX_SEC, self::RETRY_BASE_SEC * (2 ** min($fails - 1, 10)));
+        $meta['retryFails'] = $fails;
+        $meta['retryAfter'] = $now + $wait;
+        $this->saveJson('Meta', $meta);
+        $this->LogMessage('Zustellung fehlgeschlagen (' . $fails . '. Versuch in Folge). Nächster Versuch um ' . date('H:i', $now + $wait) . ' Uhr, bis dahin ruhen die Meldungen.', KL_WARNING);
+    }
+
+    /** Eine Meldung ist angekommen: Wartezeit zurücksetzen. */
+    private function notifyReset(): void
+    {
+        $meta = $this->loadJson('Meta');
+        if (isset($meta['retryAfter']) || isset($meta['retryFails'])) {
+            unset($meta['retryAfter'], $meta['retryFails']);
+            $this->saveJson('Meta', $meta);
+        }
     }
 
     private function loadJson(string $ident): array
@@ -1276,8 +1312,13 @@ class Batteriewaechter extends IPSModule
                 $items[] = ['name' => $r['name'], 'place' => $r['place'], 'probs' => $current[$k]['probs'], 'text' => implode('; ', $r['r']['reasons']), 'critical' => (bool)$r['r']['critical']];
             }
             $m = BWACHMeldung::message($kind, $items);
-            if ($this->deliver($m['title'], $m['text'], $m['sound'], $channels) === 0) {
-                // Nichts zugestellt: nicht als gemeldet verbuchen, beim nächsten Lauf erneut versuchen
+            // In der Pause nach einem Fehlschlag wird nicht neu versucht (sonst jede Minute, z. B. bei erreichtem Push-Limit)
+            $sent = $this->notifyBlocked($now) ? 0 : $this->deliver($m['title'], $m['text'], $m['sound'], $channels);
+            if ($sent === 0) {
+                if (!$this->notifyBlocked($now)) {
+                    $this->notifyFailed($now);
+                }
+                // Nichts zugestellt: nicht als gemeldet verbuchen, nach der Pause erneut versuchen
                 foreach ($keys as $k) {
                     $state[$k]['notified'] = (int)($old[$k]['notified'] ?? 0);
                     $state[$k]['cnt']      = (int)($old[$k]['cnt'] ?? 0);
@@ -1294,6 +1335,9 @@ class Batteriewaechter extends IPSModule
     private function sendDigestIfDue(array $rows, array $sum, int $now): void
     {
         $meta = $this->loadJson('Meta');
+        if ($this->notifyBlocked($now)) {
+            return;
+        }
         $key  = BWACHMeldung::digestDue($now, $this->ReadPropertyBoolean('DigestEnabled'), $this->ReadPropertyInteger('DigestWeekday'), $this->ReadPropertyInteger('DigestHour'), (string)($meta['digest'] ?? ''));
         if ($key === null) {
             return;
@@ -1315,8 +1359,11 @@ class Batteriewaechter extends IPSModule
         }
         $channels = ['push' => $this->ReadPropertyBoolean('NotifyPush'), 'mail' => $this->ReadPropertyBoolean('NotifyMail')];
         if ($this->deliver($d['title'], $d['text'], $d['sound'], $channels) > 0) {
+            $meta = $this->loadJson('Meta');
             $meta['digest'] = $key;
             $this->saveJson('Meta', $meta);
+        } else {
+            $this->notifyFailed($now);
         }
     }
 
@@ -1332,6 +1379,9 @@ class Batteriewaechter extends IPSModule
         }
         if (!empty($channels['mail']) && $this->sendMail($title, $text)) {
             $ok++;
+        }
+        if ($ok > 0) {
+            $this->notifyReset();
         }
         if ($ok === 0) {
             $this->LogMessage('Meldung „' . $title . '“ konnte über keinen Weg zugestellt werden (Push-Ziele und E-Mail unter „Meldungen“ prüfen).' . (!empty($channels['mail']) && $this->lastMailError !== '' ? ' E-Mail: ' . $this->lastMailError : ''), KL_WARNING);

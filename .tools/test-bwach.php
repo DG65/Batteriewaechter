@@ -743,14 +743,18 @@ check('Eskalation nur einmal', sentTo('mailex') === []);
 $mw = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
 clock('2026-10-12 08:05'); $GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = false; $mw->Check();
 $GLOBALS['SEND_OK'] = true; $GLOBALS['SENT'] = []; $mw->Check();
-check('Wochenbericht schlägt fehl → beim nächsten Lauf erneut versucht und zugestellt', count(array_filter($GLOBALS['SENT'], function ($s) { return $s[0] === 'visu' && strpos($s[2], 'Wochenbericht') !== false; })) === 4);
+check('Nach fehlgeschlagener Zustellung ruht der Wächter: der nächste Lauf versucht es nicht sofort erneut', $GLOBALS['SENT'] === []);
+shiftWorld(31 * 60); $mw->Check();
+check('Wochenbericht schlägt fehl → nach der Pause erneut versucht und zugestellt', count(array_filter($GLOBALS['SENT'], function ($s) { return $s[0] === 'visu' && strpos($s[2], 'Wochenbericht') !== false; })) === 4);
 
 // Zustellung schlägt fehl → nicht als gemeldet verbuchen
 $m2 = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit], false);
 check('Zustellung fehlgeschlagen: Meldungslog nennt es', (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'zugestellt') !== false; }) && (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'fehlgeschlagen') !== false; }));
 $GLOBALS['SEND_OK'] = true; $GLOBALS['SENT'] = [];
 $m2->Check();
-check('Beim nächsten Lauf wird die Meldung nachgeholt (nicht als gemeldet verbucht)', count(sentTo('visu')) === 4, (string)count(sentTo('visu')));
+check('In der Pause kein neuer Versuch (nichts gesendet, kein weiteres Log)', count(sentTo('visu')) === 0);
+shiftWorld(31 * 60); $m2->Check();
+check('Nach der Pause wird die Meldung nachgeholt (nicht als gemeldet verbucht)', count(sentTo('visu')) === 4, (string)count(sentTo('visu')));
 
 // Ruhezeit im Modul
 $m = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
@@ -2862,6 +2866,39 @@ $allUrg = array_map(function ($d) { return $d['urgency'] > 0; }, $jOnly['devices
 check('JSON nur Handlungsbedarf: alle Einträge haben Dringlichkeit, es sind weniger als insgesamt', count($jOnly['devices']) > 0 && !in_array(false, $allUrg, true) && count($jOnly['devices']) < count($jAll['devices']), count($jOnly['devices']) . ' von ' . count($jAll['devices']));
 $jNames = array_map(function ($d) { return $d['place'] . "\0" . $d['name']; }, $jAll['devices']); $jSorted = $jNames; usort($jSorted, 'strcasecmp');
 check('JSON-Geräteliste: nach Ort und Name sortiert, Umlaute unmaskiert', $jNames === $jSorted && strpos($mJ->DeviceListJson(false), '\\u') === false);
+
+// 0.18.6: Pause nach fehlgeschlagener Zustellung (Forum/Log: Push-Limit erreicht, Versuch jede Minute)
+$mP = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit], false);
+$tryCount = function () { return count(array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'konnte über keinen Weg zugestellt werden') !== false; })); };
+$metaP = json_decode($mP->GetValue('Meta'), true);
+check('Erster Fehlschlag: Pause von 30 Minuten gemerkt, Log nennt die Uhrzeit des nächsten Versuchs', ($metaP['retryFails'] ?? 0) === 1 && ($metaP['retryAfter'] ?? 0) === $GLOBALS['CLOCK'] + 1800 && (bool)array_filter($GLOBALS['LOG'], function ($l) { return strpos($l, 'Nächster Versuch um') !== false; }), json_encode($metaP));
+$n1 = $tryCount(); $GLOBALS['SENT'] = [];
+for ($i = 0; $i < 5; $i++) { shiftWorld(60); $mP->Check(); }
+check('Fünf Minuten lang jede Minute geprüft: kein weiterer Versuch und kein weiteres Log', $tryCount() === $n1 && count($GLOBALS['SENT']) === 0, $tryCount() . ' / ' . $n1);
+shiftWorld(1500); $mP->Check();   // genau 30 Minuten nach dem Fehlschlag: die Pause ist vorbei
+$metaP = json_decode($mP->GetValue('Meta'), true);
+check('Nach der Pause (auf die Sekunde) neuer Versuch, scheitert wieder: Wartezeit verdoppelt auf 60 Minuten', $tryCount() === $n1 + 1 && ($metaP['retryFails'] ?? 0) === 2 && ($metaP['retryAfter'] ?? 0) === $GLOBALS['CLOCK'] + 3600, json_encode($metaP));
+for ($i = 0; $i < 6; $i++) { shiftWorld(8 * 3600); $mP->Check(); }
+$metaP = json_decode($mP->GetValue('Meta'), true);
+check('Die Wartezeit wächst höchstens bis 6 Stunden', ($metaP['retryAfter'] ?? 0) - $GLOBALS['CLOCK'] <= 21600 && ($metaP['retryFails'] ?? 0) >= 4, json_encode($metaP));
+$GLOBALS['SEND_OK'] = true; shiftWorld(7 * 3600); $mP->Check();
+$metaP = json_decode($mP->GetValue('Meta'), true);
+check('Erfolgreiche Zustellung setzt die Wartezeit zurück und die Meldungen kommen an', !isset($metaP['retryAfter']) && !isset($metaP['retryFails']) && count(sentTo('visu')) > 0, json_encode($metaP));
+$GLOBALS['SEND_OK'] = false; $mP2 = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit], false);
+$GLOBALS['SEND_OK'] = true; $mP2->ApplyChanges();
+check('Einstellungen speichern (ApplyChanges) hebt die Pause auf', !isset(json_decode($mP2->GetValue('Meta'), true)['retryAfter']));
+$GLOBALS['SEND_OK'] = false; $mP3 = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit, 'NotifyPush' => true], false);
+$GLOBALS['SEND_OK'] = true; $mP3->SendTest();
+check('Eine erfolgreiche Testmeldung hebt die Pause auf', !isset(json_decode($mP3->GetValue('Meta'), true)['retryAfter']));
+
+// Wochenbericht allein fehlgeschlagen (die Einzelmeldungen sind schon zugestellt): Pause, danach nachgeholt
+$mD = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit, 'ReminderDays' => 90, 'CriticalReminderDays' => 90, 'EscalateHours' => 0]);
+shiftWorld(4 * 86400 + 22 * 3600 + 5 * 60);   // Montag 12.10., 08:05
+$GLOBALS['SEND_OK'] = false; $GLOBALS['SENT'] = []; $mD->Check();
+$metaD = json_decode($mD->GetValue('Meta'), true);
+check('Wochenbericht fehlgeschlagen: Pause gesetzt und Bericht nicht als gesendet verbucht', ($metaD['retryFails'] ?? 0) === 1 && !isset($metaD['digest']), json_encode($metaD));
+$GLOBALS['SEND_OK'] = true; $GLOBALS['SENT'] = []; shiftWorld(1800); $mD->Check();
+check('Wochenbericht nach der Pause nachgeholt, Pause aufgehoben', count(array_filter($GLOBALS['SENT'], function ($x) { return $x[0] === 'visu' && strpos($x[2], 'Wochenbericht') !== false; })) > 0 && !isset(json_decode($mD->GetValue('Meta'), true)['retryAfter']), json_encode(json_decode($mD->GetValue('Meta'), true)));
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

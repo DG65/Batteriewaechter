@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.6] - 2026-10-25
+
+### Fixed
+- **Zustellung jede Minute neu versucht** (Log: „Request Limit für Push Nachrichten ist erreicht (250)“, Meldung des Wächters im Minutentakt): Schlug die Zustellung fehl, versuchte der Wächter es bei jedem Lauf wieder, also jede Minute und nach jeder Batteriemeldung. Jetzt ruht er nach einem Fehlschlag: 30 Minuten, dann 1, 2, 4 Stunden, höchstens 6 Stunden. Die Meldungen bleiben dabei offen und gehen nach der Pause raus. Das gilt für neue Meldungen, Erinnerungen, Eskalationen und die Wochenübersicht. Der erste Fehlschlag nennt im Meldungslog die Uhrzeit des nächsten Versuchs. Eine erfolgreiche Zustellung, eine erfolgreiche Testmeldung und das Speichern der Einstellungen heben die Pause auf.
+
 ## [0.18.5] - 2026-10-25
 
 ### Added
