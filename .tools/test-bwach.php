@@ -2526,6 +2526,8 @@ sort($namesH);
 check('HomeMatic im Modul: aus vier Kanal-Instanzen werden zwei Geräte (Adresse aus der Eigenschaft, notfalls aus dem Namen)', count($plH['devices']) === 2 && $namesH === ['HM-Sec-RHS LEQ0141683:1', 'Nur Namen LEQ9999999:1'], json_encode($namesH, JSON_UNESCAPED_UNICODE));
 $byH = array_column($plH['devices'], null, 'name');
 check('HomeMatic: Das Lebenszeichen kommt vom jüngsten Kanal, keine Funkstille (der Wartungskanal war 40 Tage still)', $byH['HM-Sec-RHS LEQ0141683:1']['funk'] === 'aktiv' && $byH['Nur Namen LEQ9999999:1']['funk'] === 'aktiv' && $mh->GetValue('Silent') === 0, json_encode($byH['HM-Sec-RHS LEQ0141683:1'], JSON_UNESCAPED_UNICODE));
+$jH = array_column(json_decode($mh->DeviceListJson(false), true)['devices'], null, 'name')['HM-Sec-RHS LEQ0141683:1'];
+check('JSON-Quellen bei zusammengeführtem HomeMatic-Gerät: Hauptinstanz, alle beteiligten Instanzen (auch der Wartungskanal) und beide LOWBAT-Variablen, nach Variablen-ID sortiert', $jH['instance'] === 7002 && $jH['members'] === [7001, 7002] && array_column($jH['sources'], 'variableId') === [70011, 70021] && array_column($jH['sources'], 'instanceId') === [7001, 7002] && array_unique(array_column($jH['sources'], 'kind')) === ['flag'], json_encode([$jH['instance'], $jH['members'], $jH['sources']]));
 $GLOBALS['OBJ'][70011]['var']['value'] = true; $mh->Check();
 check('HomeMatic: meldet EIN Kanal „Batterie schwach“, gilt das Gerät als schwach (das schlechtere Flag zählt)', array_column(json_decode(end($mh->visUpdates), true)['devices'], null, 'name')['HM-Sec-RHS LEQ0141683:1']['status'] === 'schwach');
 $GLOBALS['OBJ'][70031]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 40 * 86400; $GLOBALS['OBJ'][70041]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 60; $mh->Check();
@@ -2859,7 +2861,7 @@ $mJ->Search(); $mJ->Check();
 $jAll = json_decode($mJ->DeviceListJson(false), true);
 $jWs = null; foreach ($jAll['devices'] as $jd) { if ($jd['name'] === 'Wetterstation 2') { $jWs = $jd; } }
 check('JSON-Geräteliste: Kopf (Version, Stand, searched) und Gerätefelder in fester Reihenfolge', $jAll['searched'] === true && $jAll['asOfTs'] === $GLOBALS['CLOCK'] && $jWs !== null
-    && array_keys($jWs) === ['key', 'name', 'place', 'module', 'status', 'percent', 'derived', 'voltage', 'funk', 'unreachable', 'unreachSince', 'critical', 'urgency', 'soon', 'finding', 'reasons', 'valueAgeSec', 'lifeAgeSec', 'cell', 'cells'], json_encode($jWs === null ? null : array_keys($jWs)));
+    && array_keys($jWs) === ['key', 'name', 'place', 'module', 'status', 'percent', 'derived', 'voltage', 'funk', 'unreachable', 'unreachSince', 'critical', 'urgency', 'soon', 'finding', 'reasons', 'valueAgeSec', 'lifeAgeSec', 'cell', 'cells', 'instance', 'members', 'sources'], json_encode($jWs === null ? null : array_keys($jWs)));
 check('JSON-Gerät: schwach, Funkstille, nicht erreichbar seit 40 Tagen, Befund nennt es zuerst', $jWs['status'] === 'schwach' && $jWs['funk'] === 'still' && $jWs['unreachable'] === true && $jWs['unreachSince'] === $GLOBALS['CLOCK'] - 40 * 86400 && strpos($jWs['finding'], 'Nicht erreichbar: seit 40 Tagen') === 0 && count($jWs['reasons']) >= 3 && $jWs['critical'] === false && $jWs['urgency'] > 0 && is_string($jWs['key']) && $jWs['key'] !== '', json_encode($jWs, JSON_UNESCAPED_UNICODE));
 $jOnly = json_decode($mJ->DeviceListJson(true), true);
 $allUrg = array_map(function ($d) { return $d['urgency'] > 0; }, $jOnly['devices']);
@@ -2899,6 +2901,21 @@ $metaD = json_decode($mD->GetValue('Meta'), true);
 check('Wochenbericht fehlgeschlagen: Pause gesetzt und Bericht nicht als gesendet verbucht', ($metaD['retryFails'] ?? 0) === 1 && !isset($metaD['digest']), json_encode($metaD));
 $GLOBALS['SEND_OK'] = true; $GLOBALS['SENT'] = []; shiftWorld(1800); $mD->Check();
 check('Wochenbericht nach der Pause nachgeholt, Pause aufgehoben', count(array_filter($GLOBALS['SENT'], function ($x) { return $x[0] === 'visu' && strpos($x[2], 'Wochenbericht') !== false; })) > 0 && !isset(json_decode($mD->GetValue('Meta'), true)['retryAfter']), json_encode(json_decode($mD->GetValue('Meta'), true)));
+
+// 0.18.7: Quellen-IDs im JSON
+check('JSON-Quellen: LOWBAT als „schwach“-Flag mit Variablen-ID, Name, Instanz, Erkennung über den Ident; UNREACH steht nicht darin', $jWs['instance'] === 8991 && $jWs['members'] === [] && $jWs['sources'] === [['variableId' => 8992, 'variableName' => 'LOWBAT', 'instanceId' => 8991, 'kind' => 'flag', 'basis' => 'ident']], json_encode($jWs['sources']));
+mkinst(8995, 'Shelly Flur', 'Shelly');
+mkvar(8996, 8995, 'OPERATING_VOLTAGE', 'Batteriespannung', 2, 2.9, $GLOBALS['CLOCK'] - 300);
+mkvar(8997, 8995, 'Battery', 'Batterie', 1, 64, $GLOBALS['CLOCK'] - 300, '~Battery.100');
+$mJ->Search(); $mJ->Check();
+$jS = null; foreach (json_decode($mJ->DeviceListJson(false), true)['devices'] as $jd) { if ($jd['name'] === 'Shelly Flur') { $jS = $jd; } }
+check('JSON-Quellen: Prozent und Spannung eines Geräts, nach Variablen-ID sortiert, mit Art', $jS !== null && array_column($jS['sources'], 'variableId') === [8996, 8997] && array_column($jS['sources'], 'kind') === ['voltage', 'percent'] && $jS['sources'][0]['variableName'] === 'Batteriespannung' && $jS['sources'][1]['instanceId'] === 8995 && $jS['instance'] === 8995, json_encode($jS['sources'] ?? null));
+$mNm = freshModule(['NotificationsActive' => false, 'NameSearch' => true]);
+mkinst(8998, 'Sensor Keller', 'Sonstiges Modul');
+mkvar(8999, 8998, 'X1', 'Batteriestand', 1, 55, $GLOBALS['CLOCK'] - 300);
+$mNm->Search(); $mNm->Check();
+$jN = null; foreach (json_decode($mNm->DeviceListJson(false), true)['devices'] as $jd) { if ($jd['name'] === 'Sensor Keller') { $jN = $jd; } }
+check('JSON-Quellen: eine über den Namen übernommene Variable trägt die Grundlage „name“, die Quellen oben „ident“ und „profil“', $jN !== null && count($jN['sources']) === 1 && $jN['sources'][0]['basis'] === 'name' && $jS['sources'][0]['basis'] === 'ident' && in_array($jS['sources'][1]['basis'], ['ident', 'profil'], true) && $jS['sources'][0]['basis'] !== 'name', json_encode($jN['sources'] ?? null));
 
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

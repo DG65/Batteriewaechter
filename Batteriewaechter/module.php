@@ -981,6 +981,33 @@ class Batteriewaechter extends IPSModule
     }
 
     /**
+     * Die Variablen, die in die Bewertung eines Geräts eingehen, mit Art und Erkennungsgrundlage.
+     *
+     * @return array Liste von ['variableId','variableName','instanceId','kind','basis']
+     */
+    private function sourceList(array $signals): array
+    {
+        $out = [];
+        foreach ($signals as $kind => $list) {
+            foreach ($list as $s) {
+                $vid = (int)$s['vid'];
+                if (!IPS_VariableExists($vid)) {
+                    continue;
+                }
+                $out[] = [
+                    'variableId'   => $vid,
+                    'variableName' => IPS_GetName($vid),
+                    'instanceId'   => (int)(IPS_GetObject($vid)['ParentID'] ?? 0),
+                    'kind'         => (string)$kind,
+                    'basis'        => (string)($s['basis'] ?? ''),
+                ];
+            }
+        }
+        usort($out, function ($a, $b) { return $a['variableId'] <=> $b['variableId']; });
+        return $out;
+    }
+
+    /**
      * Die ausgewerteten Geräte als JSON, für eigene Skripte (z. B. eine tägliche Übersicht per Telegram). Rechnet bei
      * jedem Aufruf neu und speichert nichts. Die Felder bleiben stabil und werden nur erweitert. Ohne Schnittstelle zu
      * anderen Modulen: es ist eine Funktion für den eigenen Gebrauch.
@@ -1022,6 +1049,9 @@ class Batteriewaechter extends IPSModule
                     'lifeAgeSec'   => $r['lifeAge'],
                     'cell'         => BWACHZelle::isKnown($row['cell']) ? (string)BWACHZelle::shopLabel($row['cell']) : '',
                     'cells'        => BWACHZelle::isKnown($row['cell']) ? (int)$row['cells'] : null,
+                    'instance'     => (int)$row['inst'],
+                    'members'      => $row['members'],
+                    'sources'      => $row['sourceList'],
                 ];
             }
         }
@@ -2052,7 +2082,7 @@ class Batteriewaechter extends IPSModule
             $rows[] = ['id' => (string)$key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r,
                 'forecast' => $f, 'cell' => $st['cell'], 'cells' => $st['cells'], 'life' => $life, 'inst' => $id, 'poll' => $pollText,
                 'members' => array_values(array_map('intval', $d['members'] ?? [])), 'sigIds' => array_map(function ($list) { return array_values(array_map(function ($s) { return (int)$s['vid']; }, $list)); }, $d['signals']),
-                'cellHint' => $cellHint, 'cellAuto' => $cellAuto,
+                'cellHint' => $cellHint, 'cellAuto' => $cellAuto, 'sourceList' => $this->sourceList($d['signals']),
                 'change' => BWACHMeldung::changeInfo($diaryAll, (string)$key),
                 'signal' => $isInstance ? $this->signalInfo($id) : null, 'pollOn' => $st['poll']];
         }

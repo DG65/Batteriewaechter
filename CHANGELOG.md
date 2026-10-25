@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.7] - 2026-10-25
+
+### Added
+- **Quellen-IDs in `BWACH_DeviceListJson`** (Forum: Archivierung für neue Batteriegeräte automatisch einschalten, ohne die Interna des Moduls zu lesen): Je Gerät stehen jetzt `instance` (die Hauptinstanz), `members` (alle beteiligten Instanzen, bei zusammengeführten HomeMatic-Kanälen auch der Wartungskanal) und `sources`, die Variablen, die in die Bewertung eingehen, mit `variableId`, `variableName`, `instanceId`, `kind` (`percent`, `voltage`, `flag`, `flag_reversed`) und `basis` (`profil`, `ident`, `manuell`, `name`), sortiert nach Variablen-ID. Ausgeschlossene Variablen (Netzspannung, „Last“, ignorierte) stehen nicht darin. Die Felder sind rein additiv.
+
 ## [0.18.6] - 2026-10-25
 
 ### Fixed
