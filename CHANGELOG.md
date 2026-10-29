@@ -3,10 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.11] - 2026-10-29
+
+### Fixed
+- **Falscher Alarm „Der Timer der automatischen Prüfung fehlt“** (0.18.10): Ein Modul-Timer liegt nicht als Objekt im Objektbaum und ist von außen nicht lesbar; die Zeile suchte ihn dort und meldete bei jeder Instanz fälschlich, er fehle. Die Zeile stützt sich jetzt auf das, was das Modul selbst weiß: wann der Takt zuletzt gesetzt wurde und wann er zuletzt gelaufen ist. Sie nennt das Intervall, den nächsten erwarteten Lauf (gegen …) und den letzten automatischen Lauf. Gewarnt wird nur, wenn seit dem Setzen oder dem letzten Lauf mehr als ein Intervall plus 2 Minuten vergangen sind; der Hinweis lautet dann, das Prüfintervall einmal zu ändern und mit „Übernehmen“ zu speichern, das startet den Takt neu.
+
 ## [0.18.10] - 2026-10-29
 
 ### Added
-- **Anzeige zur automatischen Prüfung** (Forum: bei einer Instanz rechnete nur die manuelle Prüfung, ob der Takt lief, war nicht zu sehen): Im Panel „Zustand“ und in der „Diagnose fürs Forum“ steht jetzt eine Zeile zum Timer: das Prüfintervall, der nächste geplante Lauf und der letzte automatische Lauf seit dem Start (manuelle Prüfungen zählen nicht). Fehlt der Timer, steht er still oder ist der geplante Lauf mehr als 2 Minuten überfällig, nennt die Zeile das mit Warnung und dem Hinweis, mit „Übernehmen“ neu zu starten.
+- **Anzeige zur automatischen Prüfung** (Forum: bei einer Instanz rechnete nur die manuelle Prüfung, ob der Takt lief, war nicht zu sehen): Im Panel „Zustand“ und in der „Diagnose fürs Forum“ steht jetzt eine Zeile zum Timer: das Prüfintervall, der nächste geplante Lauf und der letzte automatische Lauf seit dem Start (manuelle Prüfungen zählen nicht). Die Warnung bei fehlendem Timer in dieser Fassung war falsch und ist in 0.18.11 ersetzt.
 
 ## [0.18.9] - 2026-10-25
 

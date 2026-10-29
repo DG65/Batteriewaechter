@@ -24,11 +24,13 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
-    ['BWACHLogik.php', '$next + 120 < $now', '$next + 120 <= $now', 'Timer überfällig: < → ≤'],
-    ['BWACHLogik.php', '$next + 120 < $now', '$next + 60 < $now', 'Timer überfällig: Toleranz 120 → 60 s'],
-    ['BWACHLogik.php', 'if (empty($t[\'active\']) || $next <= 0) {', 'if (empty($t[\'active\'])) {', 'Timer ohne nächsten Lauf gilt als läuft'],
-    ['BWACHLogik.php', 'if (empty($t[\'exists\'])) {', 'if (false) {', 'fehlender Timer unbemerkt'],
+    ['BWACHLogik.php', '$now - $ref > $intervalMin * 60 + 120', '$now - $ref >= $intervalMin * 60 + 120', 'Timer überfällig: > → ≥'],
+    ['BWACHLogik.php', '$now - $ref > $intervalMin * 60 + 120', '$now - $ref > $intervalMin * 60 + 60', 'Timer überfällig: Toleranz 120 → 60 s'],
+    ['BWACHLogik.php', '$now - $ref > $intervalMin * 60 + 120', '$now - $ref > 3600 + 120', 'Timer überfällig: Intervall fest 60 min'],
+    ['BWACHLogik.php', '$ref  = max($last, (int)($t[\'startedAt\'] ?? 0));', '$ref  = $last;', 'Timer: Startzeit zählt nicht als Bezug'],
+    ['BWACHLogik.php', '$ref  = max($last, (int)($t[\'startedAt\'] ?? 0));', '$ref  = (int)($t[\'startedAt\'] ?? 0);', 'Timer: letzter Lauf zählt nicht als Bezug'],
     ['module.php', '$this->WriteAttributeInteger(\'LastTickTs\', $this->now());', '', 'Tick merkt sich seinen Lauf nicht'],
+    ['module.php', '$this->WriteAttributeInteger(\'TimerStartTs\', $this->now());', '', 'Timer-Start wird nicht gemerkt'],
     ['BWACHLogik.php', '$pct <= $emptyThr ? self::ST_EMPTY', '$pct < $emptyThr ? self::ST_EMPTY', 'Grenze „leer“ ≤ → <'],
     ['BWACHLogik.php', '$pct < $lowThr ? self::ST_LOW', '$pct <= $lowThr ? self::ST_LOW', 'Grenze „schwach“ < → ≤'],
     ['BWACHLogik.php', '$lifeAge > $stillSec) {', '$lifeAge >= $stillSec) {', 'Funkstille > → ≥'],

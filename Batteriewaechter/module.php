@@ -132,6 +132,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
         $this->RegisterAttributeInteger('LastCheckTs', 0);
         $this->RegisterAttributeInteger('LastTickTs', 0);
+        $this->RegisterAttributeInteger('TimerStartTs', 0);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterAttributeBoolean('ForumHintGone', false);   // bis 0.11.3: nur noch aus Kompatibilität angelegt
@@ -203,6 +204,7 @@ class Batteriewaechter extends IPSModule
     {
         $interval = max(5, $this->ReadPropertyInteger('CheckIntervalMin'));
         $this->SetTimerInterval('Tick', $interval * 60 * 1000);
+        $this->WriteAttributeInteger('TimerStartTs', $this->now());
         $this->Search();
     }
 
@@ -294,18 +296,13 @@ class Batteriewaechter extends IPSModule
         return $line;
     }
 
-    /** Zustand des Tick-Timers für Zustandspanel und Diagnose. */
+    /** Zustand des Tick-Timers für Zustandspanel und Diagnose (aus dem, was das Modul selbst merkt). */
     private function timerLine(): string
     {
-        $t  = ['exists' => false, 'active' => false, 'next' => 0, 'lastAuto' => $this->ReadAttributeInteger('LastTickTs')];
-        $id = @IPS_GetObjectIDByIdent('Tick', $this->InstanceID);
-        if ($id !== false && IPS_EventExists($id)) {
-            $e = IPS_GetEvent($id);
-            $t['exists'] = true;
-            $t['active'] = !empty($e['EventActive']);
-            $t['next']   = (int)($e['NextRun'] ?? 0);
-        }
-        return BWACHLogik::timerLine($t, max(5, $this->ReadPropertyInteger('CheckIntervalMin')), $this->now());
+        return BWACHLogik::timerLine([
+            'startedAt' => $this->ReadAttributeInteger('TimerStartTs'),
+            'lastAuto'  => $this->ReadAttributeInteger('LastTickTs'),
+        ], max(5, $this->ReadPropertyInteger('CheckIntervalMin')), $this->now());
     }
 
     /** Trockenlauf: zeigt, was gefunden, ausgeschlossen und nur vorgeschlagen wird. */

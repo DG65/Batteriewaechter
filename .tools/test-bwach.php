@@ -42,9 +42,6 @@ function mkvar(int $id, int $parent, string $ident, string $name, int $type, $va
     $GLOBALS['OBJ'][$id] = ['type' => 2, 'parent' => $parent, 'ident' => $ident, 'name' => $name,
         'var' => array_merge(['VariableType' => $type, 'VariableProfile' => $profile, 'VariableCustomProfile' => '', 'VariableUpdated' => $updated, 'VariableChanged' => $updated, 'VariableAction' => 0, 'VariableCustomAction' => 0, 'value' => $value], $extra)];
 }
-function mkevent(int $id, int $parent, string $ident, bool $active, int $next): void { $GLOBALS['OBJ'][$id] = ['type' => 4, 'parent' => $parent, 'ident' => $ident, 'name' => $ident, 'event' => ['EventActive' => $active, 'NextRun' => $next]]; }
-function IPS_EventExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 4; }
-function IPS_GetEvent(int $id): array { return $GLOBALS['OBJ'][$id]['event']; }
 function IPS_GetKernelRunlevel(): int { return KR_READY; }
 function IPS_GetVariableList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 2) { $o[] = $id; } } return $o; }
 function IPS_GetObject(int $id): array { $x = $GLOBALS['OBJ'][$id]; return ['ObjectType' => $x['type'], 'ParentID' => $x['parent'], 'ObjectIdent' => $x['ident'], 'ObjectName' => $x['name']]; }
@@ -462,21 +459,23 @@ check('Stündlicher Tick bewertet nur, sucht nicht neu', $m4->ReadAttributeInteg
 $GLOBALS['CLOCK'] += 86400; $m4->Tick();
 check('Nach über 24 Stunden sucht der Tick neu', $m4->ReadAttributeInteger('LastDiscoveryTs') > $last);
 
-// Timer-Anzeige (0.18.10)
+// Timer-Anzeige (0.18.11): aus Startzeit und letztem Lauf, nicht aus dem (unlesbaren) Modul-Timer
 $tNow = $GLOBALS['CLOCK'];
 $tl = function (array $t) use ($tNow) { return BWACHLogik::timerLine($t, 60, $tNow); };
-check('Timer-Zeile: Timer fehlt → Warnung „nur manuell“', strpos($tl(['exists' => false]), 'fehlt') !== false && strpos($tl(['exists' => false]), 'manuell') !== false);
-check('Timer-Zeile: Timer aus → „steht still“', strpos($tl(['exists' => true, 'active' => false, 'next' => $tNow + 60]), 'steht still') !== false);
-check('Timer-Zeile: kein nächster Lauf → „steht still“', strpos($tl(['exists' => true, 'active' => true, 'next' => 0]), 'steht still') !== false);
-$tOk = $tl(['exists' => true, 'active' => true, 'next' => $tNow + 1800, 'lastAuto' => 0]);
-check('Timer-Zeile: läuft → Intervall, nächster Lauf, „noch keiner“', strpos($tOk, 'alle 60 Min.') !== false && strpos($tOk, date('d.m.Y H:i', $tNow + 1800)) !== false && strpos($tOk, 'noch keiner') !== false && strpos($tOk, '⚠️') === false);
-check('Timer-Zeile: nennt den letzten automatischen Lauf', strpos($tl(['exists' => true, 'active' => true, 'next' => $tNow + 60, 'lastAuto' => $tNow - 3600]), date('d.m.Y H:i', $tNow - 3600)) !== false);
-check('Timer-Zeile: genau 120 s überfällig ist noch pünktlich', strpos($tl(['exists' => true, 'active' => true, 'next' => $tNow - 120]), 'überfällig') === false);
-check('Timer-Zeile: 121 s überfällig → „überfällig“', strpos($tl(['exists' => true, 'active' => true, 'next' => $tNow - 121]), 'überfällig') !== false);
+check('Timer-Zeile: weder Start noch Lauf bekannt → neutral, keine Warnung', (function ($l) { return strpos($l, 'noch kein Lauf') !== false && strpos($l, '⚠️') === false; })($tl([])));
+$tOk = $tl(['startedAt' => $tNow - 600, 'lastAuto' => 0]);
+check('Timer-Zeile: frisch gestartet → Intervall, nächster Lauf gegen Start + 60 min, „noch keiner“', strpos($tOk, 'alle 60 Min.') !== false && strpos($tOk, date('d.m.Y H:i', $tNow - 600 + 3600)) !== false && strpos($tOk, 'noch keiner') !== false && strpos($tOk, '⚠️') === false);
+$tRun = $tl(['startedAt' => $tNow - 7200, 'lastAuto' => $tNow - 1800]);
+check('Timer-Zeile: läuft → nennt letzten Lauf, nächster Lauf gegen letzter + 60 min', strpos($tRun, date('d.m.Y H:i', $tNow - 1800)) !== false && strpos($tRun, date('d.m.Y H:i', $tNow - 1800 + 3600)) !== false && strpos($tRun, '⚠️') === false);
+check('Timer-Zeile: Bezug ist der neuere von Start und letztem Lauf', strpos($tl(['startedAt' => $tNow - 600, 'lastAuto' => $tNow - 3000]), date('d.m.Y H:i', $tNow - 600 + 3600)) !== false);
+check('Timer-Zeile: genau Intervall + 120 s ohne Lauf ist noch pünktlich', strpos($tl(['startedAt' => $tNow - 3720, 'lastAuto' => 0]), 'nicht mehr gelaufen') === false);
+$tLate = $tl(['startedAt' => $tNow - 3721, 'lastAuto' => 0]);
+check('Timer-Zeile: 1 s mehr → Warnung mit Zeitpunkt und Neustart-Hinweis', strpos($tLate, 'nicht mehr gelaufen') !== false && strpos($tLate, date('d.m.Y H:i', $tNow - 3721)) !== false && strpos($tLate, 'Prüfintervall einmal ändern') !== false);
+check('Timer-Zeile: ein später Lauf setzt den Bezug neu (kein Alarm trotz altem Start)', strpos($tl(['startedAt' => $tNow - 90000, 'lastAuto' => $tNow - 100]), 'nicht mehr gelaufen') === false);
+check('Timer-Zeile: Intervall geht in die Schwelle ein (5 min: 421 s = überfällig)', strpos(BWACHLogik::timerLine(['startedAt' => $tNow - 421, 'lastAuto' => 0], 5, $tNow), 'nicht mehr gelaufen') !== false && strpos(BWACHLogik::timerLine(['startedAt' => $tNow - 420, 'lastAuto' => 0], 5, $tNow), 'nicht mehr gelaufen') === false);
 $mt = new BWTest(); $mt->Create(); $mt->ApplyChanges();
-check('Ohne Timer-Objekt meldet das Modul den fehlenden Timer (Panel und Diagnose)', strpos($mt->GetConfigurationForm(), 'fehlt') !== false && strpos($mt->Diagnosis(), 'fehlt') !== false);
-mkevent(990001, $mt->InstanceID, 'Tick', true, $GLOBALS['CLOCK'] + 900);
-check('Mit laufendem Timer zeigt das Zustandspanel den nächsten Lauf', strpos($mt->GetConfigurationForm(), 'alle 60 Min.') !== false && strpos($mt->Diagnosis(), 'nächster Lauf') !== false);
+check('ApplyChanges merkt sich den Start des Timers', $mt->ReadAttributeInteger('TimerStartTs') === $GLOBALS['CLOCK']);
+check('Zustandspanel und Diagnose zeigen die Timer-Zeile, ohne Alarm direkt nach dem Start', strpos($mt->GetConfigurationForm(), 'alle 60 Min.') !== false && strpos($mt->Diagnosis(), 'Automatische Prüfung alle 60 Min.') !== false && strpos($mt->Diagnosis(), 'nicht mehr gelaufen') === false);
 check('Zustandspanel hat ein Label „TimerStatus“ für UpdateFormField', strpos($mt->GetConfigurationForm(), '"name":"TimerStatus"') !== false);
 $mt->fieldUpdates = []; $mt->Check();
 check('Prüfung aktualisiert die Timer-Zeile im offenen Formular', in_array('TimerStatus', array_column($mt->fieldUpdates, 0), true));
@@ -484,6 +483,8 @@ check('Vor dem ersten Tick: letzter automatischer Lauf = keiner', $mt->ReadAttri
 $GLOBALS['CLOCK'] += 10; $mt->Tick();
 check('Tick merkt sich seinen Lauf (LastTickTs)', $mt->ReadAttributeInteger('LastTickTs') === $GLOBALS['CLOCK']);
 check('Manuelle Prüfung setzt LastTickTs nicht', (function ($m) { $before = $m->ReadAttributeInteger('LastTickTs'); $GLOBALS['CLOCK'] += 5; $m->Check(); return $m->ReadAttributeInteger('LastTickTs') === $before; })($mt));
+$GLOBALS['CLOCK'] += 4000;
+check('Steht der Takt länger als ein Intervall, warnen Panel und Diagnose', strpos($mt->GetConfigurationForm(), 'nicht mehr gelaufen') !== false && strpos($mt->Diagnosis(), 'nicht mehr gelaufen') !== false);
 
 // Suche ohne Treffer
 $GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter');
