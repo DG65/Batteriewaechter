@@ -936,6 +936,27 @@ final class BWACHLogik
     }
 
     /** Zählt die Ergebnisse für die Kennzahlen-Variablen. */
+    /**
+     * Zeile zum Takt der automatischen Prüfung (Timer „Tick“): zeigt, ob und wann sie läuft.
+     * $t: exists (Timer vorhanden), active (eingeschaltet), next (nächster Lauf, Unix-Zeit), lastAuto (letzter Lauf des Timers, 0 = keiner).
+     */
+    public static function timerLine(array $t, int $intervalMin, int $now): string
+    {
+        if (empty($t['exists'])) {
+            return '⚠️ Der Timer der automatischen Prüfung fehlt: Es wird nur manuell geprüft. Mit „Übernehmen“ neu anlegen.';
+        }
+        $next = (int)($t['next'] ?? 0);
+        if (empty($t['active']) || $next <= 0) {
+            return '⚠️ Die automatische Prüfung steht still (Timer aus): Es wird nur manuell geprüft. Mit „Übernehmen“ neu starten.';
+        }
+        $last = (int)($t['lastAuto'] ?? 0);
+        $lastTxt = $last > 0 ? date('d.m.Y H:i', $last) . ' Uhr' : 'noch keiner seit dem Start';
+        if ($next + 120 < $now) {
+            return '⚠️ Die automatische Prüfung ist überfällig (geplant ' . date('d.m.Y H:i', $next) . ' Uhr, letzter automatischer Lauf: ' . $lastTxt . ').';
+        }
+        return '⏱️ Automatische Prüfung alle ' . $intervalMin . ' Min.; nächster Lauf ' . date('d.m.Y H:i', $next) . ' Uhr, letzter automatischer Lauf: ' . $lastTxt . '.';
+    }
+
     public static function summarize(array $results): array
     {
         $s = ['total' => 0, 'empty' => 0, 'low' => 0, 'silent' => 0, 'unknown' => 0, 'check' => 0, 'ok' => 0, 'action' => 0];

@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.10] - 2026-10-29
+
+### Added
+- **Anzeige zur automatischen Prüfung** (Forum: bei einer Instanz rechnete nur die manuelle Prüfung, ob der Takt lief, war nicht zu sehen): Im Panel „Zustand“ und in der „Diagnose fürs Forum“ steht jetzt eine Zeile zum Timer: das Prüfintervall, der nächste geplante Lauf und der letzte automatische Lauf seit dem Start (manuelle Prüfungen zählen nicht). Fehlt der Timer, steht er still oder ist der geplante Lauf mehr als 2 Minuten überfällig, nennt die Zeile das mit Warnung und dem Hinweis, mit „Übernehmen“ neu zu starten.
+
 ## [0.18.9] - 2026-10-25
 
 ### Changed

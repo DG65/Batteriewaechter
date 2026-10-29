@@ -24,6 +24,11 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['BWACHLogik.php', '$next + 120 < $now', '$next + 120 <= $now', 'Timer überfällig: < → ≤'],
+    ['BWACHLogik.php', '$next + 120 < $now', '$next + 60 < $now', 'Timer überfällig: Toleranz 120 → 60 s'],
+    ['BWACHLogik.php', 'if (empty($t[\'active\']) || $next <= 0) {', 'if (empty($t[\'active\'])) {', 'Timer ohne nächsten Lauf gilt als läuft'],
+    ['BWACHLogik.php', 'if (empty($t[\'exists\'])) {', 'if (false) {', 'fehlender Timer unbemerkt'],
+    ['module.php', '$this->WriteAttributeInteger(\'LastTickTs\', $this->now());', '', 'Tick merkt sich seinen Lauf nicht'],
     ['BWACHLogik.php', '$pct <= $emptyThr ? self::ST_EMPTY', '$pct < $emptyThr ? self::ST_EMPTY', 'Grenze „leer“ ≤ → <'],
     ['BWACHLogik.php', '$pct < $lowThr ? self::ST_LOW', '$pct <= $lowThr ? self::ST_LOW', 'Grenze „schwach“ < → ≤'],
     ['BWACHLogik.php', '$lifeAge > $stillSec) {', '$lifeAge >= $stillSec) {', 'Funkstille > → ≥'],
@@ -289,7 +294,7 @@ $mutations = [
     ['BWACHLogik.php', "if (empty(\$v['parentIsInstance']) || (string)\$v['ident'] === '' || (string)\$v['moduleName'] === 'Batteriewaechter' || in_array(mb_strtolower((string)\$v['moduleName']), \$excludedModules, true)) {", "if ((string)\$v['ident'] === '' || (string)\$v['moduleName'] === 'Batteriewaechter' || in_array(mb_strtolower((string)\$v['moduleName']), \$excludedModules, true)) {", 'Diagnose: Skriptvariablen stehen unter „nicht erkannt“'],
     ['BWACHLogik.php', "if (empty(\$v['parentIsInstance']) || (string)\$v['ident'] === '' || (string)\$v['moduleName'] === 'Batteriewaechter' || in_array(mb_strtolower((string)\$v['moduleName']), \$excludedModules, true)) {", "if (empty(\$v['parentIsInstance']) || (string)\$v['moduleName'] === 'Batteriewaechter' || in_array(mb_strtolower((string)\$v['moduleName']), \$excludedModules, true)) {", 'Diagnose: Variablen ohne Ident stehen unter „nicht erkannt“'],
     ['BWACHLogik.php', "if (empty(\$v['parentIsInstance']) || (string)\$v['ident'] === '' || (string)\$v['moduleName'] === 'Batteriewaechter' || in_array(mb_strtolower((string)\$v['moduleName']), \$excludedModules, true)) {", "if (empty(\$v['parentIsInstance']) || (string)\$v['ident'] === '' || (string)\$v['moduleName'] === 'Batteriewaechter') {", 'Diagnose: Ausschlussliste gilt nicht'],
-    ['module.php', "\$kernel, \$this->excludedModules());", "\$kernel);", 'Diagnose im Modul kennt die Ausschlussliste nicht'],
+    ['module.php', "\$kernel, \$this->excludedModules()) . ", "\$kernel) . ", 'Diagnose im Modul kennt die Ausschlussliste nicht'],
     ['module.php', "bis du „Meldungen aktiv“ einschaltest.", "bis Sie „Meldungen aktiv“ einschalten.", 'Förmliche Anrede im Meldungen-Hinweis'],
     ['module.php', "\$cut = count(\$pending) > 3;", "\$cut = false;", '„Neu“ zeigt die ganze Entwicklungsgeschichte'],
     ['module.php', "\$pending = array_slice(\$pending, -3, 3, true);", "\$pending = array_slice(\$pending, 0, 3, true);", '„Neu“ zeigt die ältesten statt der neuesten drei Versionen'],

@@ -131,6 +131,7 @@ class Batteriewaechter extends IPSModule
         $this->RegisterAttributeString('Found', '');
         $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
         $this->RegisterAttributeInteger('LastCheckTs', 0);
+        $this->RegisterAttributeInteger('LastTickTs', 0);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterAttributeBoolean('ForumHintGone', false);   // bis 0.11.3: nur noch aus Kompatibilität angelegt
@@ -212,6 +213,7 @@ class Batteriewaechter extends IPSModule
     /** Zyklischer Lauf: täglich neu suchen, sonst nur bewerten. */
     public function Tick(): void
     {
+        $this->WriteAttributeInteger('LastTickTs', $this->now());
         $found = $this->found();
         if ($found === null || ($this->now() - $this->ReadAttributeInteger('LastDiscoveryTs')) > self::REDISCOVER_SEC) {
             $this->Search();
@@ -288,7 +290,22 @@ class Batteriewaechter extends IPSModule
         $this->UpdateVisualizationValue($this->tilePayload($rows, $sum, $now, $notes, $views));
         $this->WriteAttributeInteger('LastCheckTs', $now);
         $this->UpdateFormField('CheckStatus', 'caption', $line);
+        $this->UpdateFormField('TimerStatus', 'caption', $this->timerLine());
         return $line;
+    }
+
+    /** Zustand des Tick-Timers für Zustandspanel und Diagnose. */
+    private function timerLine(): string
+    {
+        $t  = ['exists' => false, 'active' => false, 'next' => 0, 'lastAuto' => $this->ReadAttributeInteger('LastTickTs')];
+        $id = @IPS_GetObjectIDByIdent('Tick', $this->InstanceID);
+        if ($id !== false && IPS_EventExists($id)) {
+            $e = IPS_GetEvent($id);
+            $t['exists'] = true;
+            $t['active'] = !empty($e['EventActive']);
+            $t['next']   = (int)($e['NextRun'] ?? 0);
+        }
+        return BWACHLogik::timerLine($t, max(5, $this->ReadPropertyInteger('CheckIntervalMin')), $this->now());
     }
 
     /** Trockenlauf: zeigt, was gefunden, ausgeschlossen und nur vorgeschlagen wird. */
@@ -950,7 +967,7 @@ class Batteriewaechter extends IPSModule
             'ignored'         => $this->ignoredVariables(),
         ]);
         $kernel = function_exists('IPS_GetKernelVersion') ? (string)IPS_GetKernelVersion() : '?';
-        return BWACHLogik::diagnosis($vars, $result, $this->installedVersion(), $kernel, $this->excludedModules());
+        return BWACHLogik::diagnosis($vars, $result, $this->installedVersion(), $kernel, $this->excludedModules()) . "\n" . $this->timerLine();
     }
 
     /** Geräteliste als CSV (Semikolon, UTF-8): zum Kopieren oder Ausdrucken. */
@@ -2641,6 +2658,7 @@ class Batteriewaechter extends IPSModule
             'items' => [
                 ['type' => 'Button', 'caption' => '🔄 Jetzt prüfen', 'onClick' => 'echo BWACH_Check($id);'],
                 ['type' => 'Label', 'name' => 'CheckStatus', 'caption' => $line],
+                ['type' => 'Label', 'name' => 'TimerStatus', 'caption' => $this->timerLine()],
                 ['type' => 'Label', 'caption' => 'Kachel: In der Kachel-Visualisierung diese Instanz als Kachel hinzufügen. Die Kachel zeigt die Geräte nach Dringlichkeit, mit Filter, Batterietagebuch und den Schaltflächen zum Quittieren — ohne eigenen Titel, den liefert der Instanzname.'],
                 ['type' => 'CheckBox', 'name' => 'LightTheme', 'caption' => 'Helle Darstellung der Kachel (hellgrauer Hintergrund mit dunkler Schrift)'],
                 ['type' => 'CheckBox', 'name' => 'TileAllowAck', 'caption' => 'Quittieren aus der Kachel erlauben („getauscht“, „später“, „außer Betrieb“)'],
