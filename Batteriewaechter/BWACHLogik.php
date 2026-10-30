@@ -513,6 +513,17 @@ final class BWACHLogik
         return null;
     }
 
+    /**
+     * Benennt der Ident einer Batterievariable einen Funksensor statt der Instanz selbst? Ecowitt-/Froggit-Protokoll:
+     * wh65batt, wh40batt (Regen), wh57batt (Blitz), wh90batt, wn34batt, soilbatt1–8, soil_ec_batt1–16, batt1–8 (WH31-Kanäle), pm25batt1–4,
+     * leakbatt1–4, co2_batt, leaf_batt1–8, tf_batt1–8, lightning_batt. Gerätebatterien (battery, LOWBAT,
+     * BatteryLevel, PowerSource_BatPercentRemaining) benennen keinen Sensor und bleiben bei der Instanz.
+     */
+    public static function identNamesSensor(string $ident): bool
+    {
+        return (bool)preg_match('/^(wh\d+_?batt|wn\d+_?batt|batt\d+|soil_?(ec_?)?batt\d*|pm25_?batt\d*|leak_?batt\d*|co2_?batt\d*|leaf_?batt\d*|tf_?batt\d*|lightning_?batt)$/i', $ident);
+    }
+
     /** Namen, die einen Sammelwert über mehrere Geräte beschreiben („Schwächste Batterie“ eines Raums). */
     public static function isAggregateName(string $name): bool
     {
@@ -623,7 +634,7 @@ final class BWACHLogik
                 }
             }
             $kind = $s['kind'];
-            $entry = ['vid' => $vid, 'basis' => $s['basis'], 'scale' => $s['scale'], 'unverified' => $s['unverified'], 'label' => $name];
+            $entry = ['vid' => $vid, 'basis' => $s['basis'], 'scale' => $s['scale'], 'unverified' => $s['unverified'], 'label' => $name, 'ident' => (string)($v['ident'] ?? '')];
             // Stufenanzeige: über den Ident erkannter Prozentwert, dessen Profil 3 bis 10 benannte Stufen hat
             if ($kind === self::KIND_PERCENT && $s['basis'] === self::BASIS_IDENT && !empty($v['stages']) && is_array($v['stages'])
                 && count($v['stages']) >= 3 && count($v['stages']) <= 10) {
@@ -687,6 +698,38 @@ final class BWACHLogik
             }
             $devices[$primary]['members'] = $members;
             $devices[$primary]['merged']  = true;
+        }
+
+        // Signale, deren Ident einen SENSOR benennt (Ecowitt/Froggit: wh40batt, soilbatt1, batt3 …), gehören nie der
+        // Instanz selbst: ein Gateway hat keine Batterie, es meldet die seiner Funksensoren. Jedes wird ein eigenes
+        // Gerät, auch wenn es das einzige Signal ist oder die Signale verschiedener Art sind (0.19.0, Forum: Lutz).
+        foreach ($devices as $key => $d) {
+            if (!empty($d['merged'])) {
+                continue;
+            }
+            foreach ($d['signals'] as $kind => $list) {
+                $keep = [];
+                foreach ($list as $sg) {
+                    if (!self::identNamesSensor((string)($sg['ident'] ?? ''))) {
+                        $keep[] = $sg;
+                        continue;
+                    }
+                    $devices[$key . '-' . $sg['vid']] = [
+                        'name'    => $d['name'] . ' › ' . $sg['label'],
+                        'module'  => $d['module'],
+                        'parent'  => (int)$key,
+                        'signals' => [$kind => [$sg]],
+                    ] + (isset($d['node']) ? ['node' => $d['node']] : []);
+                }
+                if ($keep) {
+                    $devices[$key]['signals'][$kind] = $keep;
+                } else {
+                    unset($devices[$key]['signals'][$kind]);
+                }
+            }
+            if (!$devices[$key]['signals']) {
+                unset($devices[$key]);
+            }
         }
 
         // Mehrere Signale GLEICHER Art an einer Instanz (z. B. neun Bodenfeuchtesensoren an einer

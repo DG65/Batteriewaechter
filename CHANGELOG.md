@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.19.0] - 2026-10-30
+
+### Changed
+- **Sensorbatterien an Gateways sind eigene Geräte** (Forum: ein Froggit-Gateway ohne eigene Batterie zeigte die Batterie des Regensensors WH40 unter dem Namen des Gateways, einen Eintrag für den Regensensor gab es nicht): Batterievariablen, deren Ident einen Funksensor benennt (Ecowitt-/Froggit-Protokoll: `wh40batt`, `wh65batt`, `wh57batt`, `wh90batt`, `wn34batt`, `soilbatt1` bis `9`, `soil_ec_batt1` bis `16`, `batt1` bis `8` für WH31-Kanäle, `pm25batt`, `leakbatt`, `co2_batt`, `leaf_batt`, `tf_batt`, `lightning_batt`), bekommen jetzt immer einen eigenen Eintrag „Instanz › Variablenname“, auch wenn es die einzige Batterievariable der Instanz ist oder die Signale verschiedener Art sind. Bisher galt das nur ab zwei Werten derselben Art; ein Prozentwert und ein Flag zweier verschiedener Sensoren wurden als eine Batterie bewertet und konnten einen falschen Widerspruch melden. Das Gateway selbst erscheint nicht mehr als Gerät, wenn alle seine Batteriewerte benannten Sensoren gehören. Gerätebatterien (`battery`, `LOWBAT`, `BatteryLevel`, Matter `BatPercentRemaining`, Shelly) sind nicht betroffen.
+- **Folge für Bestandsinstallationen:** Ein bisheriger Eintrag mit dem Namen der Instanz (z. B. „Wetterstation“ mit nur `wh65batt`) heißt jetzt „Wetterstation › Batterie Wetterstation“ und hat einen neuen Schlüssel. Einstellungen der Instanz (Zelltyp, kritisch, Gruppe) gelten für den neuen Eintrag weiter; ein Anzeigename, Quittierungen und Tagebucheinträge des alten Eintrags wandern nicht mit. Die Idents `wh40batt`, `wh57batt`, `wh90batt`, `co2_batt`, `tf_batt1`, `batt1`, `batt8`, `soilbatt1` bis `9` und `soil_ec_batt8` bis `16` sind an laufenden Froggit-Instanzen gesehen (Diagnose eines Nutzers und eigene Anlage); `wn34batt`, `pm25batt`, `leakbatt`, `leaf_batt` und `lightning_batt` stammen aus dem Protokoll.
+
 ## [0.18.12] - 2026-10-30
 
 ### Added

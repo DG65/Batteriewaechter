@@ -71,7 +71,7 @@ Unter „✅ Quittieren und Batterietagebuch“ Gerät und Aktion wählen: **Hab
 | System | Erkennung | Stand |
 |---|---|---|
 | Z-Wave (`BatteryVariable`, `BatteryLowVariable`), Symcon-Profile `~Battery*` | Profil, Ident | an einer echten Anlage geprüft |
-| CometWiFi, Shelly (Prozent und Spannung), Froggit, Botvac | Profil, Ident | an einer echten Anlage geprüft |
+| CometWiFi, Shelly (Prozent und Spannung), Froggit (jeder Funksensor am Gateway ein eigener Eintrag, das Gateway selbst keiner), Botvac | Profil, Ident | an einer echten Anlage geprüft |
 | HomeMatic (`LOWBAT`, `LOW_BAT`, `OPERATING_VOLTAGE`, `UNREACH`), zusammengeführte Kanäle eines Geräts | Ident | durch Rückmeldungen aus dem Forum bestätigt |
 | Matter (`BatPercentRemaining`, Halbprozent; `BatReplacementNeeded`; Ersatz-Beschreibung), zusammengesetzter Wert ab Symcon 9.1 | Ident | an einem IKEA-Kontakt gesehen, Matter 9.1 durch Rückmeldung bestätigt; die Batteriespannung über Matter noch an keinem Gerät gesehen |
 | Netatmo (Stufenanzeige 0 bis 5 mit Profil) | Profil, Ident | durch Rückmeldung bestätigt |
