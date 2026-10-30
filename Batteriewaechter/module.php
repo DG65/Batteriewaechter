@@ -131,8 +131,6 @@ class Batteriewaechter extends IPSModule
         $this->RegisterAttributeString('Found', '');
         $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
         $this->RegisterAttributeInteger('LastCheckTs', 0);
-        $this->RegisterAttributeInteger('LastTickTs', 0);
-        $this->RegisterAttributeInteger('TimerStartTs', 0);
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterAttributeBoolean('ForumHintGone', false);   // bis 0.11.3: nur noch aus Kompatibilität angelegt
@@ -204,7 +202,6 @@ class Batteriewaechter extends IPSModule
     {
         $interval = max(5, $this->ReadPropertyInteger('CheckIntervalMin'));
         $this->SetTimerInterval('Tick', $interval * 60 * 1000);
-        $this->WriteAttributeInteger('TimerStartTs', $this->now());
         $this->Search();
     }
 
@@ -215,7 +212,6 @@ class Batteriewaechter extends IPSModule
     /** Zyklischer Lauf: täglich neu suchen, sonst nur bewerten. */
     public function Tick(): void
     {
-        $this->WriteAttributeInteger('LastTickTs', $this->now());
         $found = $this->found();
         if ($found === null || ($this->now() - $this->ReadAttributeInteger('LastDiscoveryTs')) > self::REDISCOVER_SEC) {
             $this->Search();
@@ -296,13 +292,23 @@ class Batteriewaechter extends IPSModule
         return $line;
     }
 
-    /** Zustand des Tick-Timers für Zustandspanel und Diagnose (aus dem, was das Modul selbst merkt). */
+    /** Zustand des Tick-Timers für Zustandspanel und Diagnose, direkt aus Symcon gelesen. */
     private function timerLine(): string
     {
-        return BWACHLogik::timerLine([
-            'startedAt' => $this->ReadAttributeInteger('TimerStartTs'),
-            'lastAuto'  => $this->ReadAttributeInteger('LastTickTs'),
-        ], max(5, $this->ReadPropertyInteger('CheckIntervalMin')), $this->now());
+        $timer = null;
+        foreach (IPS_GetTimerList() as $id) {
+            $t = IPS_GetTimer($id);
+            if ((int)$t['InstanceID'] === $this->InstanceID && $t['Name'] === 'Tick') {
+                $timer = [
+                    'interval' => (int)$t['Interval'],
+                    'lastRun'  => (int)$t['LastRun'],
+                    'nextRun'  => (int)$t['NextRun'],
+                    'running'  => (bool)$t['Running'],
+                ];
+                break;
+            }
+        }
+        return BWACHLogik::timerLine($timer, $this->now());
     }
 
     /** Trockenlauf: zeigt, was gefunden, ausgeschlossen und nur vorgeschlagen wird. */

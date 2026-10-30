@@ -24,13 +24,12 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
-    ['BWACHLogik.php', '$now - $ref > $intervalMin * 60 + 120', '$now - $ref >= $intervalMin * 60 + 120', 'Timer überfällig: > → ≥'],
-    ['BWACHLogik.php', '$now - $ref > $intervalMin * 60 + 120', '$now - $ref > $intervalMin * 60 + 60', 'Timer überfällig: Toleranz 120 → 60 s'],
-    ['BWACHLogik.php', '$now - $ref > $intervalMin * 60 + 120', '$now - $ref > 3600 + 120', 'Timer überfällig: Intervall fest 60 min'],
-    ['BWACHLogik.php', '$ref  = max($last, (int)($t[\'startedAt\'] ?? 0));', '$ref  = $last;', 'Timer: Startzeit zählt nicht als Bezug'],
-    ['BWACHLogik.php', '$ref  = max($last, (int)($t[\'startedAt\'] ?? 0));', '$ref  = (int)($t[\'startedAt\'] ?? 0);', 'Timer: letzter Lauf zählt nicht als Bezug'],
-    ['module.php', '$this->WriteAttributeInteger(\'LastTickTs\', $this->now());', '', 'Tick merkt sich seinen Lauf nicht'],
-    ['module.php', '$this->WriteAttributeInteger(\'TimerStartTs\', $this->now());', '', 'Timer-Start wird nicht gemerkt'],
+    ['module.php', '(int)$t[\'InstanceID\'] === $this->InstanceID && ', '', 'Timer-Zeile liest den Timer einer fremden Instanz'],
+    ['module.php', ' && $t[\'Name\'] === \'Tick\'', '', 'Timer-Zeile liest Debounce statt Tick'],
+    ['BWACHLogik.php', '$now - $next > 120', '$now - $next > 121', 'Timer: Überfällig-Grenze verschoben (nach oben)'],
+    ['BWACHLogik.php', '$now - $next > 120', '$now - $next >= 120', 'Timer: Überfällig-Grenze verschoben (einschließlich)'],
+    ['BWACHLogik.php', '$next > 0 && $now - $next > 120', '$now - $next > 120', 'Timer: ohne geplanten Lauf falsche Warnung'],
+    ['BWACHLogik.php', 'if ($interval <= 0) {', 'if ($interval < 0) {', 'Timer: Intervall 0 gilt als gesetzt'],
     ['BWACHLogik.php', '$pct <= $emptyThr ? self::ST_EMPTY', '$pct < $emptyThr ? self::ST_EMPTY', 'Grenze „leer“ ≤ → <'],
     ['BWACHLogik.php', '$pct < $lowThr ? self::ST_LOW', '$pct <= $lowThr ? self::ST_LOW', 'Grenze „schwach“ < → ≤'],
     ['BWACHLogik.php', '$lifeAge > $stillSec) {', '$lifeAge >= $stillSec) {', 'Funkstille > → ≥'],

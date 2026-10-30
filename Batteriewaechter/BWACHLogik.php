@@ -980,22 +980,25 @@ final class BWACHLogik
 
     /** Zählt die Ergebnisse für die Kennzahlen-Variablen. */
     /**
-     * Zeile zum Takt der automatischen Prüfung (Timer „Tick“). Ein Modul-Timer ist von außen nicht lesbar;
-     * deshalb zählt, was das Modul selbst merkt: $t['startedAt'] (Timer zuletzt gesetzt) und $t['lastAuto']
-     * (letzter Lauf des Timers), je 0 = unbekannt. Überfällig: länger als ein Intervall plus 2 Minuten ohne Lauf.
+     * Zeile zum Takt der automatischen Prüfung (Timer „Tick“). $t kommt aus IPS_GetTimer: interval (ms),
+     * lastRun und nextRun (Unix-Zeit, 0 = nie), running; null = Timer nicht gefunden.
+     * Überfällig: geplanter Lauf liegt mehr als 2 Minuten zurück. Das ist der Zustand, den nur Symcon sehen kann.
      */
-    public static function timerLine(array $t, int $intervalMin, int $now): string
+    public static function timerLine(?array $t, int $now): string
     {
-        $last = (int)($t['lastAuto'] ?? 0);
-        $ref  = max($last, (int)($t['startedAt'] ?? 0));
-        if ($ref <= 0) {
-            return '⏱️ Automatische Prüfung alle ' . $intervalMin . ' Min.; noch kein Lauf seit dem Start.';
+        $interval = (int)($t['interval'] ?? 0);
+        if ($interval <= 0) {
+            return '⚠️ Der Takt der automatischen Prüfung ist nicht gesetzt. Das Prüfintervall einmal ändern und mit „Übernehmen“ speichern setzt ihn neu.';
         }
-        if ($now - $ref > $intervalMin * 60 + 120) {
-            return '⚠️ Die automatische Prüfung hat seit ' . date('d.m.Y H:i', $ref) . ' Uhr nicht mehr gelaufen (Intervall ' . $intervalMin . ' Min.). Das Prüfintervall einmal ändern und mit „Übernehmen“ speichern startet den Takt neu.';
+        $min  = (int)round($interval / 60000);
+        $last = (int)($t['lastRun'] ?? 0);
+        $next = (int)($t['nextRun'] ?? 0);
+        if ($next > 0 && $now - $next > 120) {
+            return '⚠️ Die automatische Prüfung sollte am ' . date('d.m.Y H:i', $next) . ' Uhr laufen, Symcon hat sie aber nicht gestartet' . (!empty($t['running']) ? ' (der Timer gilt als noch laufend)' : '') . '. Ein Neustart des Symcon-Dienstes hat das in einem bekannten Fall behoben.';
         }
         $lastTxt = $last > 0 ? date('d.m.Y H:i', $last) . ' Uhr' : 'noch keiner seit dem Start';
-        return '⏱️ Automatische Prüfung alle ' . $intervalMin . ' Min.; nächster Lauf gegen ' . date('d.m.Y H:i', $ref + $intervalMin * 60) . ' Uhr, letzter automatischer Lauf: ' . $lastTxt . '.';
+        $nextTxt = $next > 0 ? 'nächster Lauf ' . date('d.m.Y H:i', $next) . ' Uhr' : 'nächster Lauf noch nicht geplant';
+        return '⏱️ Automatische Prüfung alle ' . $min . ' Min.; ' . $nextTxt . ', letzter automatischer Lauf: ' . $lastTxt . '.';
     }
 
     public static function summarize(array $results): array

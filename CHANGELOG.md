@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.19.1] - 2026-10-30
+
+### Fixed
+- **Timer-Zeile liest jetzt den echten Timer** (Forum: bei einer Instanz startete Symcon den Timer nicht mehr, erst ein Neustart des Symcon-Dienstes half): Die Zeile im Panel „Zustand“ und in der „Diagnose fürs Forum“ zeigt Intervall, nächsten und letzten Lauf direkt aus Symcon (`IPS_GetTimer`). Gewarnt wird, wenn der geplante Lauf mehr als 2 Minuten zurückliegt oder der Takt nicht gesetzt ist. Ein Aufruf von `BWACH_Tick` von Hand zählt nicht mehr als automatischer Lauf.
+- **Richtigstellung zu 0.18.11:** Die dortige Aussage, ein Modul-Timer sei von außen nicht lesbar, war falsch. Er liegt nur nicht im Objektbaum.
+
 ## [0.19.0] - 2026-10-30
 
 ### Changed
