@@ -1740,6 +1740,9 @@ check('Restlaufzeit 112 Tage > 14: nicht „bald leer“, Status ok', $d114()['s
 $m->props['SoonDays'] = 150; $m->Check();
 check('Schwelle 150 Tage: jetzt „bald leer“, Dringlichkeit 650, Grund nennt die Prognose', $d114()['soon'] === true && $d114()['urgency'] === 650 && strpos(implode(' ', $d114()['reasons']), 'Batterie bald leer: reicht noch etwa') !== false, json_encode($d114()['reasons'], JSON_UNESCAPED_UNICODE));
 check('Kennzahl „Bald leer“ zählt mit', $m->GetValue('Soon') === 1 && strpos($m->GetValue('StatusLine'), '1 bald leer') !== false, (string)$m->GetValue('Soon'));
+$jF = null; foreach (json_decode($m->DeviceListJson(false), true)['devices'] as $jd) { if ($jd['key'] === '114') { $jF = $jd; } }
+check('JSON-Prognose mit Verlauf: Resttage ~112, Sicherheit hoch/mittel, Steigung ~−0,4 %/Tag, Güte > 0,9, Text wie in der Kachel, kein Grund', $jF !== null && $jF['forecast']['days'] > 100 && $jF['forecast']['days'] < 125 && in_array($jF['forecast']['confidence'], ['hoch', 'mittel'], true) && abs($jF['forecast']['slopePerDay'] + 0.4) < 0.05 && $jF['forecast']['quality'] > 0.9 && preg_match('/^reicht noch etwa \d+ Tage \((hohe|mittlere) Sicherheit\)$/u', $jF['forecast']['text']) === 1 && $jF['forecast']['why'] === '' && $jF['soon'] === true, json_encode($jF['forecast'] ?? null, JSON_UNESCAPED_UNICODE));
+check('JSON-Prognose: Zeitpunkt „leer“ = letzter Messpunkt + Resttage (auf einen Tag genau)', $jF !== null && abs($jF['forecast']['emptyAt'] - ($GLOBALS['CLOCK'] + $jF['forecast']['days'] * 86400)) < 86400, json_encode([$jF['forecast']['emptyAt'] ?? null, $GLOBALS['CLOCK']]));
 $m->props['NotificationsActive'] = true; $GLOBALS['SENT'] = []; $m->Check();
 $soonMsg = array_values(array_filter($GLOBALS['SENT'], function ($s) { return $s[0] === 'visu' && strpos($s[3], 'Rauchmelder Heizung') !== false; }));
 check('Meldung „bald leer“ wird verschickt (Titel ⏳, Text mit Prognose)', $soonMsg && (strpos($soonMsg[0][2], '⏳') !== false || strpos($soonMsg[0][2], 'Batteriemeldungen') !== false) && strpos($soonMsg[0][3], 'bald leer') !== false, json_encode($soonMsg[0] ?? null, JSON_UNESCAPED_UNICODE));
@@ -2888,13 +2891,27 @@ $mJ->Search(); $mJ->Check();
 $jAll = json_decode($mJ->DeviceListJson(false), true);
 $jWs = null; foreach ($jAll['devices'] as $jd) { if ($jd['name'] === 'Wetterstation 2') { $jWs = $jd; } }
 check('JSON-Geräteliste: Kopf (Version, Stand, searched) und Gerätefelder in fester Reihenfolge', $jAll['searched'] === true && $jAll['asOfTs'] === $GLOBALS['CLOCK'] && $jWs !== null
-    && array_keys($jWs) === ['key', 'name', 'place', 'module', 'status', 'percent', 'derived', 'voltage', 'funk', 'unreachable', 'unreachSince', 'critical', 'urgency', 'soon', 'finding', 'reasons', 'valueAgeSec', 'lifeAgeSec', 'cell', 'cells', 'instance', 'members', 'sources'], json_encode($jWs === null ? null : array_keys($jWs)));
+    && array_keys($jWs) === ['key', 'name', 'place', 'module', 'status', 'percent', 'derived', 'voltage', 'funk', 'unreachable', 'unreachSince', 'critical', 'urgency', 'soon', 'finding', 'reasons', 'valueAgeSec', 'lifeAgeSec', 'cell', 'cells', 'instance', 'members', 'sources', 'lowThreshold', 'emptyThreshold', 'forecast'], json_encode($jWs === null ? null : array_keys($jWs)));
 check('JSON-Gerät: schwach, Funkstille, nicht erreichbar seit 20 Tagen (letzte Meldung davor), Befund nennt es zuerst', $jWs['status'] === 'schwach' && $jWs['funk'] === 'still' && $jWs['unreachable'] === true && $jWs['unreachSince'] === $GLOBALS['CLOCK'] - 20 * 86400 && strpos($jWs['finding'], 'Nicht erreichbar: seit 20 Tagen') === 0 && count($jWs['reasons']) >= 3 && $jWs['critical'] === false && $jWs['urgency'] > 0 && is_string($jWs['key']) && $jWs['key'] !== '', json_encode($jWs, JSON_UNESCAPED_UNICODE));
 $jOnly = json_decode($mJ->DeviceListJson(true), true);
 $allUrg = array_map(function ($d) { return $d['urgency'] > 0; }, $jOnly['devices']);
 check('JSON nur Handlungsbedarf: alle Einträge haben Dringlichkeit, es sind weniger als insgesamt', count($jOnly['devices']) > 0 && !in_array(false, $allUrg, true) && count($jOnly['devices']) < count($jAll['devices']), count($jOnly['devices']) . ' von ' . count($jAll['devices']));
 $jNames = array_map(function ($d) { return $d['place'] . "\0" . $d['name']; }, $jAll['devices']); $jSorted = $jNames; usort($jSorted, 'strcasecmp');
 check('JSON-Geräteliste: nach Ort und Name sortiert, Umlaute unmaskiert', $jNames === $jSorted && strpos($mJ->DeviceListJson(false), '\\u') === false);
+
+// 0.18.12: Schwellen und Prognose in der JSON (für Diagramm-Module und eigene Skripte)
+check('JSON-Kopf nennt die eingestellten Grenzen (Standard 20/5/30, bald leer 14 Tage)', $jAll['thresholds'] === ['lowPercent' => 20, 'emptyPercent' => 5, 'criticalLowPercent' => 30, 'soonDays' => 14], json_encode($jAll['thresholds'] ?? null));
+check('JSON-Gerät (nicht kritisch): wirksame Grenzen 20 und 5', $jWs['lowThreshold'] === 20 && $jWs['emptyThreshold'] === 5);
+check('JSON-Gerät ohne Prozentwert (nur LOWBAT): keine Prognose, Grund genannt, Text leer', $jWs['forecast']['days'] === null && $jWs['forecast']['confidence'] === 'unbekannt' && $jWs['forecast']['emptyAt'] === null && $jWs['forecast']['slopePerDay'] === null && $jWs['forecast']['quality'] === null && $jWs['forecast']['text'] === '' && strpos($jWs['forecast']['why'], 'kein Prozentwert') === 0, json_encode($jWs['forecast']));
+check('JSON-Prognose: Felder in fester Reihenfolge', array_keys($jWs['forecast']) === ['days', 'confidence', 'emptyAt', 'slopePerDay', 'quality', 'text', 'why']);
+$mJ->props['DeviceSettings'] = json_encode([['Instance' => 8991, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false]]);
+$mJ->props['LowPercent'] = 25; $mJ->props['CriticalLowPercent'] = 40; $mJ->props['EmptyPercent'] = 8; $mJ->props['SoonDays'] = 21;
+$mJ->Check();
+$jAll2 = json_decode($mJ->DeviceListJson(false), true);
+$jWs2 = null; $jOther = null; foreach ($jAll2['devices'] as $jd) { if ($jd['name'] === 'Wetterstation 2') { $jWs2 = $jd; } elseif ($jOther === null && $jd['critical'] === false) { $jOther = $jd; } }
+check('JSON-Kopf folgt den Einstellungen (25/8/40, 21 Tage)', $jAll2['thresholds'] === ['lowPercent' => 25, 'emptyPercent' => 8, 'criticalLowPercent' => 40, 'soonDays' => 21], json_encode($jAll2['thresholds']));
+check('JSON-Gerät kritisch: wirksame „schwach“-Grenze ist die kritische (40), nicht die normale (25)', $jWs2 !== null && $jWs2['critical'] === true && $jWs2['lowThreshold'] === 40 && $jWs2['emptyThreshold'] === 8, json_encode([$jWs2['critical'] ?? null, $jWs2['lowThreshold'] ?? null]));
+check('JSON-Gerät nicht kritisch daneben: normale Grenze 25', $jOther !== null && $jOther['lowThreshold'] === 25, json_encode($jOther['lowThreshold'] ?? null));
 
 // 0.18.6: Pause nach fehlgeschlagener Zustellung (Forum/Log: Push-Limit erreicht, Versuch jede Minute)
 $mP = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit], false);

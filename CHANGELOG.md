@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.18.12] - 2026-10-30
+
+### Added
+- **Schwellen und Prognose in `BWACH_DeviceListJson`** (Forum: ein Diagramm-Modul will Balken mit Markierungslinien und einen Zeitstrahl „wann wird was leer“ zeichnen, ohne die Bewertung nachzubauen): Der Kopf nennt unter `thresholds` die eingestellten Grenzen (`lowPercent`, `emptyPercent`, `criticalLowPercent`, `soonDays`). Je Gerät stehen die **wirksamen** Grenzen `lowThreshold` (bei kritischen Geräten die kritische) und `emptyThreshold` sowie ein Block `forecast` mit `days` (Resttage), `confidence` (hoch, mittel, niedrig, keine, unbekannt), `emptyAt` (Unix-Zeit, wann die Batterie voraussichtlich leer ist), `slopePerDay` (Prozentpunkte je Tag), `quality` (Bestimmtheitsmaß der Geraden), `text` (wie in der Kachel) und `why` (der Grund, wenn es noch keine Prognose gibt). Geräte, die nur „schwach/leer“ melden und keinen Prozentwert haben, bekommen keine Prognose und sagen das in `why`. Alle Felder sind rein additiv.
+
 ## [0.18.11] - 2026-10-29
 
 ### Fixed

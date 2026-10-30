@@ -1031,7 +1031,13 @@ class Batteriewaechter extends IPSModule
     public function DeviceListJson(bool $OnlyProblems): string
     {
         $now = $this->now();
-        $out = ['version' => $this->installedVersion(), 'asOf' => date('c', $now), 'asOfTs' => $now, 'searched' => false, 'devices' => []];
+        $lowPct  = $this->ReadPropertyInteger('LowPercent');
+        $critPct = $this->ReadPropertyInteger('CriticalLowPercent');
+        $emptyPct = $this->ReadPropertyInteger('EmptyPercent');
+        $out = ['version' => $this->installedVersion(), 'asOf' => date('c', $now), 'asOfTs' => $now, 'searched' => false,
+            // 0.18.12: die eingestellten Grenzen, damit ein Diagramm Markierungslinien an denselben Stellen zieht wie die Bewertung
+            'thresholds' => ['lowPercent' => $lowPct, 'emptyPercent' => $emptyPct, 'criticalLowPercent' => $critPct, 'soonDays' => $this->ReadPropertyInteger('SoonDays')],
+            'devices' => []];
         $found = $this->found();
         if ($found !== null) {
             $out['searched'] = true;
@@ -1066,10 +1072,32 @@ class Batteriewaechter extends IPSModule
                     'instance'     => (int)$row['inst'],
                     'members'      => $row['members'],
                     'sources'      => $row['sourceList'],
+                    // 0.18.12: die für DIESES Gerät wirksamen Grenzen (kritische Geräte haben eine eigene „schwach“-Grenze)
+                    'lowThreshold'   => $r['critical'] ? $critPct : $lowPct,
+                    'emptyThreshold' => $emptyPct,
+                    // 0.18.12: Prognose aus dem Verlauf seit dem letzten Wechsel (Theil-Sen); ohne Prozentwert gibt es keine
+                    'forecast'       => $this->forecastJson($row['forecast'], $r['percent'] !== null),
                 ];
             }
         }
         return (string)json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+    }
+
+    /** Prognose eines Geräts für die JSON-Liste: Resttage, Sicherheit, Zeitpunkt „leer“, Steigung, Güte, Text und der ehrliche Grund. */
+    private function forecastJson(array $f, bool $hasPercent): array
+    {
+        if (!$hasPercent) {
+            return ['days' => null, 'confidence' => 'unbekannt', 'emptyAt' => null, 'slopePerDay' => null, 'quality' => null, 'text' => '', 'why' => 'kein Prozentwert (das Gerät meldet nur schwach/leer)'];
+        }
+        return [
+            'days'        => $f['days'],
+            'confidence'  => (string)$f['confidence'],
+            'emptyAt'     => $f['emptyAt'],
+            'slopePerDay' => $f['slope'],
+            'quality'     => $f['r2'] ?? null,
+            'text'        => BWACHPrognose::forecastText($f),
+            'why'         => (string)$f['why'],
+        ];
     }
 
     /**
