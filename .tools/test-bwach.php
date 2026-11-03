@@ -62,6 +62,7 @@ $GLOBALS['INSTS'] = []; $GLOBALS['SENT'] = []; $GLOBALS['SEND_OK'] = true; $GLOB
 $GLOBALS['ZW'] = []; $GLOBALS['ZW_OK'] = true;
 function ZW_RequestStatus(int $id) { $GLOBALS['ZW'][] = $id; return $GLOBALS['ZW_OK']; }
 function MATTER_RequestStatus(int $id) { $GLOBALS['MT'][] = $id; return $GLOBALS['ZW_OK']; }
+function CWIFI_SendAction(int $id, string $action) { $GLOBALS['CW'][] = [$id, $action]; return $GLOBALS['ZW_OK']; }
 function IPS_SetHidden(int $id, bool $h): bool { $GLOBALS['OBJ'][$id]['hidden'] = $h; return true; }
 function IPS_GetLinkList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 6) { $o[] = $id; } } return $o; }
 function IPS_GetLink(int $id): array { return ['TargetID' => $GLOBALS['OBJ'][$id]['target'] ?? 0]; }
@@ -2728,9 +2729,20 @@ $GLOBALS['MT'] = []; $mx2 = pollWorld(30, false, 'Matter Device');
 check('Abfrage bei Matter ausgeschaltet: keine Anfrage', $GLOBALS['MT'] === []);
 $GLOBALS['MT'] = []; $mx3 = pollWorld(5, true, 'Matter Device');
 check('Abfrage bei Matter: Wert nur 5 Tage alt, keine Anfrage', $GLOBALS['MT'] === []);
+$GLOBALS['CW'] = []; $GLOBALS['ZW'] = []; $GLOBALS['MT'] = []; $mc = pollWorld(30, true, 'CometWiFiThermostat');
+check('Abfrage bei Comet: CWIFI_SendAction mit „AllFields“ an der Instanz, sonst nichts', ($GLOBALS['CW'] ?? []) === [[301, 'AllFields']] && $GLOBALS['ZW'] === [] && $GLOBALS['MT'] === [], json_encode($GLOBALS['CW'] ?? []));
+$GLOBALS['CW'] = []; shiftWorld(3 * 86400); $mc->Check();
+check('Comet: nicht erneut innerhalb des Abfrage-Abstands', $GLOBALS['CW'] === []);
+$mc2 = pollWorld(30, true, 'CometWiFiThermostat');
+shiftWorld(7 * 3600); $GLOBALS['OBJ'][3011]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 45 * 86400; $mc2->Check();
+check('Comet: nach 6 Stunden ohne Antwort gilt „keine Antwort“', json_decode($mc2->GetValue('Poll'), true)['301']['ans'] === false);
+$GLOBALS['CW'] = []; $mc3 = pollWorld(30, false, 'CometWiFiThermostat');
+check('Comet: Abfrage ausgeschaltet (Standard), kein Weckruf', $GLOBALS['CW'] === []);
+$GLOBALS['CW'] = []; $mc4 = pollWorld(5, true, 'CometWiFiThermostat');
+check('Comet: Wert nur 5 Tage alt, kein Weckruf', $GLOBALS['CW'] === []);
 $GLOBALS['MT'] = []; $mz = pollWorld(30, true, 'ShellyDevice');
 check('Anderes System: weder Z-Wave- noch Matter-Anfrage', $GLOBALS['MT'] === [] && $GLOBALS['ZW'] === []);
-check('Spalte „Abfragen“ nennt die Systeme, für die es sie gibt', (function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { foreach ($it['columns'] as $c) { if ($c['name'] === 'Poll') { return $c['caption'] === 'Abfragen (Z-Wave, Matter)'; } } } } } return false; })(json_decode($mx->GetConfigurationForm(), true)));
+check('Spalte „Abfragen“ nennt die Systeme, für die es sie gibt', (function ($f) { foreach ($f['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { foreach ($it['columns'] as $c) { if ($c['name'] === 'Poll') { return $c['caption'] === 'Abfragen (Z-Wave, Matter, Comet)'; } } } } } return false; })(json_decode($mx->GetConfigurationForm(), true)));
 $mz = pollWorld(30, true, 'ShellyDevice');
 check('Anderes System als Z-Wave: keine Anfrage (nur dort ist die Funktion belegt)', $GLOBALS['ZW'] === []);
 $GLOBALS['LOG'] = [];

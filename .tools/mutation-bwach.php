@@ -24,6 +24,9 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['module.php', "'CometWiFiThermostat' => 'CWIFI_SendAction'];", "];", 'Abfrage: Comet wird nicht abgefragt'],
+    ['module.php', "['CometWiFiThermostat' => ['AllFields']]", "['CometWiFiThermostat' => ['Update']]", 'Abfrage: Comet nur Temperaturen (ohne Batteriestand)'],
+    ['module.php', "'CometWiFiThermostat' => 6 * 3600]", "'CometWiFiThermostat' => 14 * 86400]", 'Abfrage: Comet wartet zu lange auf Antwort'],
     ['module.php', "foreach (['', 'Settings'] as \$suffix) {", "foreach ([''] as \$suffix) {", 'Außer Betrieb: Geräte-Einstellungen werden nicht aufgefrischt'],
     ['module.php', "...\$this->retiredItems(\$this->found(), 'Settings'),", '', 'Außer Betrieb fehlt in Geräte-Einstellungen'],
     ['module.php', '(int)$t[\'InstanceID\'] === $this->InstanceID && ', '', 'Timer-Zeile liest den Timer einer fremden Instanz'],
@@ -279,9 +282,9 @@ $mutations = [
     ['module.html', "if ((a === '') !== (b === '')) { return a === '' ? 1 : -1; }", "if ((a === '') !== (b === '')) { return a === '' ? -1 : 1; }", 'Nach Ort: „ohne Ort“ steht vorn'],
     ['module.html', "{ id: 'prevent',  label: '🗓 Vorsorge',      test: function (d) { return d.preventive; } },", "", 'Kachel: Filter „Vorsorge“ fehlt'],
     ['module.html', "bwGroup = !bwGroup;", "bwGroup = bwGroup;", 'Kachel: „Nach Ort“ lässt sich nicht umschalten'],
-    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus']", "['Z-Wave Module' => 'ZW_RequestStatus']", 'Abfrage: Matter wird nicht abgefragt'],
-    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus']", "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'ZW_RequestStatus']", 'Abfrage: Matter ruft die Z-Wave-Funktion auf'],
-    ['module.php', "'caption' => 'Abfragen (Z-Wave, Matter)'", "'caption' => 'Abfragen'", 'Spalte „Abfragen“ nennt die Systeme nicht'],
+    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", "['Z-Wave Module' => 'ZW_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", 'Abfrage: Matter wird nicht abgefragt'],
+    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'ZW_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", 'Abfrage: Matter ruft die Z-Wave-Funktion auf'],
+    ['module.php', "'caption' => 'Abfragen (Z-Wave, Matter, Comet)'", "'caption' => 'Abfragen'", 'Spalte „Abfragen“ nennt die Systeme nicht'],
     ['BWACHPrognose.php', "\$slope >= 0 || !in_array(\$confidence, ['hoch', 'mittel'], true)", "\$slope >= 0", 'Prognose-Protokoll: auch bei geringer Sicherheit'],
     ['BWACHPrognose.php', "if (\$pct === null || \$slope === null || \$slope >= 0", "if (\$pct === null || \$slope === null || \$slope > 0", 'Prognose-Protokoll: auch ohne Entladung (Steigung 0)'],
     ['BWACHPrognose.php', "if (\$last !== null && \$now - (int)\$last['t'] < 7 * 86400) {", "if (false) {", 'Prognose-Protokoll: öfter als einmal pro Woche'],
@@ -297,7 +300,7 @@ $mutations = [
     ['BWACHLogik.php', "if (isset(\$known[(int)\$v['vid']])) {\n                continue;\n            }", "", 'Diagnose: erkannte Variablen stehen auch unter „nicht erkannt“'],
     ['BWACHLogik.php', "if (!\$own['poll'] && !empty(\$r['Poll'])) {", "if (false) {", 'Regel kann „Abfragen“ nicht einschalten'],
     ['module.php', "\$byLife = (\$state[\$key]['why'] ?? 'alt') === 'still' && (int)\$row['life'] > \$t;", "\$byLife = (int)\$row['life'] > \$t;", 'Abfrage: jedes Lebenszeichen gilt auch bei einer Anfrage wegen alten Werts'],
-    ['module.php', "'Matter Device' => 6 * 3600]", "'Matter Device' => 14 * 86400]", 'Abfrage: Matter wartet 14 Tage statt 6 Stunden'],
+    ['module.php', "'Matter Device' => 6 * 3600,", "'Matter Device' => 14 * 86400,", 'Abfrage: Matter wartet 14 Tage statt 6 Stunden'],
     ['module.php', "if (!\$row['pollOn'] || \$fn === null || (!\$old && !\$still)) {", "if (!\$row['pollOn'] || \$fn === null || !\$old) {", 'Abfrage bei Funkstille fehlt'],
     ['module.php', "'why' => \$still && !\$old ? 'still' : 'alt']", "'why' => 'alt']", 'Abfrage: Anlass wird nicht festgehalten'],
     ['module.php', "\$devs  = \$v['round']['places'][\$place] ?? [];", "\$devs  = [];", 'Alle getauscht: findet keine Geräte'],

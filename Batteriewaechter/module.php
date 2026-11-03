@@ -2165,10 +2165,17 @@ class Batteriewaechter extends IPSModule
      * Warteschlange der Z-Wave-Instanz.
      */
     /** Systeme, für die es eine Statusanfrage gibt: Modulname der Instanz => Symcon-Funktion. */
-    private const POLL_FUNCTIONS = ['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus'];
+    private const POLL_FUNCTIONS = ['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction'];
+
+    /**
+     * Zusätzliche Argumente nach der Instanz-ID. Comet: Der Batteriestand (Register A6) kommt nur mit „alle Felder“; das weckt
+     * das Gerät spürbar, deshalb nur über den Haken je Gerät und höchstens im Abfrage-Abstand. CWIFI_SendAction liefert bool,
+     * CWIFI_RequestAllFields nur Anzeigetext.
+     */
+    private const POLL_ARGS = ['CometWiFiThermostat' => ['AllFields']];
 
     /** Wie lange auf eine Antwort gewartet wird, bevor „keine Antwort“ gilt: schlafende Z-Wave-Geräte antworten erst beim Aufwachen. */
-    private const POLL_WAIT = ['Z-Wave Module' => 14 * 86400, 'Matter Device' => 6 * 3600];
+    private const POLL_WAIT = ['Z-Wave Module' => 14 * 86400, 'Matter Device' => 6 * 3600, 'CometWiFiThermostat' => 6 * 3600];
 
     private function pollDevices(array $rows, int $now): bool
     {
@@ -2205,7 +2212,7 @@ class Batteriewaechter extends IPSModule
                 continue;
             }
             try {
-                $ok = (bool)$fn((int)$row['inst']);
+                $ok = (bool)$fn((int)$row['inst'], ...(self::POLL_ARGS[$row['module']] ?? []));
             } catch (\Throwable $e) {
                 $ok = false;
                 $this->LogMessage('Abfrage von „' . $row['name'] . '“ fehlgeschlagen: ' . $e->getMessage(), KL_WARNING);
@@ -2644,7 +2651,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => 'Meldungen (unter „🔔 Meldungen“, standardmäßig aus): erste Meldung, Erinnerung nach N Tagen, Ruhezeit, Wochenbericht, Eskalation für kritische Geräte — per Push (Kachel-Visualisierung und WebFront) und E-Mail. Unter „✅ Quittieren“ sagst du dem Wächter, was mit einem Gerät ist.'],
                 ['type' => 'Label', 'caption' => 'Prognose, Einkauf, Tauschrunde: Unter „🧮 Prognose und Einkauf“ einstellbar. Je Gerät den Zelltyp unter „Geräte-Einstellungen“ eintragen, dann kann der Wächter Spannungen umrechnen und die Einkaufsliste zählen. Die Ergebnisse stehen als Variablen „Einkauf und Tauschrunde“ und „Lebensdauer und Entladung“ unter der Instanz.'],
                 ['type' => 'Label', 'caption' => 'Auffällige Geräte, Funkqualität, Kälte: Entlädt ein Gerät mehr als doppelt so schnell wie vergleichbare (gleiches System, gleicher Zelltyp, mindestens 4 Geräte mit bekannter Entladerate), markiert der Wächter es und nennt mögliche Ursachen (defekt, schlechte Funkverbindung, Dauersenden). Die Funkqualität zeigt er an, wo das Gerät sie liefert (z. B. Zigbee linkquality). Der Kälteeinfluss braucht eine Außentemperatur-Variable und mehrere Wochen Verlauf bei Kälte UND Wärme.'],
-                ['type' => 'Label', 'caption' => 'Abfrage schlafender Geräte: Z-Wave und Matter, nur wo je Gerät eingeschaltet, nur wenn der Batteriewert älter als eingestellt ist. Auch bei Funkstille fragt er nach, wenn die Abfrage für das Gerät eingeschaltet ist. Der Wächter sagt, ob das Gerät geantwortet hat; bleibt die Antwort aus (bei Z-Wave nach 14 Tagen, bei Matter nach 6 Stunden), steht das als Befund da.'],
+                ['type' => 'Label', 'caption' => 'Abfrage schlafender Geräte: Z-Wave, Matter und Comet-WiFi-Thermostate, nur wo je Gerät eingeschaltet, nur wenn der Batteriewert älter als eingestellt ist. Auch bei Funkstille fragt er nach, wenn die Abfrage für das Gerät eingeschaltet ist. Der Wächter sagt, ob das Gerät geantwortet hat; bleibt die Antwort aus (bei Z-Wave nach 14 Tagen, bei Matter und Comet nach 6 Stunden), steht das als Befund da.'],
                 ['type' => 'Label', 'caption' => 'Kachel: Instanz in der Kachel-Visualisierung als Kachel hinzufügen. Antippen einer Zeile klappt sie auf (Gründe, Alter, Schaltflächen zum Quittieren), die Filterzeile oben zeigt nur, was gerade wichtig ist.'],
                 ['type' => 'Label', 'caption' => 'Batterietagebuch: Der Wächter erkennt einen Batteriewechsel am Sprung des Prozentwerts oder am zurückgesetzten „schwach“-Flag und hält ihn mit Datum fest. Die Lebensdauer je Gerät und Zelltyp steht in der Statistik, sobald genug Wechsel gesammelt sind; frühere Wechsel lassen sich mit Datum nachtragen.'],
                 ['type' => 'Label', 'caption' => 'Skripte: BWACH_Search(<InstanzID>) sucht neu, BWACH_Check(<InstanzID>) bewertet, BWACH_Preview(<InstanzID>) liefert den Trockenlauf als Text, BWACH_Acknowledge(<InstanzID>, \'<Schlüssel>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') quittiert, BWACH_SendTest(<InstanzID>) schickt eine Testmeldung, BWACH_ShoppingText und BWACH_SendShopping liefern oder senden die Einkaufsliste, BWACH_DeviceListCsv die Geräteliste, BWACH_AddReplacement(<InstanzID>, \'<Schlüssel>\', \'TT.MM.JJJJ\') trägt einen früheren Wechsel nach, BWACH_AcknowledgePlace(<InstanzID>, \'<Ort>\') quittiert die Tauschrunde eines Ortes, BWACH_Diagnosis(<InstanzID>) liefert die Diagnose fürs Forum.'],
@@ -3012,7 +3019,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'caption' => 'ℹ️ Der Kälteeinfluss wird erst ausgewertet, wenn mindestens 3 Geräte je 3 Zeitabschnitte bei Kälte und bei Wärme haben — also frühestens nach einem Winter. Bis dahin steht ehrlich „noch nicht genug Daten“.'],
                 ['type' => 'NumberSpinner', 'name' => 'PollAfterDays', 'caption' => 'Abfrage schlafender Geräte, wenn der Batteriewert älter ist als', 'suffix' => ' Tage', 'minimum' => 3, 'maximum' => 365],
                 ['type' => 'NumberSpinner', 'name' => 'PollEveryDays', 'caption' => 'Abfrage höchstens alle', 'suffix' => ' Tage', 'minimum' => 1, 'maximum' => 90],
-                ['type' => 'Label', 'caption' => 'ℹ️ Die Abfrage ist je Gerät unter „Geräte-Einstellungen“ (Spalte „Abfragen“) einzuschalten, standardmäßig AUS. Sie gibt es für Z-Wave- und Matter-Geräte. Ein schlafendes Z-Wave-Gerät beantwortet sie erst beim nächsten Aufwachen, bis dahin liegt sie in der Warteschlange der Z-Wave-Instanz; zu häufiges Abfragen füllt diese Warteschlange. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Bei Matter wird die Instanz der Stromversorgung (Endpunkt 0) abgefragt, denn dort liegt der Batteriestand.'],
+                ['type' => 'Label', 'caption' => 'ℹ️ Die Abfrage ist je Gerät unter „Geräte-Einstellungen“ (Spalte „Abfragen“) einzuschalten, standardmäßig AUS. Sie gibt es für Z-Wave- und Matter-Geräte sowie Comet-WiFi-Thermostate. Ein schlafendes Z-Wave-Gerät beantwortet sie erst beim nächsten Aufwachen, bis dahin liegt sie in der Warteschlange der Z-Wave-Instanz; zu häufiges Abfragen füllt diese Warteschlange. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Bei Matter wird die Instanz der Stromversorgung (Endpunkt 0) abgefragt, denn dort liegt der Batteriestand. Ein Comet-Thermostat bekommt die Anfrage „alle Felder“, denn nur sie enthält den Batteriestand; sie weckt das Gerät spürbar, deshalb nur mit Haken und im eingestellten Abstand.'],
                 ['type' => 'NumberSpinner', 'name' => 'OrphanDays', 'caption' => 'Gerät als „vermutlich ausgebaut“ vorschlagen, wenn es so lange still ist (0 = aus)', 'suffix' => ' Tage', 'minimum' => 0, 'maximum' => 720],
                 ['type' => 'PopupButton', 'caption' => 'Wie sicher ist die Prognose?', 'width' => '500px', 'popup' => [
                     'caption' => 'Wie sicher ist die Prognose, und was heißt „aus Spannung berechnet“?',
@@ -3465,7 +3472,7 @@ class Batteriewaechter extends IPSModule
             . "Anzeigename: ein eigener Name für das Gerät in Kachel, Tabellen, Meldungen und Tagebuch (leer = Name der Instanz). Gruppen-Regeln arbeiten weiter mit dem Namen der Instanz.\n\n"
             . "Zelltyp (eigen) und Zellen (eigen): das sind die Einstellungen dieses einen Geräts. Gilt für das Gerät eine Gruppen-Regel, zeigt die Spalte „Gilt“ den Wert, der am Ende zählt; die beiden Spalten bleiben, wie sie sind, solange das Gerät keinen eigenen Wert hat.\n\n"
             . "Zelltyp und Anzahl Zellen: damit rechnet der Wächter Spannungen in einen Ladezustand um und stellt die Einkaufsliste zusammen. Meldet ein Matter-Gerät seinen Zelltyp selbst, steht er schon drin.\n\n"
-            . "Abfragen: bei Z-Wave und Matter. Ist der Batteriewert älter als $pAfter Tage, schickt der Wächter dem Gerät höchstens alle $pEvery Tage eine Statusanfrage und zeigt, ob es antwortet. Ein schlafendes Z-Wave-Gerät antwortet erst beim nächsten Aufwachen, ob das den Batteriewert früher liefert, ist dort nicht belegt. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Bei anderen Systemen tut der Haken nichts.";
+            . "Abfragen: bei Z-Wave, Matter und Comet-WiFi-Thermostaten. Ist der Batteriewert älter als $pAfter Tage, schickt der Wächter dem Gerät höchstens alle $pEvery Tage eine Statusanfrage und zeigt, ob es antwortet. Ein schlafendes Z-Wave-Gerät antwortet erst beim nächsten Aufwachen, ob das den Batteriewert früher liefert, ist dort nicht belegt. Matter-Geräte haben in ersten Tests nach wenigen Sekunden geantwortet. Ein Comet-Thermostat wird mit „alle Felder“ angefragt, denn nur das liefert den Batteriestand. Bei anderen Systemen tut der Haken nichts.";
     }
 
     private function DevicesPanel(array $dr): array
@@ -3518,7 +3525,7 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Erreichbarkeit (Variable)', 'name' => 'ReachVar', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                         ['caption' => 'Erreichbarkeit umkehren', 'name' => 'ReachInv', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Anzeigename', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                        ['caption' => 'Abfragen (Z-Wave, Matter)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Abfragen (Z-Wave, Matter, Comet)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Funkstille nach (Tage, 0 = Standard)', 'name' => 'StillDays', 'width' => '230px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
                         ['caption' => 'Ort setzen', 'name' => 'PlaceSet', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],

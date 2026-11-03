@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.19.3] - 2026-11-03
+
+### Added
+- **Abfrage auch für Comet-WiFi-Thermostate** (Wunsch: die Thermostate lassen sich von Hand anstoßen, der Wächter soll das selbst tun): Ist bei einem Thermostat unter „Geräte-Einstellungen“ der Haken „Abfragen“ gesetzt, schickt der Wächter bei altem Batteriewert oder Funkstille über `CWIFI_SendAction` die Anfrage „alle Felder“, höchstens im eingestellten Abstand (Standard 7 Tage). Nur diese Anfrage enthält den Batteriestand; sie weckt das Gerät spürbar, deshalb bleibt der Haken standardmäßig aus. Ohne Antwort nach 6 Stunden gilt „keine Antwort“. Nur im Prüfstand getestet.
+
 ## [0.19.2] - 2026-11-03
 
 ### Changed
