@@ -796,7 +796,7 @@ class Batteriewaechter extends IPSModule
         $this->Check();
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
-        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($found));
+        $this->refreshRetiredFields($found);
         return $msg;
     }
 
@@ -821,7 +821,7 @@ class Batteriewaechter extends IPSModule
             $retired = $this->loadJson('Retired');
             $retired[$key] = $now;
             $this->saveJson('Retired', $retired);
-            $msg = '✅ „' . $name . '“ ist außer Betrieb und wird nicht mehr überwacht. Wieder aufnehmen: „Außer Betrieb“-Liste unter „Quittieren“.';
+            $msg = '✅ „' . $name . '“ ist außer Betrieb und wird nicht mehr überwacht. Wieder aufnehmen: unter „Geräte-Einstellungen“ oder „Quittieren“.';
         }
         $this->saveJson('NotifyState', BWACHMeldung::acknowledge($state, $key, $action, $now, $this->ReadPropertyInteger('SnoozeDays')));
         if ($undo !== null) {
@@ -884,7 +884,7 @@ class Batteriewaechter extends IPSModule
         $msg = '↩️ Zurückgenommen: ' . $u['label'] . ($n > 1 ? ' (' . $n . ' Geräte)' : '') . '.';
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
-        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($this->found()));
+        $this->refreshRetiredFields($this->found());
         return $msg;
     }
 
@@ -1159,9 +1159,7 @@ class Batteriewaechter extends IPSModule
         unset($retired[$key]);
         $this->saveJson('Retired', $retired);
         $this->Check();
-        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($this->found()));
-        $this->UpdateFormField('RetiredPick', 'options', json_encode($this->retiredOptions($this->found())));
-        $this->UpdateFormField('RetiredPick', 'value', '');
+        $this->refreshRetiredFields($this->found());
         return '✅ Gerät wieder aufgenommen.';
     }
 
@@ -1195,8 +1193,7 @@ class Batteriewaechter extends IPSModule
         $this->Check();
         $msg = $n === 0 ? 'ℹ️ Es war kein Gerät außer Betrieb.' : '✅ ' . $n . ($n === 1 ? ' Gerät wieder aufgenommen.' : ' Geräte wieder aufgenommen.');
         $this->UpdateFormField('AckStatus', 'caption', $msg);
-        $this->UpdateFormField('RetiredLine', 'caption', $this->retiredLine($this->found()));
-        $this->UpdateFormField('RetiredPick', 'options', json_encode($this->retiredOptions($this->found())));
+        $this->refreshRetiredFields($this->found());
         return $msg;
     }
 
@@ -2878,6 +2875,30 @@ class Batteriewaechter extends IPSModule
         return $opts;
     }
 
+    /** Frischt Zeile und Auswahl „Außer Betrieb“ in beiden Panels (Quittieren, Geräte-Einstellungen) auf. */
+    private function refreshRetiredFields(?array $found): void
+    {
+        $line = $this->retiredLine($found);
+        $opts = json_encode($this->retiredOptions($found));
+        foreach (['', 'Settings'] as $suffix) {
+            $this->UpdateFormField('RetiredLine' . $suffix, 'caption', $line);
+            $this->UpdateFormField('RetiredPick' . $suffix, 'options', $opts);
+            $this->UpdateFormField('RetiredPick' . $suffix, 'value', '');
+        }
+    }
+
+    /** Zeile, Auswahl und Schaltfläche zum Wiederaufnehmen; $suffix trennt die Feldnamen je Panel. */
+    private function retiredItems(?array $found, string $suffix): array
+    {
+        return [
+            ['type' => 'Label', 'name' => 'RetiredLine' . $suffix, 'caption' => $this->retiredLine($found)],
+            ['type' => 'RowLayout', 'items' => [
+                ['type' => 'Select', 'name' => 'RetiredPick' . $suffix, 'caption' => 'Gerät außer Betrieb', 'width' => '320px', 'options' => $this->retiredOptions($found)],
+                ['type' => 'Button', 'caption' => '↩️ Dieses Gerät wieder aufnehmen', 'onClick' => 'echo BWACH_Unretire($id, $RetiredPick' . $suffix . ');'],
+            ]],
+        ];
+    }
+
     private function retiredLine(?array $found): string
     {
         $retired = $this->loadJson('Retired');
@@ -2940,9 +2961,7 @@ class Batteriewaechter extends IPSModule
                 ]],
                 ['type' => 'Label', 'name' => 'AckStatus', 'caption' => 'ℹ️ Noch nichts quittiert.'],
                 ['type' => 'Button', 'caption' => '↩️ Letzte Quittierung rückgängig', 'onClick' => 'echo BWACH_UndoAcknowledge($id);'],
-                ['type' => 'Label', 'name' => 'RetiredLine', 'caption' => $this->retiredLine($found)],
-                ['type' => 'Select', 'name' => 'RetiredPick', 'caption' => 'Gerät außer Betrieb', 'width' => '320px', 'options' => $this->retiredOptions($found)],
-                ['type' => 'Button', 'caption' => '↩️ Dieses Gerät wieder aufnehmen', 'onClick' => 'echo BWACH_Unretire($id, $RetiredPick);'],
+                ...$this->retiredItems($found, ''),
                 ['type' => 'PopupButton', 'caption' => 'Alle außer Betrieb wieder aufnehmen …', 'width' => '320px', 'popup' => [
                     'caption' => 'Alle wieder aufnehmen?',
                     'items' => [
@@ -3467,6 +3486,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '❔  Was bedeuten die Spalten?', 'items' => [
                     ['type' => 'Label', 'caption' => $this->deviceHelp()],
                 ]],
+                ...$this->retiredItems($this->found(), 'Settings'),
                 [
                     'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Geräte', 'rowCount' => 12, 'add' => true, 'delete' => true,
                     'loadValuesFromConfiguration' => false,

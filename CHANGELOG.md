@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.19.2] - 2026-11-03
+
+### Changed
+- **„Außer Betrieb“ auch in „Geräte-Einstellungen“** (Forum: außer Betrieb gesetzte Geräte ließen sich nicht wiederfinden, Löschen und neu Suchen änderte nichts): Das Panel „Geräte-Einstellungen“ zeigt über der Liste, welche Geräte außer Betrieb sind, und nimmt ein gewähltes Gerät mit „Dieses Gerät wieder aufnehmen“ zurück. Bisher ging das nur unten im Panel „Quittieren und Batterietagebuch“, dort bleibt es ebenfalls. Die Liste „Außer Betrieb“ übersteht bewusst jede neue Suche, damit herausgenommene Geräte nicht ungefragt zurückkommen.
+
 ## [0.19.1] - 2026-10-30
 
 ### Fixed

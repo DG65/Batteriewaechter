@@ -900,6 +900,10 @@ check('„Alle aufnehmen“ steht nur noch hinter einer Rückfrage (Popup)', (bo
 $m->fieldUpdates = [];
 $m->Unretire('103');
 check('Einzeln aufnehmen lässt das andere Gerät außer Betrieb', array_keys(json_decode($m->GetValue('Retired'), true)) === ['105-1051']);
+$updNames = array_column($m->fieldUpdates, 0);
+check('Wieder aufnehmen frischt Zeile und Auswahl in beiden Panels auf', count(array_intersect(['RetiredLine', 'RetiredPick', 'RetiredLineSettings', 'RetiredPickSettings'], $updNames)) === 4);
+$settingsPanel = (function ($form) { foreach ($form['elements'] as $e) { if (($e['caption'] ?? '') === '🏷️  Geräte-Einstellungen') { return json_encode($e, JSON_UNESCAPED_UNICODE); } } return ''; })(json_decode($m->GetConfigurationForm(), true));
+check('Geräte-Einstellungen zeigen die Geräte außer Betrieb und nehmen sie wieder auf', strpos($settingsPanel, '"name":"RetiredPickSettings"') !== false && strpos($settingsPanel, '"value":"105-1051"') !== false && strpos($settingsPanel, 'BWACH_Unretire($id, $RetiredPickSettings)') !== false && strpos($settingsPanel, 'Außer Betrieb (1)') !== false);
 
 // Gruppen-Regel „Ohne Altersprüfung“ im Formular und in „Gilt“
 $mIA = freshModule(['NotificationsActive' => false]);

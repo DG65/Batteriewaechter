@@ -24,6 +24,8 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['module.php', "foreach (['', 'Settings'] as \$suffix) {", "foreach ([''] as \$suffix) {", 'Außer Betrieb: Geräte-Einstellungen werden nicht aufgefrischt'],
+    ['module.php', "...\$this->retiredItems(\$this->found(), 'Settings'),", '', 'Außer Betrieb fehlt in Geräte-Einstellungen'],
     ['module.php', '(int)$t[\'InstanceID\'] === $this->InstanceID && ', '', 'Timer-Zeile liest den Timer einer fremden Instanz'],
     ['module.php', ' && $t[\'Name\'] === \'Tick\'', '', 'Timer-Zeile liest Debounce statt Tick'],
     ['BWACHLogik.php', '$now - $next > 120', '$now - $next > 121', 'Timer: Überfällig-Grenze verschoben (nach oben)'],
