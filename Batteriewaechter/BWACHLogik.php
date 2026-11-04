@@ -21,6 +21,7 @@
 // ===========================================================================
 
 require_once __DIR__ . '/BWACHZelle.php';
+require_once __DIR__ . '/BWACHText.php';
 
 final class BWACHLogik
 {
@@ -376,27 +377,27 @@ final class BWACHLogik
         $dev = (int)$s['devices'];
         $out = [];
         $out[] = ['done' => !empty($s['found']) && $dev > 0,
-            'text' => !empty($s['found']) && $dev > 0 ? $dev . ($dev === 1 ? ' Gerät gefunden' : ' Geräte gefunden') : 'Geräte suchen: unter „Gefundene Geräte“ „Jetzt neu suchen“ klicken'];
+            'text' => !empty($s['found']) && $dev > 0 ? ($dev === 1 ? BWACHText::t('%d device found', $dev) : BWACHText::t('%d devices found', $dev)) : BWACHText::t('Search for devices: click "Search again now" under "Found devices"')];
         $open = (int)$s['open'];
         $out[] = ['done' => $dev > 0 && $open === 0,
-            'text' => $dev === 0 ? 'Zelltypen eintragen (erst Geräte suchen)'
-                : ($open === 0 ? 'Für jedes Gerät ist der Zelltyp bekannt' : 'Bei ' . $open . ($open === 1 ? ' Gerät' : ' Geräten') . ' fehlt der Zelltyp: unter „Gruppen“ oder „Geräte-Einstellungen“ eintragen (Einkaufsliste und Prognose brauchen ihn)')];
+            'text' => $dev === 0 ? BWACHText::t('Enter cell types (search for devices first)')
+                : ($open === 0 ? BWACHText::t('The cell type is known for every device') : ($open === 1 ? BWACHText::t('Cell type missing for %d device: enter it under "Groups" or "Device settings" (shopping list and forecast need it)', $open) : BWACHText::t('Cell type missing for %d devices: enter it under "Groups" or "Device settings" (shopping list and forecast need it)', $open)))];
         $notified = !empty($s['notify']) && !empty($s['channel']);
         $out[] = ['done' => $notified,
-            'text' => $notified ? 'Meldungen sind eingeschaltet' : (!empty($s['notify']) ? 'Meldungen sind an, aber weder Push noch E-Mail gewählt: unter „Meldungen“ einen Weg ankreuzen' : 'Meldungen einschalten: unter „Meldungen“ „Meldungen aktiv“ ankreuzen und Push oder E-Mail wählen')];
+            'text' => $notified ? BWACHText::t('Notifications are switched on') : (!empty($s['notify']) ? BWACHText::t('Notifications are on, but neither push nor e-mail is selected: tick a channel under "Notifications"') : BWACHText::t('Switch on notifications: tick "Notifications active" under "Notifications" and choose push or e-mail'))];
         // Kachel: optional, deshalb nie „offen“. true = eingebunden, false = Kachel-Visualisierung da, aber nicht eingebunden,
         // null = es gibt keine Kachel-Visualisierung (oder die Prüfung war nicht möglich)
         $tile = array_key_exists('tile', $s) ? $s['tile'] : null;
         if ($tile === true) {
-            $out[] = ['done' => true, 'text' => 'Die Kachel ist in der Kachel-Visualisierung eingebunden'];
+            $out[] = ['done' => true, 'text' => BWACHText::t('The tile is included in the tile visualization')];
         } elseif ($tile === false) {
-            $out[] = ['done' => null, 'text' => 'Kachel (optional): noch nicht in der Kachel-Visualisierung. Die Instanz oder eine Verknüpfung darauf unter das Startobjekt der Kachel-Visualisierung legen'];
+            $out[] = ['done' => null, 'text' => BWACHText::t('Tile (optional): not yet in the tile visualization. Place the instance or a link to it under the start object of the tile visualization')];
         } else {
-            $out[] = ['done' => null, 'text' => 'Kachel (optional): in der Kachel-Visualisierung kann die Instanz als Kachel erscheinen (es gibt dort noch keine Kachel-Visualisierung oder sie ließ sich nicht prüfen)'];
+            $out[] = ['done' => null, 'text' => BWACHText::t('Tile (optional): the instance can appear as a tile in the tile visualization (there is no tile visualization yet, or it could not be checked)')];
         }
         $mn = (int)($s['matterNoEp0'] ?? 0);
         if ($mn > 0) {
-            $out[] = ['done' => null, 'text' => 'Matter: bei ' . $mn . ($mn === 1 ? ' Gerät gibt es' : ' Geräten gibt es') . ' keine Instanz für die Stromversorgung (Endpunkt 0). Nur für Batteriegeräte nötig, Näheres unter „Gefundene Geräte“'];
+            $out[] = ['done' => null, 'text' => ($mn === 1 ? BWACHText::t('Matter: %d device has no instance for the power supply (endpoint 0). Only needed for battery devices, details under "Found devices"', $mn) : BWACHText::t('Matter: %d devices have no instance for the power supply (endpoint 0). Only needed for battery devices, details under "Found devices"', $mn))];
         }
         return $out;
     }
@@ -418,21 +419,21 @@ final class BWACHLogik
         $mods = [];     // Modul => ['devices'=>n,'sig'=>[Zeile=>n]]
         $known = [];
         foreach ($found['devices'] ?? [] as $d) {
-            $m = (string)($d['module'] ?? '') !== '' ? (string)$d['module'] : '(ohne Instanz)';
+            $m = (string)($d['module'] ?? '') !== '' ? (string)$d['module'] : BWACHText::t('(no instance)');
             $mods[$m]['devices'] = ($mods[$m]['devices'] ?? 0) + 1;
             foreach ($d['signals'] as $kind => $list) {
                 foreach ($list as $sg) {
                     $v = $byVid[(int)$sg['vid']] ?? null;
                     $known[(int)$sg['vid']] = true;
-                    $line = $kind . ' ← ' . ($v['ident'] ?? '?') . ' (Typ ' . ($v['type'] ?? '?') . ', Profil ' . (($v['profile'] ?? '') !== '' ? $v['profile'] : 'keins') . ', erkannt per ' . $sg['basis'] . ')';
+                    $line = BWACHText::t('%s ← %s (type %s, profile %s, detected via %s)', $kind, $v['ident'] ?? '?', $v['type'] ?? '?', ($v['profile'] ?? '') !== '' ? $v['profile'] : BWACHText::t('none'), $sg['basis']);
                     $mods[$m]['sig'][$line] = ($mods[$m]['sig'][$line] ?? 0) + 1;
                 }
             }
         }
-        $out = ['Batteriewächter ' . $version . ', Symcon ' . $kernel, 'Geräte gefunden: ' . count($found['devices'] ?? []), ''];
+        $out = [BWACHText::t('Battery Monitor %s, Symcon %s', $version, $kernel), BWACHText::t('Devices found: %d', count($found['devices'] ?? [])), ''];
         ksort($mods);
         foreach ($mods as $m => $d) {
-            $out[] = 'Modul „' . $m . '“: ' . $d['devices'] . ($d['devices'] === 1 ? ' Gerät' : ' Geräte');
+            $out[] = $d['devices'] === 1 ? BWACHText::t('Module "%s": %d device', $m, $d['devices']) : BWACHText::t('Module "%s": %d devices', $m, $d['devices']);
             ksort($d['sig']);
             foreach ($d['sig'] ?? [] as $line => $n) {
                 $out[] = '  • ' . $line . ' ×' . $n;
@@ -442,13 +443,13 @@ final class BWACHLogik
         foreach ($found['excluded'] ?? [] as $e) {
             $v = $byVid[(int)$e['vid']] ?? null;
             $known[(int)$e['vid']] = true;
-            $k = $e['reason'] . ' — Modul „' . (($v['moduleName'] ?? '') !== '' ? $v['moduleName'] : '(ohne Instanz)') . '“, Ident ' . ($v['ident'] ?? '?');
+            $k = BWACHText::t('%s — module "%s", ident %s', $e['reason'], ($v['moduleName'] ?? '') !== '' ? $v['moduleName'] : BWACHText::t('(no instance)'), $v['ident'] ?? '?');
             $ex[$k] = ($ex[$k] ?? 0) + 1;
         }
         if ($ex) {
             ksort($ex);
             $out[] = '';
-            $out[] = 'Ausgeschlossen:';
+            $out[] = BWACHText::t('Excluded:');
             foreach ($ex as $k => $n) {
                 $out[] = '  • ' . $k . ' ×' . $n;
             }
@@ -467,25 +468,25 @@ final class BWACHLogik
                 continue;
             }
             if (preg_match('/(batt|\bbat\b|lowbat|low_bat|akku|battery)/i', (string)$v['ident'] . ' ' . (string)$v['name'])) {
-                $k = 'Modul „' . ($v['moduleName'] !== '' ? $v['moduleName'] : '(ohne Instanz)') . '“, Ident ' . $v['ident'] . ', Typ ' . $v['type'] . ', Profil ' . ($v['profile'] !== '' ? $v['profile'] : 'keins');
+                $k = BWACHText::t('Module "%s", ident %s, type %s, profile %s', $v['moduleName'] !== '' ? $v['moduleName'] : BWACHText::t('(no instance)'), $v['ident'], $v['type'], $v['profile'] !== '' ? $v['profile'] : BWACHText::t('none'));
                 $miss[$k] = ($miss[$k] ?? 0) + 1;
             }
         }
         $out[] = '';
         if ($miss) {
             ksort($miss);
-            $out[] = 'Nach Batterie aussehend, aber NICHT erkannt (nur Geräteinstanzen mit Ident, ohne Ausschlussliste; Modul, Ident, Typ, Profil):';
+            $out[] = BWACHText::t('Looks like a battery, but NOT detected (only device instances with ident, without exclusion list; module, ident, type, profile):');
             foreach (array_slice($miss, 0, 40, true) as $k => $n) {
                 $out[] = '  • ' . $k . ' ×' . $n;
             }
             if (count($miss) > 40) {
-                $out[] = '  … und ' . (count($miss) - 40) . ' weitere Zeilen';
+                $out[] = BWACHText::t('  … and %d more lines', count($miss) - 40);
             }
         } else {
-            $out[] = 'Keine Variable gefunden, die nach Batterie aussieht und nicht erkannt wurde.';
+            $out[] = BWACHText::t('No variable found that looks like a battery and was not detected.');
         }
         $out[] = '';
-        $out[] = 'Die Ausgabe enthält nur Modulnamen, Idents, Typen und Profile, keine Gerätenamen und keine Objekt-IDs.';
+        $out[] = BWACHText::t('The output contains only module names, idents, types and profiles, no device names and no object IDs.');
         return implode("\n", $out);
     }
 
@@ -576,13 +577,13 @@ final class BWACHLogik
             }
             $name = (string)$v['name'];
             if (isset($ignored[$vid])) {
-                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'von dir ignoriert (Liste „Variablen ignorieren“)'];
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => BWACHText::t('ignored by you (list "Ignore variables")')];
                 continue;
             }
             // Eine Last in Prozent (USV: „Load“, „LoadPct“) ist kein Ladezustand, auch wenn sie ein Batterie-Profil trägt.
             if ($s['kind'] === self::KIND_PERCENT && $s['basis'] === self::BASIS_PROFILE
                 && preg_match('/^(load|last|auslastung|usage)/i', (string)($v['ident'] ?? ''))) {
-                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'sieht nach einer Last in Prozent aus („' . (string)$v['ident'] . '“), nicht nach einem Ladezustand'];
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => BWACHText::t('looks like a load in percent ("%s"), not like a state of charge', (string)$v['ident'])];
                 continue;
             }
             // HomeMatic: Eine Batterie-Variable, die noch nie einen Wert erhalten hat („Nie“), gehört zu einem
@@ -590,26 +591,26 @@ final class BWACHLogik
             // hier; bei Z-Wave und Matter ist „noch nie gemeldet“ gerade der Fall, den die Abfrage klären soll.
             if ($s['basis'] !== self::BASIS_MANUAL && in_array($s['kind'], [self::KIND_FLAG, self::KIND_FLAG_REV, self::KIND_VOLTAGE], true)
                 && isset($v['updated']) && (int)$v['updated'] === 0 && stripos((string)($v['moduleName'] ?? ''), 'homematic') === 0) {
-                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'HomeMatic: Variable hat noch nie einen Wert erhalten, vermutlich ein Gerät ohne Batterie (Netzteil)'];
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => BWACHText::t('HomeMatic: variable has never received a value, probably a device without battery (power supply unit)')];
                 continue;
             }
             if ($s['kind'] === self::KIND_VOLTAGE && $s['basis'] !== self::BASIS_MANUAL && isset($v['value']) && self::isMainsVoltage((float)$v['value'])) {
-                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'Spannung ' . self::num((float)$v['value']) . ' V ist Netzspannung, keine Batteriespannung'];
+                $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => BWACHText::t('Voltage %s V is mains voltage, not a battery voltage', self::num((float)$v['value']))];
                 continue;
             }
 
             if ($s['basis'] !== self::BASIS_MANUAL) {
                 if (!$v['parentIsInstance']) {
-                    $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'gehört zu keiner Geräteinstanz (Skript- oder Kategorievariable)'];
+                    $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => BWACHText::t('does not belong to a device instance (script or category variable)')];
                     continue;
                 }
                 if (in_array(mb_strtolower((string)$v['moduleName']), $excludedModules, true)) {
-                    $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'Modul „' . $v['moduleName'] . '“ steht auf der Ausschlussliste (Energiespeicher o. ä.)'];
+                    $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => BWACHText::t('Module "%s" is on the exclusion list (energy storage or similar)', $v['moduleName'])];
                     continue;
                 }
                 if (self::isAggregateName($name)) {
                     $aggregateInstances[(int)$v['parentId']] = true;
-                    $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => 'Sammelwert über mehrere Geräte'];
+                    $excluded[] = ['vid' => $vid, 'name' => $name, 'reason' => BWACHText::t('Aggregate value across several devices')];
                     continue;
                 }
                 if ($s['basis'] === self::BASIS_NAME && !$nameSearch) {
@@ -658,7 +659,7 @@ final class BWACHLogik
             }
             foreach ($devices[$inst]['signals'] as $list) {
                 foreach ($list as $sg) {
-                    $excluded[] = ['vid' => $sg['vid'], 'name' => $sg['label'], 'reason' => 'Sammelwert über mehrere Geräte'];
+                    $excluded[] = ['vid' => $sg['vid'], 'name' => $sg['label'], 'reason' => BWACHText::t('Aggregate value across several devices')];
                 }
             }
             unset($devices[$inst]);
@@ -790,10 +791,10 @@ final class BWACHLogik
             if ($raw > 100 && $raw <= 120) {
                 // Messtoleranz (z. B. frische Batterie meldet 120 %): gilt als voll, der gemeldete Wert steht dabei
                 $pct = 100.0;
-                $reasons[] = 'Gerät meldet ' . self::num($raw) . ' %, gewertet als voll (100 %)';
+                $reasons[] = BWACHText::t('Device reports %s %%, counted as full (100 %%)', self::num($raw));
             } elseif ($raw < 0 || $raw > 120) {
                 $quality[] = 'unplausibel';
-                $reasons[] = 'Prozentwert außerhalb von 0–100 % (' . self::num($raw) . ' %), wird nicht bewertet';
+                $reasons[] = BWACHText::t('Percentage outside 0–100 %% (%s %%), not evaluated', self::num($raw));
             } else {
                 $pct = $raw;
             }
@@ -810,7 +811,7 @@ final class BWACHLogik
                 $d = BWACHZelle::percentFromVoltage($cell, $cells, $volt);
                 if ($d === null) {
                     $quality[] = 'zelltyp_passt_nicht';
-                    $reasons[] = 'Spannung ' . self::num($volt) . ' V passt nicht zum gewählten Zelltyp (' . ($cells > 1 ? $cells . '× ' : '') . BWACHZelle::label($cell) . ')';
+                    $reasons[] = BWACHText::t('Voltage %s V does not match the selected cell type (%s%s)', self::num($volt), $cells > 1 ? $cells . '× ' : '', BWACHZelle::label($cell));
                 } else {
                     $pct = $d;
                     $pctUpdated = (int)$sig['voltage']['updated'];
@@ -837,7 +838,7 @@ final class BWACHLogik
         $stage = !empty($sig['percent']['stage']) ? $sig['percent']['stage'] : null;
         if ($stage !== null && $pct !== null) {
             $stPct = (int)$stage['rank'] === 0 ? self::ST_EMPTY : (((int)$stage['rank'] === 1 && (int)$stage['n'] >= 4) ? self::ST_LOW : self::ST_OK);
-            $reasons[] = 'Gerät meldet in Stufen: Stufe ' . (int)$stage['rank'] . ' von ' . ((int)$stage['n'] - 1) . ', hier gleichmäßig als ' . self::num((float)$pct) . ' % gezeigt';
+            $reasons[] = BWACHText::t('Device reports in stages: stage %d of %d, shown here evenly as %s %%', (int)$stage['rank'], (int)$stage['n'] - 1, self::num((float)$pct));
         }
         $stFlag = $flagLow === null ? null : ($flagLow ? self::ST_LOW : self::ST_OK);
 
@@ -850,9 +851,10 @@ final class BWACHLogik
         $status = self::ST_UNKNOWN;
         if ($conflict) {
             $quality[] = 'widerspruch';
-            $newer = $flagUpdated > $pctUpdated ? 'Flag' : 'Prozentwert';
-            $reasons[] = 'Widerspruch: ' . ($flagLow ? 'Flag meldet „Batterie schwach“' : 'Flag meldet „in Ordnung“')
-                . ', Prozentwert ' . self::num($pct) . ' % (neuer: ' . $newer . ')';
+            $newer = $flagUpdated > $pctUpdated ? BWACHText::t('flag') : BWACHText::t('percentage value');
+            $reasons[] = $flagLow
+                ? BWACHText::t('Contradiction: flag reports "battery low", percentage %s %% (newer: %s)', self::num($pct), $newer)
+                : BWACHText::t('Contradiction: flag reports "OK", percentage %s %% (newer: %s)', self::num($pct), $newer);
             if ($critical) {
                 $status = self::worse($stPct, $stFlag);
             } else {
@@ -867,13 +869,13 @@ final class BWACHLogik
             }
         } elseif (!empty($sig['voltage'])) {
             if (!in_array('zelltyp_passt_nicht', $quality, true)) {
-                $reasons[] = 'nur Spannung vorhanden (' . self::num((float)$sig['voltage']['value']) . ' V): Zelltyp wählen, dann rechnet der Wächter den Ladezustand aus' . ($suggest !== '' ? ' (' . $suggest . ')' : '');
+                $reasons[] = BWACHText::t('only voltage available (%s V): choose a cell type, then the monitor calculates the state of charge%s', self::num((float)$sig['voltage']['value']), $suggest !== '' ? ' (' . $suggest . ')' : '');
                 $quality[] = 'nur_spannung';
             }
         } elseif (!empty($sig['stageUnknown'])) {
-            $reasons[] = 'Gerät meldet die Batteriestufe „unbekannt“';
+            $reasons[] = BWACHText::t('Device reports the battery level "unknown"');
         } else {
-            $reasons[] = 'kein auswertbares Batteriesignal';
+            $reasons[] = BWACHText::t('no evaluable battery signal');
         }
 
         // --- Alter des Batteriewerts ----------------------------------------
@@ -885,7 +887,7 @@ final class BWACHLogik
         $periodic = !empty($sig['percent']) || !empty($sig['voltage']);
         if ($periodic && $valueAge !== null && empty($p['ignoreAge']) && $status !== self::ST_UNKNOWN && $valueAge > $oldDays * 86400) {
             $quality[] = 'veraltet';
-            $reasons[] = 'Batteriewert ist ' . self::days($valueAge) . ' alt';
+            $reasons[] = BWACHText::t('Battery value is %s old', self::days($valueAge));
         }
 
         // --- Funkstille -------------------------------------------------------
@@ -899,6 +901,7 @@ final class BWACHLogik
         }
         $lifeAge   = $life > 0 ? max(0, $now - $life) : null;
         $orphan    = false;
+        $silentIdx = [];   // Index in $reasons => 1 (nicht erreichbar) bzw. 0 (Funkstille)
         $reachUp   = !empty($p['reachUp']);   // ausdrücklich gewählte Erreichbarkeits-Variable meldet „erreichbar“: geht der Zeit-Schwelle vor
         if ($reachUp) {
             $funk = 'aktiv';
@@ -908,11 +911,14 @@ final class BWACHLogik
             $funk = 'aktiv';   // „Ohne Funkstille-Prüfung“: das Gerät darf beliebig lange schweigen, nur der Batteriestand zählt
         } elseif ($lifeAge > $stillSec) {
             $funk = 'still';
-            $reasons[] = 'Funkstille: seit ' . self::daysDat($lifeAge) . ' kein Lebenszeichen (Schwelle ' . self::days($stillSec) . ($stillOver > 0 ? ', für dieses Gerät eingestellt' : (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? ', aus dem Meldeverhalten gelernt' : '')) . ')';
+            $reasons[] = $stillOver > 0 ? BWACHText::t('Radio silence: no sign of life for %s (threshold %s, set for this device)', self::daysDat($lifeAge), self::days($stillSec))
+                : (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? BWACHText::t('Radio silence: no sign of life for %s (threshold %s, learned from the reporting behaviour)', self::daysDat($lifeAge), self::days($stillSec))
+                : BWACHText::t('Radio silence: no sign of life for %s (threshold %s)', self::daysDat($lifeAge), self::days($stillSec)));
+            $silentIdx[array_key_last($reasons)] = 0;
             $orphanDays = (int)($p['orphanDays'] ?? 60);
             if ($orphanDays > 0 && $lifeAge > $orphanDays * 86400) {
                 $orphan = true;
-                $reasons[] = 'Seit über ' . $orphanDays . ' Tagen still: vermutlich ausgebaut oder defekt. Falls ausgebaut, „Außer Betrieb“ wählen';
+                $reasons[] = BWACHText::t('Silent for over %d days: probably removed or defective. If removed, choose "Out of service"', $orphanDays);
             }
         } else {
             $funk = 'aktiv';
@@ -923,29 +929,33 @@ final class BWACHLogik
         $unreach = (int)($p['unreachSince'] ?? 0);
         if ($unreach > 0 && (empty($p['noStill']) || !empty($p['reachExplicit']))) {
             $funk = 'still';
-            $reasons[] = 'Nicht erreichbar: seit ' . self::daysDat(max(0, $now - $unreach)) . ' meldet sich das Gerät als nicht erreichbar';
+            $reasons[] = BWACHText::t('Unreachable: the device has been reporting itself as unreachable for %s', self::daysDat(max(0, $now - $unreach)));
+            $silentIdx[array_key_last($reasons)] = 1;
         }
 
-        $pctText = $pct !== null ? ' (' . ($derived ? '≈' : '') . self::num($pct) . ' %' . ($derived ? ', aus Spannung berechnet' : '') . ')' : '';
+        $pctText = $pct === null ? '' : ($derived ? BWACHText::t(' (≈%s %%, calculated from voltage)', self::num($pct)) : ' (' . self::num($pct) . ' %)');
         if ($funk === 'still' && ($status === self::ST_EMPTY || $status === self::ST_LOW)) {
             // Ein Gerät, das nicht mehr sendet: der letzte Batteriestand ist nur der letzte bekannte, nicht der jetzige.
             // Zuerst steht, dass es nicht erreichbar ist, danach, was die letzte Batteriemeldung sagte.
+            // Die Funkstille-Zeilen sind über $silentIdx markiert (1 = nicht erreichbar, steht zuerst), nicht über ihren Text.
             $silent = [];
             foreach ($reasons as $i => $rs) {
-                if (strpos($rs, 'Funkstille') === 0 || strpos($rs, 'Nicht erreichbar') === 0) {
-                    $silent[] = $rs;
+                if (isset($silentIdx[$i])) {
+                    $silent[] = [$silentIdx[$i], $rs];
                     unset($reasons[$i]);
                 }
             }
-            usort($silent, function ($a, $b) { return (int)(strpos($b, 'Nicht erreichbar') === 0) - (int)(strpos($a, 'Nicht erreichbar') === 0); });
-            array_unshift($reasons, 'Letzte Batteriemeldung: ' . ($status === self::ST_EMPTY ? 'leer' : 'schwach') . $pctText
-                . ($valueAge !== null ? ', vor ' . self::daysDat($valueAge) : '') . ', Batterie '
-                . ($status === self::ST_EMPTY ? 'vermutlich' : 'möglicherweise') . ' leer');
+            usort($silent, function ($a, $b) { return $b[0] - $a[0]; });
+            $silent = array_column($silent, 1);
+            $ago = $valueAge !== null ? BWACHText::t(', %s ago', self::daysDat($valueAge)) : '';
+            array_unshift($reasons, $status === self::ST_EMPTY
+                ? BWACHText::t('Last battery report: empty%s%s, battery probably empty', $pctText, $ago)
+                : BWACHText::t('Last battery report: low%s%s, battery possibly empty', $pctText, $ago));
             $reasons = array_merge($silent, array_values($reasons));
         } elseif ($status === self::ST_EMPTY) {
-            array_unshift($reasons, 'Batterie leer' . $pctText);
+            array_unshift($reasons, BWACHText::t('Battery empty%s', $pctText));
         } elseif ($status === self::ST_LOW) {
-            array_unshift($reasons, 'Batterie schwach' . $pctText);
+            array_unshift($reasons, BWACHText::t('Battery low%s', $pctText));
         }
 
         // --- Dringlichkeit für die Sortierung ---------------------------------
@@ -988,17 +998,26 @@ final class BWACHLogik
     {
         $interval = (int)($t['interval'] ?? 0);
         if ($interval <= 0) {
-            return '⚠️ Der Takt der automatischen Prüfung ist nicht gesetzt. Das Prüfintervall einmal ändern und mit „Übernehmen“ speichern setzt ihn neu.';
+            return BWACHText::t('⚠️ The schedule of the automatic check is not set. Changing the check interval once and saving with "Apply" sets it again.');
         }
         $min  = (int)round($interval / 60000);
         $last = (int)($t['lastRun'] ?? 0);
         $next = (int)($t['nextRun'] ?? 0);
         if ($next > 0 && $now - $next > 120) {
-            return '⚠️ Die automatische Prüfung sollte am ' . date('d.m.Y H:i', $next) . ' Uhr laufen, Symcon hat sie aber nicht gestartet' . (!empty($t['running']) ? ' (der Timer gilt als noch laufend)' : '') . '. Ein Neustart des Symcon-Dienstes hat das in einem bekannten Fall behoben.';
+            return !empty($t['running'])
+                ? BWACHText::t('⚠️ The automatic check should have run on %s, but Symcon did not start it (the timer is still considered running). Restarting the Symcon service fixed this in one known case.', date('d.m.Y H:i', $next))
+                : BWACHText::t('⚠️ The automatic check should have run on %s, but Symcon did not start it. Restarting the Symcon service fixed this in one known case.', date('d.m.Y H:i', $next));
         }
-        $lastTxt = $last > 0 ? date('d.m.Y H:i', $last) . ' Uhr' : 'noch keiner seit dem Start';
-        $nextTxt = $next > 0 ? 'nächster Lauf ' . date('d.m.Y H:i', $next) . ' Uhr' : 'nächster Lauf noch nicht geplant';
-        return '⏱️ Automatische Prüfung alle ' . $min . ' Min.; ' . $nextTxt . ', letzter automatischer Lauf: ' . $lastTxt . '.';
+        $lastTxt = $last > 0 ? date('d.m.Y H:i', $last) : '';
+        $nextTxt = $next > 0 ? date('d.m.Y H:i', $next) : '';
+        if ($next > 0) {
+            return $last > 0
+                ? BWACHText::t('⏱️ Automatic check every %d min.; next run %s, last automatic run: %s.', $min, $nextTxt, $lastTxt)
+                : BWACHText::t('⏱️ Automatic check every %d min.; next run %s, last automatic run: none since the start.', $min, $nextTxt);
+        }
+        return $last > 0
+            ? BWACHText::t('⏱️ Automatic check every %d min.; next run not yet scheduled, last automatic run: %s.', $min, $lastTxt)
+            : BWACHText::t('⏱️ Automatic check every %d min.; next run not yet scheduled, last automatic run: none since the start.', $min);
     }
 
     public static function summarize(array $results): array
@@ -1037,13 +1056,19 @@ final class BWACHLogik
         $lc = mb_strtolower($ident);
         if (in_array($lc, ['linkquality', 'link_quality', 'lqi'], true) && $value >= 0 && $value <= 255) {
             $level = $value < 50 ? 'schwach' : ($value < 120 ? 'mittel' : 'gut');
-            return ['text' => 'Funkqualität ' . self::num($value) . ' von 255 (' . $level . ')', 'level' => $level];
+            return ['text' => BWACHText::t('Link quality %s of 255 (%s)', self::num($value), self::signalLevelText($level)), 'level' => $level];
         }
         if (($lc === 'rssi' || strpos($lc, 'signal') !== false || $lc === 'wifi_signal' || $lc === 'rf_signal') && $value < 0 && $value > -130) {
             $level = $value >= -70 ? 'gut' : ($value >= -85 ? 'mittel' : 'schwach');
-            return ['text' => 'Signalstärke ' . self::num($value) . ' dBm (' . $level . ')', 'level' => $level];
+            return ['text' => BWACHText::t('Signal strength %s dBm (%s)', self::num($value), self::signalLevelText($level)), 'level' => $level];
         }
-        return ['text' => 'Funksignal ' . self::num($value) . ' (' . $ident . ')', 'level' => ''];
+        return ['text' => BWACHText::t('Radio signal %s (%s)', self::num($value), $ident), 'level' => ''];
+    }
+
+    /** Anzeige einer Funk-Stufe ('gut'/'mittel'/'schwach' bleiben als Werte erhalten). */
+    private static function signalLevelText(string $level): string
+    {
+        return $level === 'gut' ? BWACHText::t('good') : ($level === 'mittel' ? BWACHText::t('medium') : BWACHText::t('weak'));
     }
 
     // =====================================================================
@@ -1067,33 +1092,33 @@ final class BWACHLogik
         $push = !empty($cfg['PushMsgAktiv']);
         $mail = !empty($cfg['EMailMsgAktiv']);
         $fields['NotifyPush'] = $push;
-        $taken[] = 'Push: ' . ($push ? 'an' : 'aus');
+        $taken[] = $push ? BWACHText::t('Push: on') : BWACHText::t('Push: off');
         $fields['NotifyMail'] = $mail;
-        $taken[] = 'E-Mail: ' . ($mail ? 'an' : 'aus');
+        $taken[] = $mail ? BWACHText::t('E-mail: on') : BWACHText::t('E-mail: off');
 
         $smtp = (int)($cfg['SmtpInstanceID'] ?? 0);
         if ($smtp > 0 && $instanceExists($smtp)) {
             $fields['MailInstance'] = $smtp;
-            $taken[] = 'SMTP-Instanz #' . $smtp;
+            $taken[] = BWACHText::t('SMTP instance #%d', $smtp);
         } elseif ($smtp > 0) {
-            $skipped[] = 'SMTP-Instanz #' . $smtp . ' (gibt es nicht mehr)';
+            $skipped[] = BWACHText::t('SMTP instance #%d (no longer exists)', $smtp);
         }
         $wf = (int)($cfg['WebFrontInstanceID'] ?? 0);
         if ($wf > 0 && $instanceExists($wf)) {
             $fields['PushTargets'] = [['Instance' => $wf]];
-            $taken[] = 'Push-Ziel #' . $wf;
+            $taken[] = BWACHText::t('Push target #%d', $wf);
         } elseif ($wf > 0) {
-            $skipped[] = 'WebFront-Instanz #' . $wf . ' (gibt es nicht mehr)';
+            $skipped[] = BWACHText::t('WebFront instance #%d (no longer exists)', $wf);
         }
         if (!empty($cfg['BatterieBenachrichtigungCBOX']) && ($push || $mail)) {
             $fields['NotificationsActive'] = true;
-            $taken[] = 'Meldungen aktiv';
+            $taken[] = BWACHText::t('Notifications active');
         }
 
-        $skipped[] = 'Meldungstext, Farben, Schriftgröße und Spaltenbezeichnungen (der Wächter formuliert seine Meldungen selbst und zeigt eine eigene Kachel und Tabellen)';
-        $skipped[] = 'Prüfintervall ' . (int)($cfg['Intervall'] ?? 0) . ' s (der Wächter bewertet jede Batteriemeldung sofort und prüft zusätzlich stündlich)';
+        $skipped[] = BWACHText::t('Message text, colours, font size and column labels (the monitor writes its own notifications and shows its own tile and tables)');
+        $skipped[] = BWACHText::t('Check interval %d s (the monitor evaluates every battery report immediately and also checks hourly)', (int)($cfg['Intervall'] ?? 0));
         if (!empty($cfg['EigenesSkriptAktiv'])) {
-            $skipped[] = 'eigenes Skript #' . (int)($cfg['EigenesSkriptID'] ?? 0) . ' (der Wächter ruft keine fremden Skripte auf)';
+            $skipped[] = BWACHText::t('own script #%d (the monitor does not call other scripts)', (int)($cfg['EigenesSkriptID'] ?? 0));
         }
         return ['fields' => $fields, 'taken' => $taken, 'skipped' => $skipped];
     }
@@ -1127,13 +1152,13 @@ final class BWACHLogik
     {
         if ($seconds >= 86400) {
             $d = (int)floor($seconds / 86400);
-            return $d . ($d === 1 ? ' Tag' : ' Tage');
+            return $d === 1 ? BWACHText::t('%d day', $d) : BWACHText::t('%d days', $d);
         }
         if ($seconds >= 3600) {
             $h = (int)floor($seconds / 3600);
-            return $h . ($h === 1 ? ' Stunde' : ' Stunden');
+            return $h === 1 ? BWACHText::t('%d hour', $h) : BWACHText::t('%d hours', $h);
         }
         $m = (int)floor($seconds / 60);
-        return $m . ($m === 1 ? ' Minute' : ' Minuten');
+        return $m === 1 ? BWACHText::t('%d minute', $m) : BWACHText::t('%d minutes', $m);
     }
 }
