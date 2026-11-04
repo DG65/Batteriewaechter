@@ -24,55 +24,55 @@ final class BWACHZelle
      * 'shop' = was man kaufen geht; 'curve' = null, wenn für diese Bauart keine Umrechnung sinnvoll ist.
      */
     private const TYPES = [
-        'cr2032' => ['label' => 'CR2032 (Knopfzelle, 3 V)', 'shop' => 'CR2032',
+        'cr2032' => ['label' => 'CR2032 (coin cell, 3 V)', 'shop' => 'CR2032',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr2450' => ['label' => 'CR2450 (Knopfzelle, 3 V)', 'shop' => 'CR2450',
+        'cr2450' => ['label' => 'CR2450 (coin cell, 3 V)', 'shop' => 'CR2450',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr2025' => ['label' => 'CR2025 (Knopfzelle, 3 V)', 'shop' => 'CR2025', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr2016' => ['label' => 'CR2016 (Knopfzelle, 3 V)', 'shop' => 'CR2016', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr1632' => ['label' => 'CR1632 (Knopfzelle, 3 V)', 'shop' => 'CR1632', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr1220' => ['label' => 'CR1220 (Knopfzelle, 3 V)', 'shop' => 'CR1220', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr2477' => ['label' => 'CR2477 (Knopfzelle, 3 V)', 'shop' => 'CR2477', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'cr123a' => ['label' => 'CR123A Batterie (Lithium, 3 V, nicht wiederaufladbar)', 'shop' => 'CR123A',
+        'cr2025' => ['label' => 'CR2025 (coin cell, 3 V)', 'shop' => 'CR2025', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr2016' => ['label' => 'CR2016 (coin cell, 3 V)', 'shop' => 'CR2016', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr1632' => ['label' => 'CR1632 (coin cell, 3 V)', 'shop' => 'CR1632', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr1220' => ['label' => 'CR1220 (coin cell, 3 V)', 'shop' => 'CR1220', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr2477' => ['label' => 'CR2477 (coin cell, 3 V)', 'shop' => 'CR2477', 'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
+        'cr123a' => ['label' => 'CR123A battery (lithium, 3 V, non-rechargeable)', 'shop' => 'CR123A',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'rcr123a' => ['label' => 'RCR123A / 16340 Akku (Li-Ion, 3,7 V)', 'shop' => 'RCR123A (Akku)',
+        'rcr123a' => ['label' => 'RCR123A / 16340 rechargeable (Li-ion, 3.7 V)', 'shop' => 'RCR123A (Akku)',
             'curve' => [[4.20, 100], [4.10, 90], [3.95, 70], [3.80, 50], [3.70, 35], [3.60, 20], [3.50, 10], [3.30, 3], [3.00, 0]]],
-        'aa_alkali' => ['label' => 'AA Alkali (1,5 V)', 'shop' => 'AA',
+        'aa_alkali' => ['label' => 'AA alkaline (1.5 V)', 'shop' => 'AA',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
-        'aaa_alkali' => ['label' => 'AAA Alkali (1,5 V)', 'shop' => 'AAA',
+        'aaa_alkali' => ['label' => 'AAA alkaline (1.5 V)', 'shop' => 'AAA',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
         // C (Baby) und D (Mono): dieselbe typische Alkali-Spannungskurve wie AA/AAA, nur die Kapazität ist größer
-        'c_alkali' => ['label' => 'C (Baby) Alkali (1,5 V)', 'shop' => 'C (Baby)',
+        'c_alkali' => ['label' => 'C alkaline (1.5 V)', 'shop' => 'C (Baby)',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
-        'd_alkali' => ['label' => 'D (Mono) Alkali (1,5 V)', 'shop' => 'D (Mono)',
+        'd_alkali' => ['label' => 'D alkaline (1.5 V)', 'shop' => 'D (Mono)',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
-        'lr44' => ['label' => 'LR44 / AG13 (Alkali-Knopfzelle, 1,5 V)', 'shop' => 'LR44',
+        'lr44' => ['label' => 'LR44 / AG13 (alkaline coin cell, 1.5 V)', 'shop' => 'LR44',
             'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
         // Silberoxid hält die Spannung lange flach und fällt zum Ende steil: aus der Spannung nur eine grobe Näherung
-        'sr44' => ['label' => 'SR44 (Silberoxid-Knopfzelle, 1,55 V)', 'shop' => 'SR44',
+        'sr44' => ['label' => 'SR44 (silver oxide coin cell, 1.55 V)', 'shop' => 'SR44',
             'curve' => [[1.62, 100], [1.55, 90], [1.50, 60], [1.40, 20], [1.30, 5], [1.20, 0]]],
-        'cr2' => ['label' => 'CR2 (Lithium, 3 V)', 'shop' => 'CR2',
+        'cr2' => ['label' => 'CR2 (lithium, 3 V)', 'shop' => 'CR2',
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
-        'a23' => ['label' => 'A23 / 23A (12-V-Batterie)', 'shop' => 'A23',
+        'a23' => ['label' => 'A23 / 23A (12 V battery)', 'shop' => 'A23',
             'curve' => [[12.50, 100], [11.50, 75], [10.50, 40], [9.50, 10], [8.00, 0]]],
-        'aa_nimh' => ['label' => 'AA Akku NiMH (1,2 V)', 'shop' => 'AA (Akku)',
+        'aa_nimh' => ['label' => 'AA rechargeable NiMH (1.2 V)', 'shop' => 'AA (Akku)',
             'curve' => [[1.40, 100], [1.30, 90], [1.25, 60], [1.20, 40], [1.15, 15], [1.10, 5], [1.00, 0]]],
-        'aaa_nimh' => ['label' => 'AAA Akku NiMH (1,2 V)', 'shop' => 'AAA (Akku)',
+        'aaa_nimh' => ['label' => 'AAA rechargeable NiMH (1.2 V)', 'shop' => 'AAA (Akku)',
             'curve' => [[1.40, 100], [1.30, 90], [1.25, 60], [1.20, 40], [1.15, 15], [1.10, 5], [1.00, 0]]],
-        'c_nimh' => ['label' => 'C (Baby) Akku NiMH (1,2 V)', 'shop' => 'C (Baby, Akku)',
+        'c_nimh' => ['label' => 'C rechargeable NiMH (1.2 V)', 'shop' => 'C (Baby, Akku)',
             'curve' => [[1.40, 100], [1.30, 90], [1.25, 60], [1.20, 40], [1.15, 15], [1.10, 5], [1.00, 0]]],
-        'd_nimh' => ['label' => 'D (Mono) Akku NiMH (1,2 V)', 'shop' => 'D (Mono, Akku)',
+        'd_nimh' => ['label' => 'D rechargeable NiMH (1.2 V)', 'shop' => 'D (Mono, Akku)',
             'curve' => [[1.40, 100], [1.30, 90], [1.25, 60], [1.20, 40], [1.15, 15], [1.10, 5], [1.00, 0]]],
-        'aa_lithium' => ['label' => 'AA Lithium (1,5 V)', 'shop' => 'AA (Lithium)',
+        'aa_lithium' => ['label' => 'AA lithium (1.5 V)', 'shop' => 'AA (Lithium)',
             'curve' => [[1.80, 100], [1.70, 90], [1.60, 60], [1.50, 30], [1.40, 10], [1.20, 0]]],
-        'block9v' => ['label' => '9-V-Block', 'shop' => '9-V-Block',
+        'block9v' => ['label' => '9 V block', 'shop' => '9-V-Block',
             'curve' => [[9.60, 100], [8.40, 60], [7.50, 30], [6.60, 10], [5.40, 0]]],
         // Fest eingebauter LTO-Akku (Lithium-Titanat, 2,4 V), z. B. in einer Wetterstation mit Solarzelle. Die Kurve folgt den
         // dokumentierten Schwellen eines solchen Geräts (Voll ca. 2,8 V, Sparmodus ab 2,455 V, „niedrig“ bei 2,355 V), nicht
         // der allgemeinen Entladekurve einer LTO-Zelle (die bis etwa 1,5 V reicht): sie soll rechtzeitig warnen.
-        'lto' => ['label' => 'LTO-Akku (Lithium-Titanat, fest eingebaut, 2,4 V)', 'shop' => 'LTO-Akku (fest eingebaut)',
+        'lto' => ['label' => 'LTO rechargeable (lithium titanate, built-in, 2.4 V)', 'shop' => 'LTO-Akku (fest eingebaut)',
             'curve' => [[2.80, 100], [2.70, 85], [2.60, 65], [2.455, 40], [2.40, 20], [2.355, 8], [2.30, 0]]],
-        'liion' => ['label' => 'Li-Ion/LiPo-Akku (fest eingebaut, 3,7 V)', 'shop' => 'Akku (Li-Ion/LiPo)',
+        'liion' => ['label' => 'Li-ion/LiPo rechargeable (built-in, 3.7 V)', 'shop' => 'Akku (Li-Ion/LiPo)',
             'curve' => [[4.20, 100], [4.10, 90], [3.95, 70], [3.80, 50], [3.70, 35], [3.60, 20], [3.50, 10], [3.30, 3], [3.00, 0]]],
     ];
 
@@ -127,7 +127,8 @@ final class BWACHZelle
             $full = (float)($r['VFull'] ?? 0);
             $emp  = (float)($r['VEmpty'] ?? 0);
             self::$custom[$key] = [
-                'label' => $name . ' (eigener Typ)',
+                'label' => $name,
+                'custom' => true,
                 'shop'  => $shop !== '' ? $shop : $name,
                 'curve' => ($full > $emp && $emp > 0) ? [[$full, 100], [$emp, 0]] : null,
             ];
@@ -144,9 +145,9 @@ final class BWACHZelle
     /** Auswahlliste fürs Formular. */
     public static function options(): array
     {
-        $o = [['caption' => 'unbekannt', 'value' => self::UNKNOWN]];
+        $o = [['caption' => BWACHText::t('unknown'), 'value' => self::UNKNOWN]];
         foreach (self::all() as $id => $t) {
-            $o[] = ['caption' => $t['label'], 'value' => $id];
+            $o[] = ['caption' => self::label((string)$id), 'value' => $id];
         }
         return $o;
     }
@@ -158,7 +159,12 @@ final class BWACHZelle
 
     public static function label(string $type): string
     {
-        return self::all()[$type]['label'] ?? 'unbekannt';
+        $t = self::all()[$type] ?? null;
+        if ($t === null) {
+            return BWACHText::t('unknown');
+        }
+        // eingebaute Beschriftungen werden übersetzt, eigene Namen bleiben, wie der Nutzer sie eingetragen hat
+        return !empty($t['custom']) ? BWACHText::t('%s (custom type)', $t['label']) : BWACHText::t($t['label']);
     }
 
     /** Einkaufsbezeichnung („CR2032“, „AAA“), null bei unbekanntem Typ. */
@@ -218,6 +224,6 @@ final class BWACHZelle
                 }
             }
         }
-        return $cand ? 'passt zu: ' . implode(', ', array_unique($cand)) : 'passt zu keinem bekannten Zelltyp';
+        return $cand ? BWACHText::t('matches: %s', implode(', ', array_unique($cand))) : BWACHText::t('matches no known cell type');
     }
 }
