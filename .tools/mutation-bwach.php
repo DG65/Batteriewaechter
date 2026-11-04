@@ -82,7 +82,7 @@ $mutations = [
     ['BWACHMeldung.php', 'if ($n > 5) {', 'if ($n > 6) {', 'Bündelung: „und N weitere“ zu spät'],
     ['BWACHMeldung.php', 'if ($bytes + $cb > $maxBytes) {', 'if ($bytes + $cb >= $maxBytes) {', 'Byte-Kürzung zu knapp'],
     ['BWACHMeldung.php', 'self::REPLACE_GRACE_DAYS * 86400', '0', 'Wartezeit nach „getauscht“ entfällt'],
-    ['BWACHMeldung.php', "\$title = \$n === 1 ? '🔔 Erinnerung'", "\$title = \$n === 1 ? '🔔 Erinnerung: ' . \$first['name']", 'Titel mit Gerätenamen sprengt 32 Byte'],
+    ['BWACHMeldung.php', "\$title = \$n === 1 ? BWACHText::t('🔔 Reminder')", "\$title = \$n === 1 ? BWACHText::t('🔔 Reminder') . ': ' . \$first['name']", 'Titel mit Gerätenamen sprengt 32 Byte'],
     // --- Meilenstein 2: Modul
     ['module.php', "if (!\$this->ReadPropertyBoolean('NotificationsActive')) {\n            return;\n        }", '', 'Meldungen laufen auch bei „aus“'],
     ['module.php', "\$state[\$k]['notified'] = (int)(\$old[\$k]['notified'] ?? 0);", '', 'Fehlgeschlagene Zustellung wird als gemeldet verbucht'],
@@ -254,7 +254,7 @@ $mutations = [
     ['BWACHPrognose.php', "preg_match('/[\\s<>\"\\']/', \$template)", "false", 'Linkvorlage: Leer- und Sonderzeichen erlaubt'],
     ['BWACHPrognose.php', "mb_strlen(\$template) > 300", "false", 'Linkvorlage: beliebig lang'],
     ['BWACHPrognose.php', "str_replace('{Zelltyp}', rawurlencode(\$label), \$template)", "str_replace('{Zelltyp}', \$label, \$template)", 'Linkvorlage: Bezeichnung nicht URL-kodiert'],
-    ['BWACHPrognose.php', "\$out[] = 'Zelltyp fehlt bei: ' . implode(', ', \$shopping['missing']);", "", 'Einkaufstext: fehlender Zelltyp fehlt'],
+    ['BWACHPrognose.php', "\$out[] = BWACHText::t('Cell type missing for: %s', implode(', ', \$shopping['missing']));", "", 'Einkaufstext: fehlender Zelltyp fehlt'],
     ['BWACHPrognose.php', "if (\$round['count'] > 0) {", "if (false) {", 'Einkaufstext: Tauschrunde fehlt'],
     ['module.html', "if (it.url && /^https?:\\/\\//i.test(it.url)) {", "if (it.url) {", 'Kachel: Link auch bei javascript:-Adresse'],
     ['module.html', "a.rel = 'noopener noreferrer';", "", 'Kachel: Link ohne noopener'],

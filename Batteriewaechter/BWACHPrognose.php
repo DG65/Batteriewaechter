@@ -88,12 +88,12 @@ final class BWACHPrognose
         $base   = ['days' => null, 'confidence' => 'unbekannt', 'slope' => null, 'emptyAt' => null, 'points' => $n, 'spanDays' => $spanD, 'why' => ''];
 
         if ($n < self::FORECAST_MIN_POINTS || $span < self::FORECAST_MIN_SPAN) {
-            $base['why'] = 'zu wenig Verlauf (' . $n . ' Messpunkte über ' . $spanD . ' Tage, nötig sind mindestens ' . self::FORECAST_MIN_POINTS . ' über 14 Tage)';
+            $base['why'] = BWACHText::t('too little history (%d data points over %d days, at least %d over 14 days are needed)', $n, $spanD, self::FORECAST_MIN_POINTS);
             return $base;
         }
         $distinct = count(array_unique(array_map(function ($p) { return (string)$p[1]; }, $seg)));
         if ($distinct < self::FORECAST_MIN_DISTINCT) {
-            $base['why'] = 'der Wert ändert sich zu selten (nur ' . $distinct . ' verschiedene Werte, das Gerät zeigt offenbar nur grobe Stufen)';
+            $base['why'] = BWACHText::t('the value changes too rarely (only %d distinct values, the device apparently only reports coarse steps)', $distinct);
             return $base;
         }
 
@@ -108,7 +108,7 @@ final class BWACHPrognose
             }
         }
         if (!$slopes) {
-            $base['why'] = 'Messpunkte liegen zu dicht beieinander';
+            $base['why'] = BWACHText::t('data points are too close together');
             return $base;
         }
         $slope = self::median($slopes);
@@ -117,7 +117,7 @@ final class BWACHPrognose
 
         if ($slope >= self::NO_DISCHARGE_SLOPE) {
             $base['confidence'] = 'keine';
-            $base['why'] = 'keine Entladung erkennbar';
+            $base['why'] = BWACHText::t('no discharge detectable');
             return $base;
         }
 
@@ -146,7 +146,7 @@ final class BWACHPrognose
         $base['days'] = round(min($days, self::MAX_DAYS), 1);
         $base['confidence'] = $conf;
         $base['emptyAt'] = (int)($last[0] + $days * 86400);
-        $base['why'] = $days > self::MAX_DAYS ? 'mehr als 10 Jahre' : '';
+        $base['why'] = $days > self::MAX_DAYS ? BWACHText::t('more than 10 years') : '';
         $base['r2'] = round($r2, 2);
         return $base;
     }
@@ -155,18 +155,18 @@ final class BWACHPrognose
     public static function forecastText(array $f): string
     {
         if ($f['confidence'] === 'keine') {
-            return 'keine Entladung erkennbar';
+            return BWACHText::t('no discharge detectable');
         }
         if ($f['days'] === null) {
-            return 'Restlaufzeit unbekannt: ' . $f['why'];
+            return BWACHText::t('Remaining runtime unknown: %s', $f['why']);
         }
-        $sec = ['hoch' => 'hohe', 'mittel' => 'mittlere', 'niedrig' => 'geringe'][$f['confidence']];
+        $sec = ['hoch' => BWACHText::t('high confidence'), 'mittel' => BWACHText::t('medium confidence'), 'niedrig' => BWACHText::t('low confidence')][$f['confidence']];
         $d = (int)round($f['days']);
         if ($f['days'] >= 365) {
             $y = round($f['days'] / 365, 1);
-            return 'reicht noch etwa ' . BWACHLogik::num($y) . ' Jahre (' . $sec . ' Sicherheit)';
+            return BWACHText::t('lasts about %s more years (%s)', BWACHLogik::num($y), $sec);
         }
-        return 'reicht noch etwa ' . $d . ($d === 1 ? ' Tag' : ' Tage') . ' (' . $sec . ' Sicherheit)';
+        return $d === 1 ? BWACHText::t('lasts about %d more day (%s)', $d, $sec) : BWACHText::t('lasts about %d more days (%s)', $d, $sec);
     }
 
     // =====================================================================
@@ -218,12 +218,12 @@ final class BWACHPrognose
         foreach ($count as $label => $n) {
             $have = max(0, (int)($stock[$label] ?? 0));
             if ($have >= $n) {
-                $covered[] = $label . ': Vorrat reicht (' . $n . ' nötig, ' . $have . ' da)';
+                $covered[] = BWACHText::t('%s: stock is sufficient (%d needed, %d on hand)', $label, $n, $have);
                 continue;
             }
             $toBuy = $n - $have;
             $buy[$label] = $toBuy;
-            $lines[] = $toBuy . '× ' . $label . ($have > 0 ? ' (Bedarf ' . $n . ', ' . $have . ' vorrätig)' : '');
+            $lines[] = $have > 0 ? BWACHText::t('%d× %s (need %d, %d in stock)', $toBuy, $label, $n, $have) : $toBuy . '× ' . $label;
         }
         return ['need' => $need, 'lines' => $lines, 'missing' => $missing, 'counts' => $buy, 'covered' => $covered];
     }
@@ -308,9 +308,9 @@ final class BWACHPrognose
      */
     public static function shoppingText(array $shopping, array $round, int $horizonDays, string $until): string
     {
-        $out = ['🛒 Batterien einkaufen (nächste ' . $horizonDays . ' Tage)'];
+        $out = [BWACHText::t('🛒 Buy batteries (next %d days)', $horizonDays)];
         if (!$shopping['lines'] && empty($shopping['covered'])) {
-            $out[] = $shopping['need'] ? 'Keine Zelltypen bekannt.' : 'Nichts zu besorgen.';
+            $out[] = $shopping['need'] ? BWACHText::t('No cell types known.') : BWACHText::t('Nothing to buy.');
         }
         foreach ($shopping['lines'] as $l) {
             $out[] = '• ' . $l;
@@ -319,11 +319,12 @@ final class BWACHPrognose
             $out[] = '✓ ' . $c;
         }
         if ($shopping['missing']) {
-            $out[] = 'Zelltyp fehlt bei: ' . implode(', ', $shopping['missing']);
+            $out[] = BWACHText::t('Cell type missing for: %s', implode(', ', $shopping['missing']));
         }
         if ($round['count'] > 0) {
             $out[] = '';
-            $out[] = '🔧 Tauschrunde (' . $round['count'] . ($round['count'] === 1 ? ' Gerät' : ' Geräte') . ')' . ($until !== '' ? ', am besten bis ' . $until : '');
+            $head = $round['count'] === 1 ? BWACHText::t('🔧 Replacement round (%d device)', $round['count']) : BWACHText::t('🔧 Replacement round (%d devices)', $round['count']);
+            $out[] = $until !== '' ? BWACHText::t('%s, ideally by %s', $head, $until) : $head;
             foreach ($round['places'] as $place => $devs) {
                 $items = [];
                 foreach ($devs as $d) {
@@ -347,7 +348,7 @@ final class BWACHPrognose
         $places = [];
         $until  = null;
         foreach ($need as $i) {
-            $places[$i['place'] !== '' ? $i['place'] : 'ohne Ort'][] = $i;
+            $places[$i['place'] !== '' ? $i['place'] : BWACHText::t('no location')][] = $i;
             $t = in_array($i['status'], ['leer', 'schwach'], true) ? $now : $now + (int)($i['days'] * 86400) - $marginDays * 86400;
             $t = max($now, $t);
             $until = $until === null ? $t : min($until, $t);
@@ -407,9 +408,9 @@ final class BWACHPrognose
             $first = min($first, (int)$e['t']);
         }
         $periods = [
-            ['id' => '30',  'label' => 'Letzte 30 Tage',   'since' => $now - 30 * 86400],
-            ['id' => '365', 'label' => 'Letzte 12 Monate', 'since' => $now - 365 * 86400],
-            ['id' => 'all', 'label' => 'Insgesamt (seit ' . date('d.m.Y', $first) . ')', 'since' => 0],
+            ['id' => '30',  'label' => BWACHText::t('Last 30 days'),   'since' => $now - 30 * 86400],
+            ['id' => '365', 'label' => BWACHText::t('Last 12 months'), 'since' => $now - 365 * 86400],
+            ['id' => 'all', 'label' => BWACHText::t('Total (since %s)', date('d.m.Y', $first)), 'since' => 0],
         ];
         $out = [];
         foreach ($periods as $p) {
@@ -441,18 +442,18 @@ final class BWACHPrognose
     {
         $n = (int)$period['changes'];
         if ($n === 0) {
-            return 'kein Wechsel';
+            return BWACHText::t('no replacement');
         }
         $parts = [];
         foreach ($period['byLabel'] as $label => $count) {
             $parts[] = $count . '× ' . $label;
         }
-        $text = $n . ' Wechsel an ' . $period['devices'] . ($period['devices'] === 1 ? ' Gerät' : ' Geräten');
+        $text = $period['devices'] === 1 ? BWACHText::t('%d replacements on %d device', $n, $period['devices']) : BWACHText::t('%d replacements on %d devices', $n, $period['devices']);
         if ($parts) {
-            $text .= ': ' . implode(', ', $parts);
+            $text = BWACHText::t('%s: %s', $text, implode(', ', $parts));
         }
         if ((int)$period['unknown'] > 0) {
-            $text .= ' (bei ' . $period['unknown'] . ($period['unknown'] === 1 ? ' Wechsel' : ' Wechseln') . ' ist der Zelltyp unbekannt)';
+            $text = $period['unknown'] === 1 ? BWACHText::t('%s (cell type unknown for %d replacement)', $text, $period['unknown']) : BWACHText::t('%s (cell type unknown for %d replacements)', $text, $period['unknown']);
         }
         return $text;
     }
@@ -616,15 +617,15 @@ final class BWACHPrognose
         }
         $base = ['ok' => false, 'factor' => null, 'devices' => count($ratios), 'cold' => $nCold, 'warm' => $nWarm, 'below' => $below, 'text' => ''];
         if (count($ratios) < self::COLD_MIN_DEVICES) {
-            $base['text'] = 'Kälteeinfluss: noch nicht genug Daten (nötig: mindestens ' . self::COLD_MIN_DEVICES . ' Geräte mit je ' . self::COLD_MIN_INTERVALS . ' Zeitabschnitten bei unter und über ' . BWACHLogik::num($below) . ' °C; bisher ' . count($ratios) . ')';
+            $base['text'] = BWACHText::t('Cold influence: not enough data yet (needed: at least %d devices with %d time intervals each below and above %s °C; so far %d)', self::COLD_MIN_DEVICES, self::COLD_MIN_INTERVALS, BWACHLogik::num($below), count($ratios));
             return $base;
         }
         $f = round(self::median($ratios), 1);
         $base['ok'] = true;
         $base['factor'] = $f;
         $base['text'] = $f >= 1.2
-            ? 'Bei unter ' . BWACHLogik::num($below) . ' °C entladen sich die Batterien im Median ' . BWACHLogik::num($f) . '× schneller (aus ' . count($ratios) . ' Geräten, ' . $nCold . ' kalten und ' . $nWarm . ' warmen Zeitabschnitten)'
-            : 'Kein deutlicher Kälteeinfluss erkennbar (Faktor ' . BWACHLogik::num($f) . ', aus ' . count($ratios) . ' Geräten)';
+            ? BWACHText::t('Below %s °C the batteries discharge %s× faster in the median (from %d devices, %d cold and %d warm time intervals)', BWACHLogik::num($below), BWACHLogik::num($f), count($ratios), $nCold, $nWarm)
+            : BWACHText::t('No clear cold influence detectable (factor %s, from %d devices)', BWACHLogik::num($f), count($ratios));
         return $base;
     }
 

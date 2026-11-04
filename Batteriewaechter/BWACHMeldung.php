@@ -200,14 +200,14 @@ final class BWACHMeldung
             }
         }
         if ($prev['p'] !== null && $cur['p'] !== null && $cur['p'] - $prev['p'] >= $jumpPct) {
-            return 'Prozentwert sprang von ' . BWACHLogik::num((float)$prev['p']) . ' % auf ' . BWACHLogik::num((float)$cur['p']) . ' %';
+            return BWACHText::t('Percentage jumped from %s %% to %s %%', BWACHLogik::num((float)$prev['p']), BWACHLogik::num((float)$cur['p']));
         }
         if ($prev['f'] === true && $cur['f'] === false) {
             if ($derived && ($cur['p'] === null || $cur['p'] < self::DERIVED_MIN_PERCENT
                 || ($prev['p'] !== null && $cur['p'] - $prev['p'] < self::DERIVED_MIN_JUMP))) {
                 return null; // flackerndes Flag an der Spannungsgrenze, keine neue Batterie
             }
-            return '„Batterie schwach“-Flag wurde zurückgesetzt';
+            return BWACHText::t('"Battery low" flag was reset');
         }
         return null;
     }
@@ -338,24 +338,24 @@ final class BWACHMeldung
 
         if ($kind === 'eskalation') {
             // Titel bleiben unter 32 Byte (Push-Grenze): der Gerätename steht im Text
-            $title = $n === 1 ? '❗ Unbeachtet' : '❗ ' . $n . ' Geräte unbeachtet';
+            $title = $n === 1 ? BWACHText::t('❗ Unattended') : BWACHText::t('❗ %d devices unattended', $n);
         } elseif ($kind === 'erinnerung') {
-            $title = $n === 1 ? '🔔 Erinnerung' : '🔔 Erinnerung: ' . $n . ' Geräte';
+            $title = $n === 1 ? BWACHText::t('🔔 Reminder') : BWACHText::t('🔔 Reminder: %d devices', $n);
         } elseif ($n === 1) {
             $p = $first['probs'];
             if (in_array(self::PROB_EMPTY, $p, true)) {
-                $title = '🪫 Batterie leer';
+                $title = BWACHText::t('🪫 Battery empty');
             } elseif (in_array(self::PROB_LOW, $p, true)) {
-                $title = '⚠️ Batterie schwach';
+                $title = BWACHText::t('⚠️ Battery low');
             } elseif (in_array(self::PROB_SILENT, $p, true)) {
-                $title = '🔇 Funkstille';
+                $title = BWACHText::t('🔇 Radio silence');
             } elseif (in_array(self::PROB_PREVENT, $p, true) && !in_array(self::PROB_SOON, $p, true)) {
-                $title = '🗓 Vorsorglich tauschen';
+                $title = BWACHText::t('🗓 Replace preventively');
             } else {
-                $title = '⏳ Batterie bald leer';
+                $title = BWACHText::t('⏳ Battery empty soon');
             }
         } else {
-            $title = '🔋 ' . $n . ' Batteriemeldungen';
+            $title = BWACHText::t('🔋 %d battery notifications', $n);
         }
 
         $lines = [];
@@ -364,7 +364,7 @@ final class BWACHMeldung
             $lines[] = '• ' . $i['name'] . $where . ': ' . $i['text'] . (!empty($i['critical']) ? ' ❗' : '');
         }
         if ($n > 5) {
-            $lines[] = '… und ' . ($n - 5) . ' weitere';
+            $lines[] = BWACHText::t('… and %d more', $n - 5);
         }
         $sound = ($kind === 'eskalation' || ($anyEmpty && $anyCritical)) ? 'alarm' : 'bell';
         return ['title' => $title, 'text' => implode("\n", $lines), 'sound' => $sound];
@@ -373,9 +373,9 @@ final class BWACHMeldung
     /** Wochenbericht; $rows = Liste von ['name','place','text','urgency']. */
     public static function digest(array $sum, array $rows, array $extra = []): array
     {
-        $head = $sum['total'] . ' Geräte überwacht: ' . $sum['empty'] . ' leer, ' . $sum['low'] . ' schwach, '
-            . (($sum['soon'] ?? 0) > 0 ? $sum['soon'] . ' bald leer, ' : '')
-            . $sum['silent'] . ' Funkstille, ' . $sum['check'] . ' mit zweifelhaften Daten.';
+        $head = (($sum['soon'] ?? 0) > 0)
+            ? BWACHText::t('%d devices monitored: %d empty, %d low, %d empty soon, %d radio silence, %d with doubtful data.', $sum['total'], $sum['empty'], $sum['low'], $sum['soon'], $sum['silent'], $sum['check'])
+            : BWACHText::t('%d devices monitored: %d empty, %d low, %d radio silence, %d with doubtful data.', $sum['total'], $sum['empty'], $sum['low'], $sum['silent'], $sum['check']);
         // Kennzahlen und Zusatzzeilen (Einkauf) zuerst: Push kürzt bei 256 Byte, vorn steht das Wichtigste
         $lines = [$head];
         foreach ($extra as $l) {
@@ -388,16 +388,16 @@ final class BWACHMeldung
                 continue;
             }
             if (++$shown > 15) {
-                $lines[] = '… und weitere (alle in der Tabelle „Handlungsbedarf“)';
+                $lines[] = BWACHText::t('… and more (all in the "Action needed" table)');
                 break;
             }
             $where = $r['place'] !== '' ? ' (' . $r['place'] . ')' : '';
             $lines[] = '• ' . $r['name'] . $where . ': ' . $r['text'];
         }
         if ($shown === 0) {
-            $lines[] = '✅ Alles in Ordnung.';
+            $lines[] = BWACHText::t('✅ Everything OK.');
         }
-        return ['title' => '🔋 Batterie-Wochenbericht', 'text' => implode("\n", $lines), 'sound' => 'bell', 'anyProblem' => $shown > 0];
+        return ['title' => BWACHText::t('🔋 Battery weekly report'), 'text' => implode("\n", $lines), 'sound' => 'bell', 'anyProblem' => $shown > 0];
     }
 
     /**
@@ -410,25 +410,25 @@ final class BWACHMeldung
     {
         $raw = trim(implode(' / ', array_filter(array_map('trim', $warnings))) . ($exception !== '' ? ' / ' . $exception : ''));
         if ($raw === '') {
-            return 'das SMTP-Modul nennt keinen Grund (Debug der SMTP-Instanz einschalten zeigt den Dialog mit dem Server)';
+            return BWACHText::t('the SMTP module gives no reason (enabling debug on the SMTP instance shows the dialogue with the server)');
         }
         $h = mb_strtolower($raw);
         if (strpos($h, 'login denied') !== false || strpos($h, 'authentication') !== false || strpos($h, 'auth failed') !== false || strpos($h, '535') !== false) {
-            $why = 'Anmeldung abgelehnt: Benutzername oder Passwort der SMTP-Instanz stimmen nicht (bei iCloud und anderen Anbietern mit Zwei-Faktor-Anmeldung braucht es ein App-spezifisches Passwort)';
+            $why = BWACHText::t('Login rejected: user name or password of the SMTP instance is wrong (iCloud and other providers with two-factor authentication need an app-specific password)');
         } elseif (strpos($h, 'resolve') !== false || strpos($h, 'getaddrinfo') !== false) {
-            $why = 'Server nicht gefunden: Servername der SMTP-Instanz prüfen';
+            $why = BWACHText::t('Server not found: check the server name of the SMTP instance');
         } elseif (strpos($h, 'timed out') !== false || strpos($h, 'timeout') !== false) {
-            $why = 'Zeitüberschreitung: der Mailserver antwortet nicht (Server, Port und Netzwerk prüfen)';
+            $why = BWACHText::t('Timeout: the mail server does not respond (check server, port and network)');
         } elseif (strpos($h, 'refused') !== false) {
-            $why = 'Verbindung abgelehnt: Server oder Port der SMTP-Instanz prüfen';
+            $why = BWACHText::t('Connection refused: check server or port of the SMTP instance');
         } elseif (strpos($h, 'certificate') !== false || strpos($h, 'ssl') !== false || strpos($h, 'tls') !== false) {
-            $why = 'Verschlüsselung oder Zertifikat: SSL-Einstellung und Port der SMTP-Instanz prüfen';
+            $why = BWACHText::t('Encryption or certificate: check SSL setting and port of the SMTP instance');
         } elseif (strpos($h, 'recipient') !== false || strpos($h, 'rcpt') !== false) {
-            $why = 'Empfänger abgelehnt: Empfängeradresse prüfen';
+            $why = BWACHText::t('Recipient rejected: check the recipient address');
         } else {
-            $why = 'Meldung des SMTP-Moduls';
+            $why = BWACHText::t('Message from the SMTP module');
         }
-        return $why . ' („' . $raw . '“)';
+        return BWACHText::t('%s ("%s")', $why, $raw);
     }
 
     /** Kürzt UTF-8-sicher auf eine Byte-Grenze (WFC_PushNotification/VISU_PostNotificationEx, SUITE.md Stolperstein 22). */
