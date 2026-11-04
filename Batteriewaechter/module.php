@@ -717,6 +717,7 @@ class Batteriewaechter extends IPSModule
             'Undo: %s',
             'Hide without undoing anything',
             '%s devices monitored · as of %s',
+            '%s device monitored · as of %s',
         ] as $en) {
             $out[$en] = BWACHText::t($en);
         }
@@ -2597,7 +2598,9 @@ class Batteriewaechter extends IPSModule
         if ($sum['check'] > 0) { $bad[] = BWACHText::t('%s with doubtful data', $sum['check']); }
         if ($sum['unknown'] > 0) { $bad[] = BWACHText::t('%s unknown', $sum['unknown']); }
         $icon = ($sum['empty'] > 0 || $sum['low'] > 0 || $sum['silent'] > 0 || ($sum['soon'] ?? 0) > 0) ? '⚠️' : ($bad ? 'ℹ️' : '✅');
-        return BWACHText::t('%s %s devices monitored: %s (checked %s).', $icon, $sum['total'], $bad ? implode(', ', $bad) : BWACHText::t('all OK'), date('d.m.Y H:i', $now));
+        return $sum['total'] === 1
+            ? BWACHText::t('%s %s device monitored: %s (checked %s).', $icon, $sum['total'], $bad ? implode(', ', $bad) : BWACHText::t('all OK'), date('d.m.Y H:i', $now))
+            : BWACHText::t('%s %s devices monitored: %s (checked %s).', $icon, $sum['total'], $bad ? implode(', ', $bad) : BWACHText::t('all OK'), date('d.m.Y H:i', $now));
     }
 
     private function renderTable(array $rows, bool $onlyProblems, array $notes = []): string
@@ -2911,7 +2914,7 @@ class Batteriewaechter extends IPSModule
         $stats = [];
         foreach (['byCell', 'byModule'] as $k) {
             foreach ($v[$k] as $g => $s) {
-                $stats[] = ['group' => BWACHText::t($k === 'byCell' ? 'Cell %s' : 'System %s', $g), 'text' => BWACHText::t('%s days (%s intervals)', BWACHLogik::num($s['median']), $s['n'])];
+                $stats[] = ['group' => BWACHText::t($k === 'byCell' ? 'Cell %s' : 'System %s', $g), 'text' => (int)$s['n'] === 1 ? BWACHText::t('%s days (%s interval)', BWACHLogik::num($s['median']), $s['n']) : BWACHText::t('%s days (%s intervals)', BWACHLogik::num($s['median']), $s['n'])];
             }
         }
         foreach ($v['peers'] as $pe) {
@@ -3226,7 +3229,7 @@ class Batteriewaechter extends IPSModule
                 break;
             }
         }
-        if ((int)($eff['stillDays'] ?? 0) > 0) { $parts[] = BWACHText::t('radio silence after %s days', (int)$eff['stillDays']); }
+        if ((int)($eff['stillDays'] ?? 0) > 0) { $parts[] = (int)$eff['stillDays'] === 1 ? BWACHText::t('radio silence after %s day', 1) : BWACHText::t('radio silence after %s days', (int)$eff['stillDays']); }
         if ($eff['excluded']) { $parts[] = BWACHText::t('excluded'); }
         if ($eff['rule'] !== null) {
             $rl = $rules[$eff['rule']];

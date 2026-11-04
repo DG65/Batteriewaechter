@@ -1671,6 +1671,9 @@ $steps = [];
 foreach ([[0, 100], [15, 100], [30, 100], [45, 100], [60, 90]] as [$d, $p]) { $steps = BWACHPrognose::historyAdd($steps, $T0 + $d * $Dd, (float)$p); }
 $f = BWACHPrognose::forecast($steps, 5.0);
 check('Grobe Stufen (nur 2 verschiedene Werte): keine Prognose, Grund genannt', $f['days'] === null && strpos($f['why'], 'zu selten') !== false, $f['why']);
+check('Ein Messpunkt: Einzahl „1 Messpunkt über 0 Tage“', strpos(BWACHPrognose::forecast([[$GLOBALS['CLOCK'] ?: 1, 80]], 5)['why'], 'zu wenig Verlauf (1 Messpunkt über 0 Tage,') === 0, BWACHPrognose::forecast([[1, 80]], 5)['why']);
+check('Englisch: „1 data point over 0 days“ statt „1 data points“', (function () { BWACHText::setzen(null); $w = BWACHPrognose::forecast([[1, 80]], 5)['why']; BWACHText::setzen('bwachDe'); return strpos($w, 'too little history (1 data point over 0 days,') === 0; })());
+check('Englisch: ein verschiedener Wert in der Einzahl', (function () { BWACHText::setzen(null); $ser = []; for ($i = 0; $i < 6; $i++) { $ser[] = [1000000 + $i * 5 * 86400, 80]; } $w = BWACHPrognose::forecast($ser, 5)['why']; BWACHText::setzen('bwachDe'); return strpos($w, 'only 1 distinct value,') !== false; })());
 // flach
 $flat = [];
 foreach ([0, 15, 30, 45, 60] as $d) { $flat = BWACHPrognose::historyAdd($flat, $T0 + $d * $Dd, 100.0 - $d * 0.001); }

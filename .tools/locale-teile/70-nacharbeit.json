@@ -1,5 +1,13 @@
 {
     "confidence high": "hoch",
     "confidence medium": "mittel",
-    "confidence low": "niedrig"
+    "confidence low": "niedrig",
+    "%d data point": "%d Messpunkt",
+    "%d data points": "%d Messpunkte",
+    "too little history (%s over %s, at least %d over 14 days are needed)": "zu wenig Verlauf (%s über %s, nötig sind mindestens %d über 14 Tage)",
+    "the value changes too rarely (only %d distinct value, the device apparently only reports coarse steps)": "der Wert ändert sich zu selten (nur %d verschiedener Wert, das Gerät zeigt offenbar nur grobe Stufen)",
+    "%s %s device monitored: %s (checked %s).": "%s %s Gerät überwacht: %s (geprüft %s Uhr).",
+    "%s device monitored · as of %s": "%s Gerät überwacht · Stand %s",
+    "radio silence after %s day": "Funkstille nach %s Tag",
+    "%s days (%s interval)": "%s Tage (%s Intervall)"
 }

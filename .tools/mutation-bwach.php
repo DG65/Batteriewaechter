@@ -24,6 +24,8 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['BWACHPrognose.php', "\$pts  = \$n === 1 ?", "\$pts  = \$n === 0 ?", 'Prognose: Einzahl Messpunkt nicht erkannt'],
+    ['BWACHPrognose.php', "\$base['why'] = \$distinct === 1", "\$base['why'] = \$distinct === 0", 'Prognose: Einzahl verschiedener Wert nicht erkannt'],
     ['module.php', "'CometWiFiThermostat' => 'CWIFI_SendAction'];", "];", 'Abfrage: Comet wird nicht abgefragt'],
     ['module.php', "['CometWiFiThermostat' => ['AllFields']]", "['CometWiFiThermostat' => ['Update']]", 'Abfrage: Comet nur Temperaturen (ohne Batteriestand)'],
     ['module.php', "'CometWiFiThermostat' => 6 * 3600]", "'CometWiFiThermostat' => 14 * 86400]", 'Abfrage: Comet wartet zu lange auf Antwort'],

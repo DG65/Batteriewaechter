@@ -666,7 +666,7 @@
             ux.onclick = function () { requestAction('undo_dismiss', ''); };
             root.appendChild(ux);
         }
-        root.appendChild(bwEl('div', 'bw-foot', T('%s devices monitored · as of %s', BW.summary.total, BW.asOf)));
+        root.appendChild(bwEl('div', 'bw-foot', T(BW.summary.total === 1 ? '%s device monitored · as of %s' : '%s devices monitored · as of %s', BW.summary.total, BW.asOf)));
     }
 
     function handleMessage(payload) {

@@ -88,12 +88,16 @@ final class BWACHPrognose
         $base   = ['days' => null, 'confidence' => 'unbekannt', 'slope' => null, 'emptyAt' => null, 'points' => $n, 'spanDays' => $spanD, 'why' => ''];
 
         if ($n < self::FORECAST_MIN_POINTS || $span < self::FORECAST_MIN_SPAN) {
-            $base['why'] = BWACHText::t('too little history (%d data points over %d days, at least %d over 14 days are needed)', $n, $spanD, self::FORECAST_MIN_POINTS);
+            $pts  = $n === 1 ? BWACHText::t('%d data point', $n) : BWACHText::t('%d data points', $n);
+            $dys  = $spanD === 1 ? BWACHText::t('%d day', $spanD) : BWACHText::t('%d days', $spanD);
+            $base['why'] = BWACHText::t('too little history (%s over %s, at least %d over 14 days are needed)', $pts, $dys, self::FORECAST_MIN_POINTS);
             return $base;
         }
         $distinct = count(array_unique(array_map(function ($p) { return (string)$p[1]; }, $seg)));
         if ($distinct < self::FORECAST_MIN_DISTINCT) {
-            $base['why'] = BWACHText::t('the value changes too rarely (only %d distinct values, the device apparently only reports coarse steps)', $distinct);
+            $base['why'] = $distinct === 1
+                ? BWACHText::t('the value changes too rarely (only %d distinct value, the device apparently only reports coarse steps)', $distinct)
+                : BWACHText::t('the value changes too rarely (only %d distinct values, the device apparently only reports coarse steps)', $distinct);
             return $base;
         }
 

@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.1] - 2026-11-04
+
+### Fixed
+- **Einzahl bei Anzahl 1** (live in der englischen Oberfläche gesehen: „1 data points“, „1 distinct values“): Prognose-Gründe, Zusammenfassung („1 Gerät überwacht“), Fußzeile der Kachel, „Funkstille nach 1 Tag“ in der Spalte „Gilt“ und die Lebensdauer-Statistik („1 Intervall“) nutzen bei 1 die Einzahl, auf Deutsch wie auf Englisch.
+
 ## [0.20.0] - 2026-11-04
 
 ### Added

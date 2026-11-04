@@ -51,7 +51,6 @@
     "Recipient rejected: check the recipient address": "Empfänger abgelehnt: Empfängeradresse prüfen",
     "Message from the SMTP module": "Meldung des SMTP-Moduls",
     "%s (\"%s\")": "%s („%s“)",
-    "too little history (%d data points over %d days, at least %d over 14 days are needed)": "zu wenig Verlauf (%d Messpunkte über %d Tage, nötig sind mindestens %d über 14 Tage)",
     "the value changes too rarely (only %d distinct values, the device apparently only reports coarse steps)": "der Wert ändert sich zu selten (nur %d verschiedene Werte, das Gerät zeigt offenbar nur grobe Stufen)",
     "data points are too close together": "Messpunkte liegen zu dicht beieinander",
     "no discharge detectable": "keine Entladung erkennbar",
