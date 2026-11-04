@@ -2627,7 +2627,7 @@ class Batteriewaechter extends IPSModule
             $life = $r['lifeAge'] === null ? '—' : (($r['funk'] === 'still' ? '🔇 ' : '') . BWACHLogik::daysDat($r['lifeAge']));
             $mark = ($r['critical'] ? ' ❗' : '') . (isset($notes[$row['id']]) ? ' ' . $notes[$row['id']] : '');
             $f = $row['forecast'];
-            $left = $f['days'] !== null ? '≈ ' . BWACHLogik::days((int)($f['days'] * 86400)) . ' (' . $f['confidence'] . ')' : ($f['confidence'] === 'keine' ? BWACHText::t('no discharge') : '—');
+            $left = $f['days'] !== null ? '≈ ' . BWACHLogik::days((int)($f['days'] * 86400)) . ' (' . (['hoch' => BWACHText::t('confidence high'), 'mittel' => BWACHText::t('confidence medium'), 'niedrig' => BWACHText::t('confidence low')][$f['confidence']] ?? $f['confidence']) . ')' : ($f['confidence'] === 'keine' ? BWACHText::t('no discharge') : '—');
             $body .= '<tr><td>' . $e($row['name']) . $mark . '</td><td>' . $e($row['place']) . '</td><td>' . $e($bat) . '</td><td>'
                 . $e($age) . '</td><td>' . $e($life) . '</td><td>' . $e($left) . '</td><td>' . $e(implode('; ', $r['reasons'])) . '</td></tr>';
         }
