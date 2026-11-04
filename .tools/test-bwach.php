@@ -1540,7 +1540,8 @@ chk('Ohne Geräte: ehrlicher Leer-Text', texts(global.ROOT).indexOf('noch keine 
 P.devices=[P.devices[0]]; 
 console.log(ok ? 'JS-OK' : 'JS-FEHLER'); process.exit(ok?0:1);
 JS;
-file_put_contents($tmp, $domJs . "\n" . $mjs[1] . "\n" . $testJs);
+$tt = new ReflectionMethod('Batteriewaechter', 'tileTexts'); $tt->setAccessible(true);
+file_put_contents($tmp, $domJs . "\nvar BWACH_TEXTE = " . json_encode($tt->invoke($m), JSON_UNESCAPED_UNICODE) . ";\n" . $mjs[1] . "\n" . $testJs);
 $out = []; $rc = 0;
 if (trim((string)shell_exec('command -v node')) !== '') {
     exec('node ' . escapeshellarg($tmp) . ' 2>&1', $out, $rc);
@@ -2807,7 +2808,7 @@ check('Noch nicht gesucht: Hinweis „zuerst Jetzt neu suchen“', $elE['values'
 $mH = freshModule(['NotificationsActive' => false]);
 $plH = json_decode(end($mH->visUpdates), true);
 check('Kachel-Daten nennen den Ort für den Zelltyp: Instanzname, Panel, Spalte', $plH['shopping']['where'] === 'Instanz „Batteriewächter“ öffnen, Panel „Geräte-Einstellungen“, Spalte „Zelltyp“', $plH['shopping']['where']);
-check('Die Kachel zeigt diesen Ort beim fehlenden Zelltyp', strpos(file_get_contents($MODDIR . '/module.html'), "'Keine Zelltypen bekannt. Zelltyp je Gerät eintragen: ' + s.where") !== false && strpos(file_get_contents($MODDIR . '/module.html'), "'. Eintragen: ' + s.where") !== false);
+check('Die Kachel zeigt diesen Ort beim fehlenden Zelltyp', strpos(file_get_contents($MODDIR . '/module.html'), "T('No cell types known. Enter the cell type per device: %s.', s.where)") !== false && strpos(file_get_contents($MODDIR . '/module.html'), "s.missing.join(', '), s.where)") !== false);
 $mH2 = freshModule(['NotificationsActive' => false, 'DeviceSettings' => json_encode([['Instance' => 114, 'Group' => 'standard', 'Critical' => true, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'unbekannt', 'Cells' => 1]])]);
 check('Tabelle nennt Instanz, Panel und Spalte', strpos($mH2->GetValue('TableShopping'), 'in der Instanz „Batteriewächter“ unter „Geräte-Einstellungen“ in der Spalte „Zelltyp“ wählen') !== false, strip_tags($mH2->GetValue('TableShopping')));
 

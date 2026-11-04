@@ -152,6 +152,20 @@
 <div class="bw-wrap" id="bw-root"></div>
 
 <script>
+    // Übersetzung: BWACH_TEXTE liefert das Modul (GetVisualizationTile) vor diesem Skript.
+    // Fehlt ein Eintrag, bleibt der englische Text; %s wird der Reihe nach ersetzt.
+    function T(text) {
+        var dict = (typeof BWACH_TEXTE === 'object' && BWACH_TEXTE !== null) ? BWACH_TEXTE : {};
+        var out = Object.prototype.hasOwnProperty.call(dict, text) ? String(dict[text]) : text;
+        var args = Array.prototype.slice.call(arguments, 1);
+        var i = 0;
+        return out.replace(/%s/g, function (m) { return i < args.length ? String(args[i++]) : m; });
+    }
+    // Art des Tagebucheintrags kommt als fester Schlüssel aus PHP
+    function bwDiaryType(t) {
+        var map = { erkannt: 'detected', eingetragen: 'entered', nachgetragen: 'added later' };
+        return map[t] ? T(map[t]) : t;
+    }
     var BW = null;
     var bwFilter = 'problems';
     var bwOpen = null;
@@ -209,27 +223,27 @@
     function bwHasCheck(d) { return d.quality && d.quality.length > 0; }
 
     var BW_FILTERS = [
-        { id: 'problems', label: 'Handlungsbedarf', test: function (d) { return d.urgency > 0; }, always: true },
-        { id: 'all',      label: 'Alle',            test: function () { return true; },           always: true },
-        { id: 'empty',    label: '🪫 leer',          test: function (d) { return d.status === 'leer'; } },
-        { id: 'low',      label: '⚠️ schwach',       test: function (d) { return d.status === 'schwach'; } },
-        { id: 'soon',     label: '⏳ bald leer',      test: function (d) { return d.soon; } },
-        { id: 'silent',   label: '🔇 Funkstille',    test: function (d) { return d.funk === 'still'; } },
-        { id: 'prevent',  label: '🗓 Vorsorge',      test: function (d) { return d.preventive; } },
-        { id: 'check',    label: '❔ Daten prüfen',   test: bwHasCheck }
+        { id: 'problems', label: T('Action needed'), test: function (d) { return d.urgency > 0; }, always: true },
+        { id: 'all',      label: T('All'),           test: function () { return true; },           always: true },
+        { id: 'empty',    label: '🪫 ' + T('empty'),          test: function (d) { return d.status === 'leer'; } },
+        { id: 'low',      label: '⚠️ ' + T('low'),       test: function (d) { return d.status === 'schwach'; } },
+        { id: 'soon',     label: '⏳ ' + T('empty soon'),      test: function (d) { return d.soon; } },
+        { id: 'silent',   label: '🔇 ' + T('Radio silence'),    test: function (d) { return d.funk === 'still'; } },
+        { id: 'prevent',  label: '🗓 ' + T('Preventive'),      test: function (d) { return d.preventive; } },
+        { id: 'check',    label: '❔ ' + T('Check data'),   test: bwHasCheck }
     ];
 
     // Sortierung: Zahlen- und Textwerte; fehlende Werte stehen immer hinten. dir = Voreinstellung je Eigenschaft.
     var BW_SORTS = [
-        { id: 'urgency',  label: 'Dringlichkeit',  num: true,  dir: 'desc', get: function (d) { return d.urgency; } },
-        { id: 'name',     label: 'Name',           num: false, dir: 'asc',  get: function (d) { return d.name; } },
-        { id: 'place',    label: 'Ort',            num: false, dir: 'asc',  get: function (d) { return d.place; } },
-        { id: 'percent',  label: 'Batteriestand',  num: true,  dir: 'asc',  get: function (d) { return d.percent; } },
-        { id: 'valueAge', label: 'Alter des Werts', num: true, dir: 'desc', get: function (d) { return d.valueAgeSec; } },
-        { id: 'life',     label: 'Lebenszeichen',  num: true,  dir: 'desc', get: function (d) { return d.lifeAgeSec; } },
-        { id: 'change',   label: 'Zuletzt gewechselt', num: true, dir: 'asc', get: function (d) { return d.changeAgeSec; } },
-        { id: 'cell',     label: 'Zelltyp',        num: false, dir: 'asc',  get: function (d) { return d.cellKey; } },
-        { id: 'module',   label: 'System',         num: false, dir: 'asc',  get: function (d) { return d.module; } }
+        { id: 'urgency',  label: T('Urgency'),  num: true,  dir: 'desc', get: function (d) { return d.urgency; } },
+        { id: 'name',     label: T('Name'),           num: false, dir: 'asc',  get: function (d) { return d.name; } },
+        { id: 'place',    label: T('Location'),            num: false, dir: 'asc',  get: function (d) { return d.place; } },
+        { id: 'percent',  label: T('Battery level'),  num: true,  dir: 'asc',  get: function (d) { return d.percent; } },
+        { id: 'valueAge', label: T('Age of value'), num: true, dir: 'desc', get: function (d) { return d.valueAgeSec; } },
+        { id: 'life',     label: T('Sign of life'),  num: true,  dir: 'desc', get: function (d) { return d.lifeAgeSec; } },
+        { id: 'change',   label: T('Last replaced'), num: true, dir: 'asc', get: function (d) { return d.changeAgeSec; } },
+        { id: 'cell',     label: T('Cell type'),        num: false, dir: 'asc',  get: function (d) { return d.cellKey; } },
+        { id: 'module',   label: T('System'),         num: false, dir: 'asc',  get: function (d) { return d.module; } }
     ];
 
     function bwSortBy(list) {
@@ -328,21 +342,21 @@
                 det.appendChild(ul);
             }
             det.appendChild(bwEl('div', 'facts',
-                'Batteriewert gemeldet: ' + d.valueAgeText + ' · Lebenszeichen: ' + d.lifeText + (d.module ? ' · ' + d.module : '')));
+                T('Battery value reported: %s · Sign of life: %s', d.valueAgeText, d.lifeText) + (d.module ? ' · ' + d.module : '')));
             if (d.forecastText) { det.appendChild(bwEl('div', 'facts', '📈 ' + d.forecastText)); }
             if (d.signalText) { det.appendChild(bwEl('div', 'facts', '📶 ' + d.signalText)); }
             if (d.pollText) { det.appendChild(bwEl('div', 'facts', '🔔 ' + d.pollText)); }
             if (d.changeText) { det.appendChild(bwEl('div', 'facts', '🔄 ' + d.changeText)); }
             if (d.idText) { det.appendChild(bwEl('div', 'facts', '🆔 ' + d.idText)); }
-            if (d.voltageText && d.percentText) { det.appendChild(bwEl('div', 'facts', '⚡ Gemessene Spannung ' + d.voltageText + (d.derived ? ' (daraus berechnet: ' + d.percentText + ', eine Näherung)' : ''))); }
-            if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · Ladezustand aus der Spannung berechnet (Näherung)' : ''))); }
+            if (d.voltageText && d.percentText) { det.appendChild(bwEl('div', 'facts', '⚡ ' + T('Measured voltage %s', d.voltageText) + (d.derived ? ' ' + T('(calculated from it: %s, an approximation)', d.percentText) : ''))); }
+            if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · ' + T('Charge level calculated from the voltage (approximation)') : ''))); }
             if (BW.allowAck) {
                 var acts = bwEl('div', 'bw-acts');
-                var b1 = bwEl('button', '', '✔ Habe ich getauscht'); b1.type = 'button';
+                var b1 = bwEl('button', '', '✔ ' + T('I replaced it')); b1.type = 'button';
                 b1.onclick = function () { bwAct(d, 'getauscht'); };
-                var b2 = bwEl('button', '', '💤 Erinnere mich später'); b2.type = 'button';
+                var b2 = bwEl('button', '', '💤 ' + T('Remind me later')); b2.type = 'button';
                 b2.onclick = function () { bwAct(d, 'zurueckgestellt'); };
-                var b3 = bwEl('button', bwSure === d.id ? 'sure' : '', bwSure === d.id ? 'Wirklich außer Betrieb?' : '⏹ Außer Betrieb'); b3.type = 'button';
+                var b3 = bwEl('button', bwSure === d.id ? 'sure' : '', bwSure === d.id ? T('Really out of service?') : '⏹ ' + T('Out of service')); b3.type = 'button';
                 b3.onclick = function () { bwAct(d, 'ausser_betrieb'); };
                 acts.appendChild(b1); acts.appendChild(b2); acts.appendChild(b3);
                 det.appendChild(acts);
@@ -374,7 +388,7 @@
 
     function bwCopy(text) {
         var done = function (ok) {
-            bwFlash(ok ? '✅ Einkaufsliste kopiert' : '⚠️ Kopieren ist hier nicht möglich. Im Formular gibt es „Einkaufsliste als Text“.');
+            bwFlash(ok ? '✅ ' + T('Shopping list copied') : '⚠️ ' + T('Copying is not possible here. The form offers “Shopping list as text”.'));
         };
         try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -388,11 +402,11 @@
     function bwShop(root) {
         var s = BW.shopping;
         var box = bwEl('div', 'bw-sec');
-        box.appendChild(bwEl('div', 'bw-h', '🛒 Einkauf für die nächsten ' + s.horizon + ' Tage'));
+        box.appendChild(bwEl('div', 'bw-h', '🛒 ' + T('Shopping for the next %s days', s.horizon)));
         if ((!s.lines || s.lines.length === 0) && s.covered && s.covered.length) {
-            box.appendChild(bwEl('div', 'bw-empty', '✅ Der Vorrat reicht.'));
+            box.appendChild(bwEl('div', 'bw-empty', '✅ ' + T('Stock is sufficient.')));
         } else if (!s.lines || s.lines.length === 0) {
-            box.appendChild(bwEl('div', 'bw-empty', s.count === 0 ? '✅ Nichts zu besorgen.' : 'Keine Zelltypen bekannt. Zelltyp je Gerät eintragen: ' + s.where + '.'));
+            box.appendChild(bwEl('div', 'bw-empty', s.count === 0 ? '✅ ' + T('Nothing to buy.') : T('No cell types known. Enter the cell type per device: %s.', s.where)));
         } else if (s.items && s.items.length) {
             var big = bwEl('div', 'bw-big');
             s.items.forEach(function (it, i) {
@@ -403,7 +417,7 @@
                     a.href = it.url;
                     a.target = '_blank';
                     a.rel = 'noopener noreferrer';
-                    a.title = 'Beim Händler suchen';
+                    a.title = T('Search at retailer');
                     big.appendChild(a);
                 }
             });
@@ -416,28 +430,28 @@
         }
         if (s.text) {
             var acts = bwEl('div', 'bw-acts');
-            var bc = bwEl('button', '', '📋 Kopieren'); bc.type = 'button';
+            var bc = bwEl('button', '', '📋 ' + T('Copy')); bc.type = 'button';
             bc.onclick = function () { bwCopy(s.text); };
-            var bs = bwEl('button', '', '✉️ Senden'); bs.type = 'button';
+            var bs = bwEl('button', '', '✉️ ' + T('Send')); bs.type = 'button';
             bs.onclick = function () { requestAction('shop_send', ''); };
             acts.appendChild(bc); acts.appendChild(bs);
             box.appendChild(acts);
         }
         if (s.missing && s.missing.length) {
-            box.appendChild(bwEl('div', 'bw-note', 'ℹ️ Zelltyp fehlt bei: ' + s.missing.join(', ') + '. Eintragen: ' + s.where + '.'));
+            box.appendChild(bwEl('div', 'bw-note', 'ℹ️ ' + T('Cell type missing for: %s. Enter it: %s.', s.missing.join(', '), s.where)));
         }
         root.appendChild(box);
         var rd = bwEl('div', 'bw-sec');
-        rd.appendChild(bwEl('div', 'bw-h', '🔧 Tauschrunde' + (s.count ? ' (' + s.count + (s.count === 1 ? ' Gerät' : ' Geräte') + ')' : '') + (s.until ? ' — am besten bis ' + s.until : '')));
+        rd.appendChild(bwEl('div', 'bw-h', '🔧 ' + T('Replacement round') + (s.count ? ' (' + s.count + ' ' + (s.count === 1 ? T('device') : T('devices')) + ')' : '') + (s.until ? ' — ' + T('ideally by %s', s.until) : '')));
         if (!s.places || s.places.length === 0) {
-            rd.appendChild(bwEl('div', 'bw-empty', 'Keine Tauschrunde nötig.'));
+            rd.appendChild(bwEl('div', 'bw-empty', T('No replacement round needed.')));
         }
         (s.places || []).forEach(function (p) {
             var head = bwEl('div', 'bw-place', p.place);
             rd.appendChild(head);
             if (BW.allowAck && p.devices.length) {
                 var sure = bwSure === 'place:' + p.place;
-                var pb = bwEl('button', 'bw-chip' + (sure ? ' on' : ''), sure ? 'Wirklich alle ' + p.devices.length + ' in ' + p.place + '?' : '✔ Alles getauscht (' + p.devices.length + ')');
+                var pb = bwEl('button', 'bw-chip' + (sure ? ' on' : ''), sure ? T('Really all %s in %s?', p.devices.length, p.place) : '✔ ' + T('All replaced (%s)', p.devices.length));
                 pb.type = 'button';
                 pb.onclick = function () {
                     if (!sure) { bwSure = 'place:' + p.place; bwRender(); return; }
@@ -458,49 +472,49 @@
         var chg = (BW.shopping && BW.shopping.changes) || [];
         if (chg.length) {
             var cbox = bwEl('div', 'bw-sec');
-            cbox.appendChild(bwEl('div', 'bw-h', '🔋 Gewechselte Batterien'));
+            cbox.appendChild(bwEl('div', 'bw-h', '🔋 ' + T('Replaced batteries')));
             var cg = bwEl('div', 'bw-dia');
             chg.forEach(function (c) { cg.appendChild(bwEl('span', 'd', c.label)); cg.appendChild(bwEl('span', '', c.text)); });
             cbox.appendChild(cg);
             root.appendChild(cbox);
         }
         var box = bwEl('div', 'bw-sec');
-        box.appendChild(bwEl('div', 'bw-h', '⏱ Lebensdauer zwischen zwei Batteriewechseln'));
+        box.appendChild(bwEl('div', 'bw-h', '⏱ ' + T('Lifetime between two battery replacements')));
         if (rows.length === 0) {
-            box.appendChild(bwEl('div', 'bw-empty', 'Noch zu wenig Daten: je Gerät braucht es mindestens zwei erfasste Batteriewechsel.'));
+            box.appendChild(bwEl('div', 'bw-empty', T('Not enough data yet: each device needs at least two recorded battery replacements.')));
         } else {
             var g = bwEl('div', 'bw-dia');
             rows.forEach(function (r) { g.appendChild(bwEl('span', 'd', r.group)); g.appendChild(bwEl('span', '', r.text)); });
             box.appendChild(g);
         }
         root.appendChild(box);
-        var known = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf('Restlaufzeit unbekannt') !== 0; });
-        var unknown = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf('Restlaufzeit unbekannt') === 0; });
+        var known = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf(T('Remaining runtime unknown')) !== 0; });
+        var unknown = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf(T('Remaining runtime unknown')) === 0; });
         var box2 = bwEl('div', 'bw-sec');
-        box2.appendChild(bwEl('div', 'bw-h', '📈 Restlaufzeit je Gerät'));
+        box2.appendChild(bwEl('div', 'bw-h', '📈 ' + T('Remaining runtime per device')));
         if (known.length) {
             var g2 = bwEl('div', 'bw-dia');
             known.forEach(function (d) { g2.appendChild(bwEl('span', 'd', d.name)); g2.appendChild(bwEl('span', '', d.forecastText)); });
             box2.appendChild(g2);
         }
         if (unknown.length) {
-            box2.appendChild(bwEl('div', 'bw-note', 'Für ' + unknown.length + (unknown.length === 1 ? ' Gerät' : ' Geräte') + ' gibt es noch keine Prognose: zu wenig Verlauf oder zu grobe Anzeige. Der Grund steht beim Aufklappen der Zeile.'));
+            box2.appendChild(bwEl('div', 'bw-note', T('No forecast yet for %s %s: too little history or too coarse a display. Expand the row to see why.', unknown.length, unknown.length === 1 ? T('device') : T('devices'))));
         }
         if (!known.length && !unknown.length) {
-            box2.appendChild(bwEl('div', 'bw-empty', 'Noch keine Prognose möglich.'));
+            box2.appendChild(bwEl('div', 'bw-empty', T('No forecast possible yet.')));
         }
         root.appendChild(box2);
     }
 
     function bwDiary(root) {
         if (!BW.diary || BW.diary.length === 0) {
-            root.appendChild(bwEl('div', 'bw-empty', 'Noch keine Batteriewechsel erfasst. Der Wächter erkennt sie selbst, oder du trägst sie über „Habe ich getauscht“ ein.'));
+            root.appendChild(bwEl('div', 'bw-empty', T('No battery replacements recorded yet. The monitor detects them itself, or you enter them via “I replaced it”.')));
             return;
         }
         var g = bwEl('div', 'bw-dia');
         BW.diary.forEach(function (e) {
             g.appendChild(bwEl('span', 'd', e.when));
-            g.appendChild(bwEl('span', '', e.name + ' (' + e.type + ') — ' + e.note));
+            g.appendChild(bwEl('span', '', e.name + ' (' + bwDiaryType(e.type) + ') — ' + e.note));
         });
         root.appendChild(g);
     }
@@ -528,12 +542,12 @@
             var active = bwActivePlace();
             var onList = bwFilter !== 'shop' && bwFilter !== 'stats' && bwFilter !== 'diary';
             var sel = bwEl('select', 'bw-placesel' + (active !== '' ? ' on' : '') + (onList ? '' : ' off'));
-            sel.title = onList ? 'Zeigt nur die Geräte dieses Orts' : 'Gilt nur für die Geräteliste; Einkauf, Statistik und Tagebuch zeigen alle Orte';
-            var all = bwEl('option', '', '📍 Alle Orte');
+            sel.title = onList ? T('Shows only the devices of this location') : T('Applies only to the device list; shopping, statistics and log show all locations');
+            var all = bwEl('option', '', '📍 ' + T('All locations'));
             all.value = '';
             sel.appendChild(all);
             places.forEach(function (p) {
-                var o = bwEl('option', '', p === BW_NO_PLACE ? '(ohne Ort)' : p);
+                var o = bwEl('option', '', p === BW_NO_PLACE ? T('(no location)') : p);
                 o.value = p;
                 if (p === active) { o.selected = true; }
                 sel.appendChild(o);
@@ -546,13 +560,13 @@
             };
             chips.appendChild(sel);
         }
-        [['shop', '🛒 Einkauf'], ['stats', '📈 Statistik']].forEach(function (v) {
+        [['shop', '🛒 ' + T('Shopping')], ['stats', '📈 ' + T('Statistics')]].forEach(function (v) {
             var b = bwEl('button', 'bw-chip' + (bwFilter === v[0] ? ' on' : ''), v[1]);
             b.type = 'button';
             b.onclick = function () { bwFilter = v[0]; bwOpen = null; bwSure = null; bwRender(); };
             chips.appendChild(b);
         });
-        var dia = bwEl('button', 'bw-chip' + (bwFilter === 'diary' ? ' on' : ''), '📓 Tagebuch');
+        var dia = bwEl('button', 'bw-chip' + (bwFilter === 'diary' ? ' on' : ''), '📓 ' + T('Log'));
         dia.type = 'button';
         dia.onclick = function () { bwFilter = 'diary'; bwOpen = null; bwSure = null; bwRender(); };
         chips.appendChild(dia);
@@ -578,7 +592,7 @@
                 var inp = document.createElement('input');
                 inp.type = 'search';
                 inp.className = 'bw-search';
-                inp.placeholder = '🔍 Suchen (Name, Ort, System)';
+                inp.placeholder = '🔍 ' + T('Search (name, location, system)');
                 inp.value = bwSearch;
                 inp.oninput = function () { bwSearch = inp.value; bwSearchFocus = true; bwOpen = null; bwSure = null; bwRender(); };
                 sbox.appendChild(inp);
@@ -586,12 +600,12 @@
                 bwSearchEl = inp;
             }
             if (BW.devices.length === 0) {
-                root.appendChild(bwEl('div', 'bw-empty', 'Es werden noch keine Geräte überwacht. In der Instanz „Jetzt neu suchen“ drücken.'));
+                root.appendChild(bwEl('div', 'bw-empty', T('No devices are monitored yet. Press “Search again now” in the instance.')));
             } else if (shown.length === 0) {
-                root.appendChild(bwEl('div', 'bw-empty', q !== '' ? 'Kein Gerät passt zu „' + bwSearch.trim() + '“.' : (bwFilter === 'problems' ? '✅ Alles in Ordnung — kein Gerät braucht Aufmerksamkeit.' : 'Kein Gerät in dieser Ansicht.')));
+                root.appendChild(bwEl('div', 'bw-empty', q !== '' ? T('No device matches “%s”.', bwSearch.trim()) : (bwFilter === 'problems' ? '✅ ' + T('All OK — no device needs attention.') : T('No device in this view.'))));
             } else {
                 var sorts = bwEl('div', 'bw-sorts');
-                sorts.appendChild(bwEl('span', 'lbl', 'Sortieren:'));
+                sorts.appendChild(bwEl('span', 'lbl', T('Sort:')));
                 BW_SORTS.forEach(function (s) {
                     var on = bwSort.key === s.id;
                     var b = bwEl('button', 'bw-chip' + (on ? ' on' : ''), s.label + (on ? (bwSort.dir === 'asc' ? ' ↑' : ' ↓') : ''));
@@ -599,7 +613,7 @@
                     b.onclick = function () { bwSetSort(s.id); };
                     sorts.appendChild(b);
                 });
-                var grp = bwEl('button', 'bw-chip' + (bwGroup ? ' on' : ''), '📍 Nach Ort');
+                var grp = bwEl('button', 'bw-chip' + (bwGroup ? ' on' : ''), '📍 ' + T('By location'));
                 grp.type = 'button';
                 grp.onclick = function () {
                     bwGroup = !bwGroup;
@@ -625,7 +639,7 @@
                     });
                     places.forEach(function (p) {
                         var inPlace = sortedShown.filter(function (d) { return (d.place || '') === p; });
-                        root.appendChild(bwEl('div', 'bw-place', (p || 'ohne Ort') + ' (' + inPlace.length + ')'));
+                        root.appendChild(bwEl('div', 'bw-place', (p || T('no location')) + ' (' + inPlace.length + ')'));
                         var gl = bwEl('div', 'bw-list');
                         inPlace.forEach(function (d) { gl.appendChild(bwRow(d)); });
                         root.appendChild(gl);
@@ -645,14 +659,14 @@
         var shownMsg = bwLocalMsg || BW.message;
         if (shownMsg) { root.appendChild(bwEl('div', 'bw-msg', shownMsg)); }
         if (BW.allowAck && BW.undoText) {
-            var ub = bwEl('button', 'bw-chip', '↩️ Rückgängig: ' + BW.undoText); ub.type = 'button';
+            var ub = bwEl('button', 'bw-chip', '↩️ ' + T('Undo: %s', BW.undoText)); ub.type = 'button';
             ub.onclick = function () { requestAction('undo', ''); };
             root.appendChild(ub);
-            var ux = bwEl('button', 'bw-chip', '✕'); ux.type = 'button'; ux.title = 'Ausblenden, ohne etwas zurückzunehmen';
+            var ux = bwEl('button', 'bw-chip', '✕'); ux.type = 'button'; ux.title = T('Hide without undoing anything');
             ux.onclick = function () { requestAction('undo_dismiss', ''); };
             root.appendChild(ux);
         }
-        root.appendChild(bwEl('div', 'bw-foot', BW.summary.total + ' Geräte überwacht · Stand ' + BW.asOf));
+        root.appendChild(bwEl('div', 'bw-foot', T('%s devices monitored · as of %s', BW.summary.total, BW.asOf)));
     }
 
     function handleMessage(payload) {

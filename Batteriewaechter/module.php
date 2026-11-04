@@ -633,7 +633,90 @@ class Batteriewaechter extends IPSModule
         $html = file_get_contents(__DIR__ . '/module.html');
         // handleMessage() entsteht erst im HTML, der erste Aufruf muss deshalb dahinter.
         // JSON_HEX_TAG: ein Gerätename wie „</script>“ darf die Kachel nicht aufbrechen.
-        return $html . '<script>handleMessage(' . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) . ');</script>';
+        return '<script>var BWACH_TEXTE = ' . json_encode($this->tileTexts(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) . ';</script>'
+            . $html . '<script>handleMessage(' . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) . ');</script>';
+    }
+
+    /** Wörterbuch der fest in module.html stehenden Kacheltexte: Englisch => übersetzt (die Kachel schlägt per T() nach). */
+    private function tileTexts(): array
+    {
+        $out = [];
+        foreach ([
+            'Action needed',
+            'All',
+            'empty',
+            'low',
+            'empty soon',
+            'Radio silence',
+            'Preventive',
+            'Check data',
+            'Urgency',
+            'Name',
+            'Location',
+            'Battery level',
+            'Age of value',
+            'Sign of life',
+            'Last replaced',
+            'Cell type',
+            'System',
+            'Battery value reported: %s · Sign of life: %s',
+            'Measured voltage %s',
+            '(calculated from it: %s, an approximation)',
+            'Charge level calculated from the voltage (approximation)',
+            'I replaced it',
+            'Remind me later',
+            'Really out of service?',
+            'Out of service',
+            'Shopping list copied',
+            'Copying is not possible here. The form offers “Shopping list as text”.',
+            'Shopping for the next %s days',
+            'Stock is sufficient.',
+            'Nothing to buy.',
+            'No cell types known. Enter the cell type per device: %s.',
+            'Search at retailer',
+            'Copy',
+            'Send',
+            'Cell type missing for: %s. Enter it: %s.',
+            'Replacement round',
+            'device',
+            'devices',
+            'ideally by %s',
+            'No replacement round needed.',
+            'Really all %s in %s?',
+            'All replaced (%s)',
+            'Replaced batteries',
+            'Lifetime between two battery replacements',
+            'Not enough data yet: each device needs at least two recorded battery replacements.',
+            'Remaining runtime unknown',
+            'Remaining runtime per device',
+            'No forecast yet for %s %s: too little history or too coarse a display. Expand the row to see why.',
+            'No forecast possible yet.',
+            'No battery replacements recorded yet. The monitor detects them itself, or you enter them via “I replaced it”.',
+            'detected',
+            'entered',
+            'added later',
+            'Shows only the devices of this location',
+            'Applies only to the device list; shopping, statistics and log show all locations',
+            'All locations',
+            '(no location)',
+            'no location',
+            'Shopping',
+            'Statistics',
+            'Log',
+            'Search (name, location, system)',
+            'No devices are monitored yet. Press “Search again now” in the instance.',
+            'No device matches “%s”.',
+            'All OK — no device needs attention.',
+            'No device in this view.',
+            'Sort:',
+            'By location',
+            'Undo: %s',
+            'Hide without undoing anything',
+            '%s devices monitored · as of %s',
+        ] as $en) {
+            $out[$en] = BWACHText::t($en);
+        }
+        return $out;
     }
 
     /** Rückkanal aus der Kachel: 'ack' (Quittieren) und 'refresh'. */
