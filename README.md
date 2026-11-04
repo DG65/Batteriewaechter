@@ -1,8 +1,10 @@
+🇬🇧 [English version](README.en.md)
+
 # DG65-Toolkit Batteriewächter
 
-Überwacht die Batterien der Geräte im Haus (Funksensoren, Thermostate, Fenster- und Rauchmelder …) für IP-Symcon. Findet die Batteriewerte selbst, führt mehrere Signale eines Geräts zusammen und sagt ehrlich dazu, **wie verlässlich** der Wert ist.
+Überwacht die Batterien der Geräte im Haus (Funksensoren, Thermostate, Fenster- und Rauchmelder …) für Symcon. Findet die Batteriewerte selbst, führt mehrere Signale eines Geräts zusammen und sagt ehrlich dazu, **wie verlässlich** der Wert ist.
 
-> Status: **0.5.1, Beta** (Stufe 1 bis 3 des Konzepts gebaut). Was an echten Langzeitdaten noch fehlt, steht unter „Ehrliche Grenzen“.
+Das Modul folgt der Sprache deines Symcon (Deutsch oder Englisch): Formulare, Variablen, Befunde, Meldungen und Kachel. Was an echten Langzeitdaten noch fehlt, steht unter „Ehrliche Grenzen“.
 
 ## Was es anders macht
 
