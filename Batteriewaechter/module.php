@@ -997,7 +997,8 @@ class Batteriewaechter extends IPSModule
         if ($found === null) {
             return BWACHText::t('ℹ️ Not searched yet: first click "Search again now".');
         }
-        $place = $place === '' ? 'ohne Ort' : $place;
+        // Gleicher Schlüssel wie BWACHPrognose::tauschrunde (dort übersetzt), sonst findet die englische Oberfläche nichts.
+        $place = $place === '' ? BWACHText::t('no location') : $place;
         $now   = $this->now();
         $v     = $this->views($this->evaluateAll($found), $now);
         $devs  = $v['round']['places'][$place] ?? [];
