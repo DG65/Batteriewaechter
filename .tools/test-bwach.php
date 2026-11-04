@@ -139,6 +139,10 @@ function bwachDe(string $t): string
     if ($de === null) {
         $de = json_decode((string)file_get_contents($GLOBALS['MODDIR'] . '/locale.json'), true)['translations']['de'] ?? [];
     }
+    // Sprachprobe: BWACH_EN=1 simuliert ein englisches Symcon (keine Übersetzung)
+    if (getenv('BWACH_EN')) {
+        return $t;
+    }
     return $de[$t] ?? $t;
 }
 require $MODDIR . '/module.php';
@@ -3055,5 +3059,17 @@ check('Eine Variable mit ähnlichem Namen (UNREACHABLE_COUNT) bleibt ein Lebensz
 $GLOBALS['OBJ'][9303]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 20;
 check('UNREACH2 wird nicht automatisch als Erreichbarkeit ausgewertet (wahr = nicht erreichbar gilt nur bei gewählter Variable)', (function () use ($mU2) { $GLOBALS['OBJ'][9303]['var']['value'] = true; $GLOBALS['OBJ'][9303]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 3600; return strpos(reachDev($mU2, 'Fensterkontakt Bad')['headline'], 'Nicht erreichbar') !== 0; })());
 
+// Sprachprobe (nur mit BWACH_EN=1): Formular, Diagnose, Trockenlauf, Kachel und Tabellen eines frischen Moduls in eine Datei
+if (getenv('BWACH_EN')) {
+    $pe = freshModule(['NotificationsActive' => true, 'DeviceSettings' => $crit]);
+    $pe->Search(); $pe->Check();
+    $dump = [$pe->GetConfigurationForm(), $pe->Diagnosis(), $pe->Preview(), $pe->ShoppingText(), $pe->DeviceListCsv(), $pe->DeviceListJson(false), end($pe->visUpdates) ?: '', $pe->GetVisualizationTile()];
+    foreach (['TableProblems', 'TableAll', 'TableDiary', 'TableShopping', 'TableStats', 'Summary'] as $vi) { $id = IPS_GetObjectIDByIdent($vi, $pe->InstanceID); if ($id !== false) { $dump[] = (string)GetValue($id); } }
+    $dump[] = implode("\n", array_map(function ($u) { return is_string($u[2]) ? $u[2] : json_encode($u[2], JSON_UNESCAPED_UNICODE); }, $pe->fieldUpdates));
+    $dump[] = implode("\n", $GLOBALS['LOG'] ?? []);
+    $dump[] = json_encode($GLOBALS['SENT'] ?? [], JSON_UNESCAPED_UNICODE);
+    file_put_contents(getenv('BWACH_EN'), implode("\n=====\n", $dump));
+    echo "Sprachprobe geschrieben: " . getenv('BWACH_EN') . "\n";
+}
 echo "\n" . ($fails === 0 ? "Alle Prüfungen bestanden.\n" : "$fails Prüfung(en) fehlgeschlagen.\n");
 exit($fails === 0 ? 0 : 1);

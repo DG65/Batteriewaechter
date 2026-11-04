@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.0] - 2026-11-04
+
+### Added
+- **Englische Oberfläche:** Das Modul folgt der Sprache von Symcon (Deutsch oder Englisch). Formular, Rückmeldungen, Variablennamen, Befunde, Tabellen, Meldungen per Push und E-Mail, Wochenbericht, Diagnose und Kachel gibt es jetzt auf Englisch. Die Quelltexte stehen englisch im Code, die deutsche Fassung in `locale.json` (gebaut aus `.tools/locale-teile/`). Die deutsche Anzeige ist Zeichen für Zeichen unverändert, das belegt der Prüfstand mit seinen deutschen Erwartungen. Neu: `README.en.md`, Prüfung `.tools/check-locale.php`.
+- **Bewusst deutsch geblieben:** Aktionscodes für Skripte (`getauscht`, `zurueckgestellt`, `ausser_betrieb`), gespeicherte Werte, die Einkaufsbezeichnungen der Zelltypen (Schlüssel für Vorrat und Linkvorlage `{Zelltyp}`), Datumsformate und Zahlen mit Komma. Einträge, die vor dem Update gespeichert wurden (Tagebuch-Notizen, Rückgängig-Beschriftung), bleiben in der Sprache, in der sie entstanden sind.
+- Die englische Oberfläche ist noch in keinem englischen Symcon gesehen.
+
+### Fixed
+- **„Alle dort getauscht“ für Geräte ohne Ort** sucht jetzt denselben Schlüssel wie die Tauschrunde (in der englischen Oberfläche wären diese Geräte sonst nicht gefunden worden).
+
 ## [0.19.3] - 2026-11-03
 
 ### Added
