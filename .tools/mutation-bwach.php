@@ -108,7 +108,7 @@ $mutations = [
     ['module.php', "restore_error_handler();", "", 'Fehler-Handler bleibt hängen'],
     ['module.php', "\$warnings[] = (string)\$str;", "", 'Warnungen des SMTP-Moduls werden nicht gesammelt'],
     ['module.php', "BWACHText::t('E-mail: ⚠️ not sent — %s', \$this->lastMailError)", "BWACHText::t('E-mail: ⚠️ not sent — %s', '')", 'Testmeldung ohne Ursache'],
-    ['module.php', "\$this->LogMessage('E-Mail-Versand fehlgeschlagen: ' . \$this->lastMailError, KL_WARNING);", "", 'Ursache nicht im Meldungslog'],
+    ['module.php', "\$this->LogMessage(BWACHText::t('Sending email failed: %s', \$this->lastMailError), KL_WARNING);", "", 'Ursache nicht im Meldungslog'],
     ['module.php', "\$this->UpdateFormField('NotifyStatus', 'caption', \$out);", "", 'Testmeldung frischt die Statuszeile nicht auf'],
     // --- 0.4.0: Zelltypen, Prognose, Einkauf, Statistik
     ['BWACHZelle.php', 'if ($v > $top * 1.12 || $v < $low * 0.6) {', 'if (false) {', 'Spannung, die nicht zum Zelltyp passt, wird umgerechnet'],
@@ -345,7 +345,7 @@ $mutations = [
     ['BWACHLogik.php', "|| (string)\$v['moduleName'] === 'Batteriewaechter' ||", "||", 'Diagnose nennt die eigenen Variablen'],
     ['module.php', "\$out[\$o['Value'] ? 'true' : 'false'] = (string)\$o['Caption'];", "\$out[\$o['Value'] ? 'false' : 'true'] = (string)\$o['Caption'];", 'Beschriftungen aus der Darstellung: True und False vertauscht'],
     ['module.php', "\$parts[] = \$this->kindLabel((string)\$kind) . ' ' . implode(', ', array_map(function (\$v) { return '#' . \$v; }, \$vids));", "", 'Kachel nennt die IDs der Batterie-Variablen nicht'],
-    ['module.php', "\$parts = [(count(\$inst) > 1 ? 'Instanzen ' : 'Instanz ') . implode(', ', array_map(function (\$i) { return '#' . \$i; }, \$inst))];", "\$parts = [];", 'Kachel nennt die Instanz-ID nicht'],
+    ['module.php', "\$parts = [BWACHText::t(count(\$inst) > 1 ? 'Instances %s' : 'Instance %s', implode(', ', array_map(function (\$i) { return '#' . \$i; }, \$inst)))];", "\$parts = [];", 'Kachel nennt die Instanz-ID nicht'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],
