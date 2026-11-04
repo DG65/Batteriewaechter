@@ -1302,7 +1302,7 @@ class Batteriewaechter extends IPSModule
         $out = [];
         foreach ($this->loadJson('NotifyState') as $key => $s) {
             if ((int)$s['snooze'] > $now) {
-                $out[(string)$key] = '💤 bis ' . date('d.m.Y', (int)$s['snooze']);
+                $out[(string)$key] = BWACHText::t('💤 until %s', date('d.m.Y', (int)$s['snooze']));
             }
         }
         return $out;
@@ -1434,7 +1434,8 @@ class Batteriewaechter extends IPSModule
         $extra = [];
         $views = $this->views($rows, $now);
         if ($views['shopping']['lines']) {
-            $extra[] = '🛒 Einkauf für die nächsten ' . $views['horizon'] . ' Tage: ' . implode(', ', $views['shopping']['lines']) . ($views['shopping']['missing'] ? ' (Zelltyp fehlt bei ' . count($views['shopping']['missing']) . ' Gerät' . (count($views['shopping']['missing']) === 1 ? '' : 'en') . ')' : '');
+            $nMiss = count($views['shopping']['missing']);
+            $extra[] = BWACHText::t('🛒 Shopping for the next %s days: %s', $views['horizon'], implode(', ', $views['shopping']['lines'])) . ($nMiss ? ($nMiss === 1 ? BWACHText::t(' (cell type missing for %s device)', $nMiss) : BWACHText::t(' (cell type missing for %s devices)', $nMiss)) : '');
         }
         $d = BWACHMeldung::digest($sum, $list, $extra);
         if (!$d['anyProblem'] && !$this->ReadPropertyBoolean('DigestWhenOk')) {
@@ -1469,7 +1470,7 @@ class Batteriewaechter extends IPSModule
             $this->notifyReset();
         }
         if ($ok === 0) {
-            $this->LogMessage('Meldung „' . $title . '“ konnte über keinen Weg zugestellt werden (Push-Ziele und E-Mail unter „Meldungen“ prüfen).' . (!empty($channels['mail']) && $this->lastMailError !== '' ? ' E-Mail: ' . $this->lastMailError : ''), KL_WARNING);
+            $this->LogMessage(BWACHText::t('Notification "%s" could not be delivered on any channel (check push targets and email under "Notifications").', $title) . (!empty($channels['mail']) && $this->lastMailError !== '' ? BWACHText::t(' Email: %s', $this->lastMailError) : ''), KL_WARNING);
         }
         return $ok;
     }
@@ -1492,7 +1493,7 @@ class Batteriewaechter extends IPSModule
             if ($good) {
                 $ok++;
             } else {
-                $this->LogMessage('Push an Instanz #' . $id . ' (' . $type . ') fehlgeschlagen.', KL_WARNING);
+                $this->LogMessage(BWACHText::t('Push to instance #%s (%s) failed.', $id, $type), KL_WARNING);
             }
         }
         return ['targets' => count($targets), 'ok' => $ok];
@@ -1526,7 +1527,7 @@ class Batteriewaechter extends IPSModule
         $this->lastMailError = '';
         $inst = $this->ReadPropertyInteger('MailInstance');
         if ($inst <= 0 || !IPS_InstanceExists($inst)) {
-            $this->lastMailError = 'keine SMTP-Instanz ausgewählt (oder die Instanz gibt es nicht mehr)';
+            $this->lastMailError = BWACHText::t('no SMTP instance selected (or the instance no longer exists)');
             return false;
         }
         $to = trim($this->ReadPropertyString('MailTo'));
@@ -1542,19 +1543,19 @@ class Batteriewaechter extends IPSModule
             if ($to === '') {
                 // Ohne Empfänger gilt der in der SMTP-Instanz eingestellte
                 if (!function_exists('SMTP_SendMail')) {
-                    $this->lastMailError = 'die Funktion SMTP_SendMail gibt es nicht (SMTP-Modul fehlt?)';
+                    $this->lastMailError = BWACHText::t('the function SMTP_SendMail does not exist (SMTP module missing?)');
                 } else {
                     $sent = (bool)SMTP_SendMail($inst, $title, $text);
                 }
             } elseif (!function_exists('SMTP_SendMailEx')) {
-                $this->lastMailError = 'die Funktion SMTP_SendMailEx gibt es nicht (SMTP-Modul fehlt?)';
+                $this->lastMailError = BWACHText::t('the function SMTP_SendMailEx does not exist (SMTP module missing?)');
             } else {
                 $body = '<html><body>' . nl2br(htmlspecialchars($text)) . '</body></html>';
                 foreach (array_filter(array_map('trim', preg_split('/[,;]+/', $to))) as $addr) {
                     if (SMTP_SendMailEx($inst, $addr, $title, $body)) {
                         $sent = true;
                     } else {
-                        $this->LogMessage('E-Mail an „' . $addr . '“ fehlgeschlagen.', KL_WARNING);
+                        $this->LogMessage(BWACHText::t('Email to "%s" failed.', $addr), KL_WARNING);
                     }
                 }
             }
@@ -1567,7 +1568,7 @@ class Batteriewaechter extends IPSModule
             $this->lastMailError = BWACHMeldung::explainMailError($warnings, $exception);
         }
         if (!$sent) {
-            $this->LogMessage('E-Mail-Versand fehlgeschlagen: ' . $this->lastMailError, KL_WARNING);
+            $this->LogMessage(BWACHText::t('Sending email failed: %s', $this->lastMailError), KL_WARNING);
         }
         return $sent;
     }
@@ -1576,16 +1577,16 @@ class Batteriewaechter extends IPSModule
     {
         $diary = array_reverse($this->loadJson('Diary'));
         if (!$diary) {
-            return '<div style="padding:8px">ℹ️ Noch keine Batteriewechsel erfasst. Der Wächter erkennt sie selbst oder du trägst sie unter „Quittieren“ ein.</div>';
+            return '<div style="padding:8px">' . BWACHText::t('ℹ️ No battery replacements recorded yet. The monitor detects them itself, or you enter them under "Acknowledge".') . '</div>';
         }
         $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
         $body = '';
         foreach (array_slice($diary, 0, self::MAX_DIARY_ROWS) as $d) {
             $body .= '<tr><td>' . $e(date('d.m.Y H:i', (int)$d['t'])) . '</td><td>' . $e($d['name']) . '</td><td>'
-                . ($d['type'] === 'erkannt' ? '🔎 erkannt' : '✍️ eingetragen') . '</td><td>' . $e($d['note']) . '</td></tr>';
+                . ($d['type'] === 'erkannt' ? BWACHText::t('🔎 detected') : BWACHText::t('✍️ entered')) . '</td><td>' . $e($d['note']) . '</td></tr>';
         }
         return '<style>.bw{border-collapse:collapse;width:100%;font-size:14px}.bw th,.bw td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(128,128,128,.35)}</style>'
-            . '<table class="bw"><tr><th>Wann</th><th>Gerät</th><th>Art</th><th>Hinweis</th></tr>' . $body . '</table>';
+            . '<table class="bw"><tr><th>' . BWACHText::t('When') . '</th><th>' . BWACHText::t('Device') . '</th><th>' . BWACHText::t('Entry type') . '</th><th>' . BWACHText::t('Note') . '</th></tr>' . $body . '</table>';
     }
 
     // =====================================================================
@@ -2102,7 +2103,7 @@ class Batteriewaechter extends IPSModule
             $r['soon'] = false;
             if ($r['status'] === BWACHLogik::ST_OK && $f['days'] !== null && in_array($f['confidence'], ['hoch', 'mittel'], true) && $f['days'] <= $this->ReadPropertyInteger('SoonDays')) {
                 $r['soon'] = true;
-                $r['reasons'][] = 'Batterie bald leer: ' . BWACHPrognose::forecastText($f);
+                $r['reasons'][] = BWACHText::t('Battery soon empty: %s', BWACHPrognose::forecastText($f));
                 $r['urgency'] = max($r['urgency'], 650 + ($r['critical'] ? 100 : 0));
             }
             // Vorsorglicher Wechsel: nur kritische Geräte, nur mit erfasstem letzten Wechsel (Tagebuch)
@@ -2112,7 +2113,7 @@ class Batteriewaechter extends IPSModule
                 $pv = BWACHMeldung::preventiveDue(BWACHMeldung::lastReplacement($diaryAll, (string)$key), $pm, $now);
                 if ($pv['due']) {
                     $r['preventive'] = true;
-                    $r['reasons'][]  = 'Vorsorglicher Wechsel fällig: letzter Wechsel vor ' . BWACHLogik::num($pv['months']) . ' Monaten (Intervall ' . $pm . ' ' . ($pm === 1 ? 'Monat' : 'Monate') . ')';
+                    $r['reasons'][]  = ($pm === 1 ? BWACHText::t('Preventive replacement due: last replacement %s months ago (interval %s month)', BWACHLogik::num($pv['months']), $pm) : BWACHText::t('Preventive replacement due: last replacement %s months ago (interval %s months)', BWACHLogik::num($pv['months']), $pm));
                     $r['urgency']    = max($r['urgency'], 450);
                 }
             }
@@ -2123,15 +2124,15 @@ class Batteriewaechter extends IPSModule
                 $when = date('d.m.Y', (int)$ps['t']);
                 $miss = (int)($ps['miss'] ?? 0);
                 if (!empty($ps['ans'])) {
-                    $pollText = 'Abfrage am ' . $when . ' gesendet, Gerät hat geantwortet';
+                    $pollText = BWACHText::t('Query sent on %s, device responded', $when);
                 } elseif ($ps['ans'] === false || $miss > 0) {
                     $since = $miss > 0 ? $miss : (int)$ps['t'];
-                    $pollText = 'Abfragen seit ' . date('d.m.Y', $since) . ' ohne Antwort (zuletzt am ' . $when . ' gesendet)';
+                    $pollText = BWACHText::t('Queries without response since %s (last sent on %s)', date('d.m.Y', $since), $when);
                     $r['quality'][] = 'keine_antwort';
-                    $r['reasons'][] = 'Reagiert nicht auf Abfragen (seit ' . date('d.m.Y', $since) . ' ohne Antwort)';
+                    $r['reasons'][] = BWACHText::t('Does not respond to queries (no response since %s)', date('d.m.Y', $since));
                     $r['urgency'] = max($r['urgency'], 400 + ($r['critical'] ? 100 : 0));
                 } else {
-                    $pollText = 'Abfrage am ' . $when . ' gesendet, Antwort steht noch aus (schlafende Geräte antworten erst beim Aufwachen)';
+                    $pollText = BWACHText::t('Query sent on %s, response still pending (sleeping devices only respond when they wake up)', $when);
                 }
             }
             $rows[] = ['id' => (string)$key, 'name' => $name, 'place' => $place, 'module' => (string)$d['module'], 'r' => $r,
@@ -2161,8 +2162,8 @@ class Batteriewaechter extends IPSModule
         foreach (BWACHPrognose::peerOutliers($rates) as $i => $o) {
             $weak = $rows[$i]['signal'] !== null && $rows[$i]['signal']['level'] === 'schwach';
             $rows[$i]['r']['quality'][] = 'auffaellig';
-            $rows[$i]['r']['reasons'][] = 'Entlädt ' . BWACHLogik::num($o['factor']) . '× schneller als vergleichbare Geräte (' . BWACHLogik::num($o['rate']) . ' statt im Median ' . BWACHLogik::num($o['median']) . ' Prozentpunkte pro Tag, ' . $o['n'] . ' Geräte im Vergleich)'
-                . ($weak ? '. Das Funksignal ist schwach, häufiges Wiederholen kostet Batterie' : '. Mögliche Ursachen: defektes Gerät, schlechte Funkverbindung, Dauersenden');
+            $rows[$i]['r']['reasons'][] = BWACHText::t('Drains %s× faster than comparable devices (%s instead of the median %s percentage points per day, %s devices compared)', BWACHLogik::num($o['factor']), BWACHLogik::num($o['rate']), BWACHLogik::num($o['median']), $o['n'])
+                . ($weak ? BWACHText::t('. The radio signal is weak, frequent retransmissions cost battery') : BWACHText::t('. Possible causes: defective device, poor radio connection, continuous transmitting'));
             $rows[$i]['r']['urgency'] = max($rows[$i]['r']['urgency'], 450 + ($rows[$i]['r']['critical'] ? 100 : 0));
             $rows[$i]['peer'] = $o;
         }
@@ -2225,7 +2226,7 @@ class Batteriewaechter extends IPSModule
                 $ok = (bool)$fn((int)$row['inst'], ...(self::POLL_ARGS[$row['module']] ?? []));
             } catch (\Throwable $e) {
                 $ok = false;
-                $this->LogMessage('Abfrage von „' . $row['name'] . '“ fehlgeschlagen: ' . $e->getMessage(), KL_WARNING);
+                $this->LogMessage(BWACHText::t('Query of "%s" failed: %s', $row['name'], $e->getMessage()), KL_WARNING);
             }
             if ($ok) {
                 // Ein unbeantworteter Stand bleibt sichtbar, auch wenn erneut angefragt wird
@@ -2236,7 +2237,7 @@ class Batteriewaechter extends IPSModule
                 }
                 $state[$key] = ['t' => $now, 'ans' => null, 'miss' => $miss, 'why' => $still && !$old ? 'still' : 'alt'];
             } else {
-                $this->LogMessage('Abfrage von „' . $row['name'] . '“ wurde nicht angenommen.', KL_WARNING);
+                $this->LogMessage(BWACHText::t('Query of "%s" was not accepted.', $row['name']), KL_WARNING);
             }
         }
         if ($state !== $s0) {
@@ -2432,7 +2433,7 @@ class Batteriewaechter extends IPSModule
                 $inst[] = $m;
             }
         }
-        $parts = [(count($inst) > 1 ? 'Instanzen ' : 'Instanz ') . implode(', ', array_map(function ($i) { return '#' . $i; }, $inst))];
+        $parts = [BWACHText::t(count($inst) > 1 ? 'Instances %s' : 'Instance %s', implode(', ', array_map(function ($i) { return '#' . $i; }, $inst)))];
         foreach ($row['sigIds'] ?? [] as $kind => $vids) {
             $parts[] = $this->kindLabel((string)$kind) . ' ' . implode(', ', array_map(function ($v) { return '#' . $v; }, $vids));
         }
@@ -2442,10 +2443,10 @@ class Batteriewaechter extends IPSModule
     private function kindLabel(string $kind): string
     {
         return [
-            BWACHLogik::KIND_PERCENT  => 'Prozent',
-            BWACHLogik::KIND_FLAG     => '„schwach“-Flag',
-            BWACHLogik::KIND_FLAG_REV => '„in Ordnung“-Flag',
-            BWACHLogik::KIND_VOLTAGE  => 'Spannung',
+            BWACHLogik::KIND_PERCENT  => BWACHText::t('Percent'),
+            BWACHLogik::KIND_FLAG     => BWACHText::t('"low" flag'),
+            BWACHLogik::KIND_FLAG_REV => BWACHText::t('"OK" flag'),
+            BWACHLogik::KIND_VOLTAGE  => BWACHText::t('Voltage'),
         ][$kind] ?? $kind;
     }
 
@@ -2455,8 +2456,8 @@ class Batteriewaechter extends IPSModule
         $t = $this->ReadAttributeInteger('LastDiscoveryTs');
         $when = date('H:i:s', $t > 0 ? $t : $this->now());
         $icon = $n > 0 ? '✅' : ($t > 0 ? '⚠️' : 'ℹ️');
-        $tail = $n === 0 ? ' Unter „Weitere Variablen“ lässt sich ein Signal von Hand ergänzen.' : '';
-        return $icon . ' ' . $n . ' ' . ($n === 1 ? 'Gerät' : 'Geräte') . ' gefunden (zuletzt ' . $when . ' Uhr).' . $tail . $this->matterHint();
+        $tail = $n === 0 ? BWACHText::t(' A signal can be added manually under "Additional variables".') : '';
+        return ($n === 1 ? BWACHText::t('%s %s device found (last at %s).', $icon, $n, $when) : BWACHText::t('%s %s devices found (last at %s).', $icon, $n, $when)) . $tail . $this->matterHint();
     }
 
     /**
@@ -2485,25 +2486,24 @@ class Batteriewaechter extends IPSModule
         }
         $shown = array_slice($names, 0, 8);
         $more  = count($names) - count($shown);
-        return "\n\nℹ️ Matter: Für " . count($names) . ($more === 0 && count($names) === 1 ? ' Gerät gibt es' : ' Geräte gibt es') . ' keine Instanz für die Stromversorgung (Endpunkt 0): '
-            . implode(', ', $shown) . ($more > 0 ? ' und ' . $more . ' weitere' : '') . '. Hat ein Gerät eine Batterie, fehlt dem Wächter ihr Wert, bis dafür eine Instanz „Matter Gerät“ mit der Knoten-ID des Geräts und dem Endpunkt 0 angelegt ist (Objektbaum: Instanz hinzufügen; der Matter Konfigurator bietet den Endpunkt 0 nicht an und zeigt solche Instanzen rot). Netzbetriebene Geräte haben keine Batterie. Symcon hat angekündigt, dass der Matter Konfigurator den Endpunkt 0 mit Version 9.1 anbietet; bis dahin geht es nur von Hand.';
+        return "\n\n" . ($more === 0 && count($names) === 1 ? BWACHText::t('ℹ️ Matter: For %s device there is no power source instance (endpoint 0): ', count($names)) : BWACHText::t('ℹ️ Matter: For %s devices there is no power source instance (endpoint 0): ', count($names)))
+            . implode(', ', $shown) . ($more > 0 ? BWACHText::t(' and %s more', $more) : '') . BWACHText::t('. If a device has a battery, the monitor lacks its value until a "Matter Device" instance with the device\'s node ID and endpoint 0 is created (object tree: add instance; the Matter configurator does not offer endpoint 0 and shows such instances in red). Mains-powered devices have no battery. Symcon has announced that the Matter configurator will offer endpoint 0 with version 9.1; until then it can only be done manually.');
     }
 
     private function summaryLine(array $sum, int $now): string
     {
         if ($sum['total'] === 0) {
-            return 'ℹ️ Keine Geräte überwacht (zuletzt geprüft ' . date('d.m.Y H:i', $now) . ' Uhr).';
+            return BWACHText::t('ℹ️ No devices monitored (last checked %s).', date('d.m.Y H:i', $now));
         }
         $bad = [];
-        if ($sum['empty'] > 0) { $bad[] = $sum['empty'] . ' leer'; }
-        if ($sum['low'] > 0) { $bad[] = $sum['low'] . ' schwach'; }
-        if (($sum['soon'] ?? 0) > 0) { $bad[] = $sum['soon'] . ' bald leer'; }
-        if ($sum['silent'] > 0) { $bad[] = $sum['silent'] . ' Funkstille'; }
-        if ($sum['check'] > 0) { $bad[] = $sum['check'] . ' mit zweifelhaften Daten'; }
-        if ($sum['unknown'] > 0) { $bad[] = $sum['unknown'] . ' unbekannt'; }
+        if ($sum['empty'] > 0) { $bad[] = BWACHText::t('%s empty', $sum['empty']); }
+        if ($sum['low'] > 0) { $bad[] = BWACHText::t('%s low', $sum['low']); }
+        if (($sum['soon'] ?? 0) > 0) { $bad[] = BWACHText::t('%s soon empty', $sum['soon']); }
+        if ($sum['silent'] > 0) { $bad[] = BWACHText::t('%s radio silence', $sum['silent']); }
+        if ($sum['check'] > 0) { $bad[] = BWACHText::t('%s with doubtful data', $sum['check']); }
+        if ($sum['unknown'] > 0) { $bad[] = BWACHText::t('%s unknown', $sum['unknown']); }
         $icon = ($sum['empty'] > 0 || $sum['low'] > 0 || $sum['silent'] > 0 || ($sum['soon'] ?? 0) > 0) ? '⚠️' : ($bad ? 'ℹ️' : '✅');
-        return $icon . ' ' . $sum['total'] . ' Geräte überwacht: ' . ($bad ? implode(', ', $bad) : 'alles in Ordnung')
-            . ' (geprüft ' . date('d.m.Y H:i', $now) . ' Uhr).';
+        return BWACHText::t('%s %s devices monitored: %s (checked %s).', $icon, $sum['total'], $bad ? implode(', ', $bad) : BWACHText::t('all OK'), date('d.m.Y H:i', $now));
     }
 
     private function renderTable(array $rows, bool $onlyProblems, array $notes = []): string
