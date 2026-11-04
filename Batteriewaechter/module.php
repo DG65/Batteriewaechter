@@ -29,6 +29,7 @@
 // vorausgesetzt.
 // ===========================================================================
 
+require_once __DIR__ . '/BWACHText.php';
 require_once __DIR__ . '/BWACHLogik.php';
 require_once __DIR__ . '/BWACHMeldung.php';
 require_once __DIR__ . '/BWACHPrognose.php';
@@ -37,6 +38,15 @@ class Batteriewaechter extends IPSModule
 {
     /** Grund des letzten fehlgeschlagenen E-Mail-Versands (für Testmeldung und Meldungslog). */
     private string $lastMailError = '';
+
+    public function __construct(int $InstanceID)
+    {
+        parent::__construct($InstanceID);
+        // Logik-Klassen übersetzen über BWACHText; Quelltexte englisch, Deutsch in locale.json.
+        BWACHText::setzen(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
 
     private const LIBRARY_GUID = '{68C5991B-8E85-23AC-C254-B446AF035AF8}';
 

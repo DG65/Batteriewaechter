@@ -2,6 +2,6 @@
   "elements": [],
   "actions": [],
   "status": [
-    { "code": 102, "icon": "active", "caption": "Aktiv — Batterien werden überwacht" }
+    { "code": 102, "icon": "active", "caption": "Active, batteries are being monitored" }
   ]
 }

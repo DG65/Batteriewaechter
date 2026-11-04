@@ -1,7 +1,8 @@
 {
-  "translations": {
-    "de": {
-      "Batteriewaechter": "Batteriewächter"
+    "translations": {
+        "de": {
+            "Active, batteries are being monitored": "Aktiv — Batterien werden überwacht",
+            "Batteriewaechter": "Batteriewächter"
+        }
     }
-  }
 }

@@ -87,7 +87,9 @@ class IPSModule
     public array $messages = [];
     public array $fieldUpdates = [];
 
-    public function __construct() { mkinst($this->InstanceID, 'Batteriewächter', 'Batteriewaechter'); }
+    public function __construct($InstanceID = 12345) { mkinst($this->InstanceID, 'Batteriewächter', 'Batteriewaechter'); }
+    /** Wie Symcon mit deutscher Oberfläche: Text aus locale.json, sonst unverändert. */
+    public function Translate(string $t): string { return bwachDe($t); }
     public function Create() {}
     public function ApplyChanges() {}
     public function RegisterPropertyString(string $n, string $d): void { $this->props[$n] ??= $d; }
@@ -130,10 +132,21 @@ class IPSModule
 }
 
 $GLOBALS['ROOT'] = $ROOT;
+/** Deutsche Übersetzung aus der locale.json des (ggf. mutierten) Modulordners. */
+function bwachDe(string $t): string
+{
+    static $de = null;
+    if ($de === null) {
+        $de = json_decode((string)file_get_contents($GLOBALS['MODDIR'] . '/locale.json'), true)['translations']['de'] ?? [];
+    }
+    return $de[$t] ?? $t;
+}
 require $MODDIR . '/module.php';
+BWACHText::setzen('bwachDe');
 
 class BWTest extends Batteriewaechter
 {
+    public function __construct() { parent::__construct(12345); }
     protected function now(): int { return $GLOBALS['CLOCK']; }
 }
 /** Wie BWTest, aber mit Änderungen für das Panel „Neu“ (in der Auslieferung ist es leer, bis die erste Version veröffentlicht ist). */
