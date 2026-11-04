@@ -1,6 +1,6 @@
-🇩🇪 [Deutsche Fassung](README.md)
-
 # DG65-Toolkit Battery Monitor
+
+🇩🇪 [Deutsche Fassung](README.md)
 
 Monitors the batteries of the devices in your home (wireless sensors, thermostats, window contacts, smoke detectors …) for Symcon. It finds the battery values by itself, merges several signals of one device and tells you honestly **how reliable** a value is.
 

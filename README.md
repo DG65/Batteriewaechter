@@ -1,6 +1,6 @@
-🇬🇧 [English version](README.en.md)
-
 # DG65-Toolkit Batteriewächter
+
+🇬🇧 [English version](README.en.md)
 
 Überwacht die Batterien der Geräte im Haus (Funksensoren, Thermostate, Fenster- und Rauchmelder …) für Symcon. Findet die Batteriewerte selbst, führt mehrere Signale eines Geräts zusammen und sagt ehrlich dazu, **wie verlässlich** der Wert ist.
 
