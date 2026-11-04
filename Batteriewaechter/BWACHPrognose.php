@@ -162,7 +162,7 @@ final class BWACHPrognose
             return BWACHText::t('no discharge detectable');
         }
         if ($f['days'] === null) {
-            return BWACHText::t('Remaining runtime unknown: %s', $f['why']);
+            return BWACHText::t('Days remaining unknown: %s', $f['why']);
         }
         $sec = ['hoch' => BWACHText::t('high confidence'), 'mittel' => BWACHText::t('medium confidence'), 'niedrig' => BWACHText::t('low confidence')][$f['confidence']];
         $d = (int)round($f['days']);
@@ -621,7 +621,7 @@ final class BWACHPrognose
         }
         $base = ['ok' => false, 'factor' => null, 'devices' => count($ratios), 'cold' => $nCold, 'warm' => $nWarm, 'below' => $below, 'text' => ''];
         if (count($ratios) < self::COLD_MIN_DEVICES) {
-            $base['text'] = BWACHText::t('Cold influence: not enough data yet (needed: at least %d devices with %d time intervals each below and above %s °C; so far %d)', self::COLD_MIN_DEVICES, self::COLD_MIN_INTERVALS, BWACHLogik::num($below), count($ratios));
+            $base['text'] = BWACHText::t('Effect of cold: not enough data yet (needed: at least %d devices with %d time intervals each below and above %s °C; so far %d)', self::COLD_MIN_DEVICES, self::COLD_MIN_INTERVALS, BWACHLogik::num($below), count($ratios));
             return $base;
         }
         $f = round(self::median($ratios), 1);

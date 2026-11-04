@@ -349,7 +349,7 @@
             if (d.changeText) { det.appendChild(bwEl('div', 'facts', '🔄 ' + d.changeText)); }
             if (d.idText) { det.appendChild(bwEl('div', 'facts', '🆔 ' + d.idText)); }
             if (d.voltageText && d.percentText) { det.appendChild(bwEl('div', 'facts', '⚡ ' + T('Measured voltage %s', d.voltageText) + (d.derived ? ' ' + T('(calculated from it: %s, an approximation)', d.percentText) : ''))); }
-            if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · ' + T('Charge level calculated from the voltage (approximation)') : ''))); }
+            if (d.cellText) { det.appendChild(bwEl('div', 'facts', '🔋 ' + d.cellText + (d.derived ? ' · ' + T('State of charge calculated from the voltage (approximation)') : ''))); }
             if (BW.allowAck) {
                 var acts = bwEl('div', 'bw-acts');
                 var b1 = bwEl('button', '', '✔ ' + T('I replaced it')); b1.type = 'button';
@@ -488,10 +488,10 @@
             box.appendChild(g);
         }
         root.appendChild(box);
-        var known = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf(T('Remaining runtime unknown')) !== 0; });
-        var unknown = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf(T('Remaining runtime unknown')) === 0; });
+        var known = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf(T('Days remaining unknown')) !== 0; });
+        var unknown = BW.devices.filter(function (d) { return d.forecastText && d.forecastText.indexOf(T('Days remaining unknown')) === 0; });
         var box2 = bwEl('div', 'bw-sec');
-        box2.appendChild(bwEl('div', 'bw-h', '📈 ' + T('Remaining runtime per device')));
+        box2.appendChild(bwEl('div', 'bw-h', '📈 ' + T('Days remaining per device')));
         if (known.length) {
             var g2 = bwEl('div', 'bw-dia');
             known.forEach(function (d) { g2.appendChild(bwEl('span', 'd', d.name)); g2.appendChild(bwEl('span', '', d.forecastText)); });

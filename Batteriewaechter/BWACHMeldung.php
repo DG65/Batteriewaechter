@@ -410,7 +410,7 @@ final class BWACHMeldung
     {
         $raw = trim(implode(' / ', array_filter(array_map('trim', $warnings))) . ($exception !== '' ? ' / ' . $exception : ''));
         if ($raw === '') {
-            return BWACHText::t('the SMTP module gives no reason (enabling debug on the SMTP instance shows the dialogue with the server)');
+            return BWACHText::t('the SMTP module gives no reason (enabling debug on the SMTP instance shows the dialog with the server)');
         }
         $h = mb_strtolower($raw);
         if (strpos($h, 'login denied') !== false || strpos($h, 'authentication') !== false || strpos($h, 'auth failed') !== false || strpos($h, '535') !== false) {

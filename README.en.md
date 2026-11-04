@@ -24,13 +24,13 @@ The module follows the language of your Symcon (English or German): forms, varia
 ## Cell type, forecast, shopping
 
 - **Stock, preventive replacement, entering past replacements:** Under "Forecast and shopping" you enter the batteries you have at home (the shopping list only shows what is missing) and, for critical devices, a fixed replacement interval in months (smoke detectors: replacement even when the level is still good). Under "Acknowledge and battery log" you add earlier replacements with a date. In the tile, "By location" groups the list, `BWACH_DeviceListCsv` returns the device list as CSV.
-- **Shopping list to go:** In the tile under "Shopping", "Copy" copies the list including the replacement round as text, "Send" sends it via push or e-mail. Optionally you enter a link template with `{Zelltyp}` under "Forecast and shopping" (for example the search page of your retailer); the tile then shows a search link behind each line. Empty by default: no retailer is built in and nothing is sent anywhere.
-- **Groups instead of single entries:** In the "Groups" panel a rule sets cell type, number of cells, event sensor, critical or "exclude" for all devices matching its pattern (by location/category, system/module or name, several patterns separated by commas). The first matching rule from the top applies; a device's own setting wins as soon as it differs from the default. New devices matching a rule get its values automatically. The "Applies" column in "Device settings" shows the result per device.
+- **Shopping list to go:** In the tile under "Shopping", "Copy" copies the list including the replacement round as text, "Send" sends it via push or email. Optionally you enter a link template with `{Zelltyp}` under "Forecast and shopping" (for example the search page of your retailer); the tile then shows a search link behind each line. Empty by default: no retailer is built in and nothing is sent anywhere.
+- **Groups instead of single entries:** In the "Groups" panel a rule sets cell type, number of cells, event sensor, critical or "Exclude" for all devices matching its pattern (by location/category, system/module or name, several patterns separated by commas). The first matching rule from the top applies; a device's own setting wins as soon as it differs from the default. New devices matching a rule get its values automatically. The "Applies" column in "Device settings" shows the result per device.
 - **Cell type per device** under "Device settings" (e.g. CR2032, 3× AAA). The list already contains every detected device; just choose cell type and number of cells and click "Apply". The monitor then converts voltages into a state of charge and counts the shopping list. The conversion is an **approximation** using typical discharge curves per cell chemistry, not data sheet values of a manufacturer, and is always marked as "calculated from voltage". The cell type cannot be determined reliably from the voltage alone (3 V: coin cell or two alkaline cells); the monitor only names candidates.
-- **Forecast:** The module records the history of each device itself and estimates the remaining runtime ("lasts about 23 more days, medium confidence"). This needs at least 4 data points over 14 days since the last battery replacement and a state of charge that changes in fine steps. Many devices only report coarse steps or very rarely; there the module honestly says "remaining runtime unknown" with the reason. "Battery soon empty" is only reported with high or medium confidence.
+- **Forecast:** The module records the history of each device itself and estimates the days remaining ("lasts about 23 more days (medium confidence)"). This needs at least 4 data points over 14 days since the last battery replacement and a state of charge that changes in fine steps. Many devices only report coarse steps or very rarely; there the module honestly says "days remaining unknown" with the reason. "Battery empty soon" is only reported with high or medium confidence.
 - **Shopping list and replacement round:** "4× CR2032, 7× AAA" for the next 30 days (adjustable), the replacement round bundled by location with a suggested date. Devices without a cell type are listed separately.
 - **Lifetime:** From the recorded battery replacements (log) the module derives the time between two replacements per device, cell type and system. This needs at least two replacements per device and only grows over time.
-- **Learned reporting behaviour and "probably removed":** If a device reports very regularly, the monitor detects radio silence earlier than with the fixed threshold (never later). A device that has been silent for more than 60 days is suggested as "probably removed".
+- **Learned reporting behavior and "probably removed":** If a device reports very regularly, the monitor detects radio silence earlier than with the fixed threshold (never later). A device that has been silent for more than 60 days is suggested as "probably removed".
 
 ## Conspicuous devices, radio quality, cold, queries
 
@@ -38,7 +38,7 @@ The module follows the language of your Symcon (English or German): forms, varia
 - **Radio quality:** Where a device provides it (e.g. Zigbee `linkquality`, RSSI), the monitor shows and rates it. The scales differ per system; unknown ones are only shown.
 - **Influence of cold:** With an outdoor temperature variable ("Forecast and shopping") the monitor evaluates whether batteries discharge faster in the cold. This needs at least 3 devices with 3 periods each in cold and warm weather, so at the earliest after one winter; until then it says "not enough data yet".
 - **Querying sleeping Z-Wave and Matter devices and Comet WiFi thermostats:** Enabled per device (column "Query"), off by default. If the battery value is older than configured, the monitor sends a status request at most every 7 days and shows whether the device answered. A sleeping Z-Wave device only answers when it wakes up next; until then the request waits in the queue of the Z-Wave instance. For Matter, `MATTER_RequestStatus` is called on the power source instance (endpoint 0). A Comet WiFi thermostat receives the "all fields" request via `CWIFI_SendAction`, because only that request contains the battery level; it noticeably wakes the device, so it only runs with the checkbox set and at the configured interval. Without an answer after 6 hours, "no answer" applies.
-- **Import from BY_BatterieMonitor:** In the "Notifications" panel the push, e-mail and SMTP settings of an old instance can be copied into the form. They are only saved with "Apply".
+- **Import from BY_BatterieMonitor:** In the "Notifications" panel the push, email and SMTP settings of an old instance can be copied into the form. They are only saved with "Apply".
 
 ## Honest limits
 
@@ -51,7 +51,7 @@ The module follows the language of your Symcon (English or German): forms, varia
 
 ## Tile
 
-The instance can be added as a tile in the tile visualization. It shows the devices by urgency; the filter row at the top shows only what matters right now (action required, empty, low, radio silence, check data), "Log" shows the recorded battery replacements. Tapping a row expands it: reasons, age of the battery value, sign of life and the buttons to acknowledge (can be switched off under "Status"). The tile has no title of its own; the instance name provides it.
+The instance can be added as a tile in the tile visualization. It shows the devices by urgency; the filter row at the top shows only what matters right now (action needed, empty, low, radio silence, check data), "Log" shows the recorded battery replacements. Tapping a row expands it: reasons, age of the battery value, sign of life and the buttons to acknowledge (can be switched off under "Status"). The tile has no title of its own; the instance name provides it.
 
 ## Notifications (off by default)
 
@@ -62,7 +62,7 @@ Switch them on under "Notifications". The monitor reports "battery empty", "batt
 - **Quiet hours** (default 22–7 h): notifications are sent later, not dropped; critical devices may break through.
 - **Escalation** only for critical devices: after 24 hours without acknowledgement a second notification via the escalation channels.
 - **Weekly report** (default Monday 8 h) with all devices that have a finding.
-- **Delivery:** push to all found tile visualizations and WebFront instances (or a selection) and/or e-mail via an SMTP instance. "Send test notification" shows what arrived.
+- **Delivery:** push to all found tile visualizations and WebFront instances (or a selection) and/or email via an SMTP instance. "Send test notification" shows what arrived.
 
 ## Acknowledge and battery log
 

@@ -109,7 +109,7 @@ $mutations = [
     ['BWACHMeldung.php', "if (\$raw === '') {", "if (false) {", 'Leere Meldung ohne ehrlichen Hinweis'],
     ['module.php', "restore_error_handler();", "", 'Fehler-Handler bleibt hängen'],
     ['module.php', "\$warnings[] = (string)\$str;", "", 'Warnungen des SMTP-Moduls werden nicht gesammelt'],
-    ['module.php', "BWACHText::t('E-mail: ⚠️ not sent — %s', \$this->lastMailError)", "BWACHText::t('E-mail: ⚠️ not sent — %s', '')", 'Testmeldung ohne Ursache'],
+    ['module.php', "BWACHText::t('Email: ⚠️ not sent — %s', \$this->lastMailError)", "BWACHText::t('Email: ⚠️ not sent — %s', '')", 'Testmeldung ohne Ursache'],
     ['module.php', "\$this->LogMessage(BWACHText::t('Sending email failed: %s', \$this->lastMailError), KL_WARNING);", "", 'Ursache nicht im Meldungslog'],
     ['module.php', "\$this->UpdateFormField('NotifyStatus', 'caption', \$out);", "", 'Testmeldung frischt die Statuszeile nicht auf'],
     // --- 0.4.0: Zelltypen, Prognose, Einkauf, Statistik

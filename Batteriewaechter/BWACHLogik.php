@@ -377,14 +377,14 @@ final class BWACHLogik
         $dev = (int)$s['devices'];
         $out = [];
         $out[] = ['done' => !empty($s['found']) && $dev > 0,
-            'text' => !empty($s['found']) && $dev > 0 ? ($dev === 1 ? BWACHText::t('%d device found', $dev) : BWACHText::t('%d devices found', $dev)) : BWACHText::t('Search for devices: click "Search again now" under "Found devices"')];
+            'text' => !empty($s['found']) && $dev > 0 ? ($dev === 1 ? BWACHText::t('%d device found', $dev) : BWACHText::t('%d devices found', $dev)) : BWACHText::t('Search for devices: click "Search again now" under "Devices found"')];
         $open = (int)$s['open'];
         $out[] = ['done' => $dev > 0 && $open === 0,
             'text' => $dev === 0 ? BWACHText::t('Enter cell types (search for devices first)')
                 : ($open === 0 ? BWACHText::t('The cell type is known for every device') : ($open === 1 ? BWACHText::t('Cell type missing for %d device: enter it under "Groups" or "Device settings" (shopping list and forecast need it)', $open) : BWACHText::t('Cell type missing for %d devices: enter it under "Groups" or "Device settings" (shopping list and forecast need it)', $open)))];
         $notified = !empty($s['notify']) && !empty($s['channel']);
         $out[] = ['done' => $notified,
-            'text' => $notified ? BWACHText::t('Notifications are switched on') : (!empty($s['notify']) ? BWACHText::t('Notifications are on, but neither push nor e-mail is selected: tick a channel under "Notifications"') : BWACHText::t('Switch on notifications: tick "Notifications active" under "Notifications" and choose push or e-mail'))];
+            'text' => $notified ? BWACHText::t('Notifications are switched on') : (!empty($s['notify']) ? BWACHText::t('Notifications are on, but neither push nor email is selected: tick a channel under "Notifications"') : BWACHText::t('Switch on notifications: tick "Notifications active" under "Notifications" and choose push or email'))];
         // Kachel: optional, deshalb nie „offen“. true = eingebunden, false = Kachel-Visualisierung da, aber nicht eingebunden,
         // null = es gibt keine Kachel-Visualisierung (oder die Prüfung war nicht möglich)
         $tile = array_key_exists('tile', $s) ? $s['tile'] : null;
@@ -397,7 +397,7 @@ final class BWACHLogik
         }
         $mn = (int)($s['matterNoEp0'] ?? 0);
         if ($mn > 0) {
-            $out[] = ['done' => null, 'text' => ($mn === 1 ? BWACHText::t('Matter: %d device has no instance for the power supply (endpoint 0). Only needed for battery devices, details under "Found devices"', $mn) : BWACHText::t('Matter: %d devices have no instance for the power supply (endpoint 0). Only needed for battery devices, details under "Found devices"', $mn))];
+            $out[] = ['done' => null, 'text' => ($mn === 1 ? BWACHText::t('Matter: %d device has no instance for the power supply (endpoint 0). Only needed for battery devices, details under "Devices found"', $mn) : BWACHText::t('Matter: %d devices have no instance for the power supply (endpoint 0). Only needed for battery devices, details under "Devices found"', $mn))];
         }
         return $out;
     }
@@ -912,7 +912,7 @@ final class BWACHLogik
         } elseif ($lifeAge > $stillSec) {
             $funk = 'still';
             $reasons[] = $stillOver > 0 ? BWACHText::t('Radio silence: no sign of life for %s (threshold %s, set for this device)', self::daysDat($lifeAge), self::days($stillSec))
-                : (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? BWACHText::t('Radio silence: no sign of life for %s (threshold %s, learned from the reporting behaviour)', self::daysDat($lifeAge), self::days($stillSec))
+                : (isset($p['stillSec']) && (int)$p['stillSec'] > 0 ? BWACHText::t('Radio silence: no sign of life for %s (threshold %s, learned from the reporting behavior)', self::daysDat($lifeAge), self::days($stillSec))
                 : BWACHText::t('Radio silence: no sign of life for %s (threshold %s)', self::daysDat($lifeAge), self::days($stillSec)));
             $silentIdx[array_key_last($reasons)] = 0;
             $orphanDays = (int)($p['orphanDays'] ?? 60);
@@ -1013,11 +1013,11 @@ final class BWACHLogik
         if ($next > 0) {
             return $last > 0
                 ? BWACHText::t('⏱️ Automatic check every %d min.; next run %s, last automatic run: %s.', $min, $nextTxt, $lastTxt)
-                : BWACHText::t('⏱️ Automatic check every %d min.; next run %s, last automatic run: none since the start.', $min, $nextTxt);
+                : BWACHText::t('⏱️ Automatic check every %d min.; next run %s, last automatic run: none since startup.', $min, $nextTxt);
         }
         return $last > 0
             ? BWACHText::t('⏱️ Automatic check every %d min.; next run not yet scheduled, last automatic run: %s.', $min, $lastTxt)
-            : BWACHText::t('⏱️ Automatic check every %d min.; next run not yet scheduled, last automatic run: none since the start.', $min);
+            : BWACHText::t('⏱️ Automatic check every %d min.; next run not yet scheduled, last automatic run: none since startup.', $min);
     }
 
     public static function summarize(array $results): array
@@ -1094,7 +1094,7 @@ final class BWACHLogik
         $fields['NotifyPush'] = $push;
         $taken[] = $push ? BWACHText::t('Push: on') : BWACHText::t('Push: off');
         $fields['NotifyMail'] = $mail;
-        $taken[] = $mail ? BWACHText::t('E-mail: on') : BWACHText::t('E-mail: off');
+        $taken[] = $mail ? BWACHText::t('Email: on') : BWACHText::t('Email: off');
 
         $smtp = (int)($cfg['SmtpInstanceID'] ?? 0);
         if ($smtp > 0 && $instanceExists($smtp)) {
@@ -1115,7 +1115,7 @@ final class BWACHLogik
             $taken[] = BWACHText::t('Notifications active');
         }
 
-        $skipped[] = BWACHText::t('Message text, colours, font size and column labels (the monitor writes its own notifications and shows its own tile and tables)');
+        $skipped[] = BWACHText::t('Message text, colors, font size and column labels (the monitor writes its own notifications and shows its own tile and tables)');
         $skipped[] = BWACHText::t('Check interval %d s (the monitor evaluates every battery report immediately and also checks hourly)', (int)($cfg['Intervall'] ?? 0));
         if (!empty($cfg['EigenesSkriptAktiv'])) {
             $skipped[] = BWACHText::t('own script #%d (the monitor does not call other scripts)', (int)($cfg['EigenesSkriptID'] ?? 0));
