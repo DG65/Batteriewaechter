@@ -159,25 +159,25 @@ class Batteriewaechter extends IPSModule
         $this->initCells();
         $this->SetVisualizationType(1);
 
-        $this->MaintainVariable('Total', 'Geräte überwacht', VARIABLETYPE_INTEGER, '', 10, true);
-        $this->MaintainVariable('Empty', 'Batterie leer', VARIABLETYPE_INTEGER, '', 20, true);
-        $this->MaintainVariable('Low', 'Batterie schwach', VARIABLETYPE_INTEGER, '', 30, true);
-        $this->MaintainVariable('Silent', 'Funkstille', VARIABLETYPE_INTEGER, '', 40, true);
-        $this->MaintainVariable('Action', 'Handlungsbedarf (Anzahl)', VARIABLETYPE_INTEGER, '', 45, true);
-        $this->MaintainVariable('Check', 'Daten prüfen', VARIABLETYPE_INTEGER, '', 50, true);
-        $this->MaintainVariable('Unknown', 'Status unbekannt', VARIABLETYPE_INTEGER, '', 60, true);
-        $this->MaintainVariable('StatusLine', 'Zusammenfassung', VARIABLETYPE_STRING, '', 70, true);
-        $this->MaintainVariable('TableProblems', 'Handlungsbedarf', VARIABLETYPE_STRING, '~HTMLBox', 80, true);
-        $this->MaintainVariable('TableAll', 'Alle Geräte', VARIABLETYPE_STRING, '~HTMLBox', 90, true);
-        $this->MaintainVariable('Soon', 'Bald leer', VARIABLETYPE_INTEGER, '', 55, true);
-        $this->MaintainVariable('TableDiary', 'Batterietagebuch', VARIABLETYPE_STRING, '~HTMLBox', 100, true);
-        $this->MaintainVariable('TableShopping', 'Einkauf und Tauschrunde', VARIABLETYPE_STRING, '~HTMLBox', 110, true);
-        $this->MaintainVariable('TableStats', 'Lebensdauer und Entladung', VARIABLETYPE_STRING, '~HTMLBox', 120, true);
+        $this->MaintainVariable('Total', BWACHText::t('Devices monitored'), VARIABLETYPE_INTEGER, '', 10, true);
+        $this->MaintainVariable('Empty', BWACHText::t('Battery empty'), VARIABLETYPE_INTEGER, '', 20, true);
+        $this->MaintainVariable('Low', BWACHText::t('Battery low'), VARIABLETYPE_INTEGER, '', 30, true);
+        $this->MaintainVariable('Silent', BWACHText::t('Radio silence'), VARIABLETYPE_INTEGER, '', 40, true);
+        $this->MaintainVariable('Action', BWACHText::t('Action needed (count)'), VARIABLETYPE_INTEGER, '', 45, true);
+        $this->MaintainVariable('Check', BWACHText::t('Check data'), VARIABLETYPE_INTEGER, '', 50, true);
+        $this->MaintainVariable('Unknown', BWACHText::t('Status unknown'), VARIABLETYPE_INTEGER, '', 60, true);
+        $this->MaintainVariable('StatusLine', BWACHText::t('Summary'), VARIABLETYPE_STRING, '', 70, true);
+        $this->MaintainVariable('TableProblems', BWACHText::t('Action needed'), VARIABLETYPE_STRING, '~HTMLBox', 80, true);
+        $this->MaintainVariable('TableAll', BWACHText::t('All devices'), VARIABLETYPE_STRING, '~HTMLBox', 90, true);
+        $this->MaintainVariable('Soon', BWACHText::t('Empty soon'), VARIABLETYPE_INTEGER, '', 55, true);
+        $this->MaintainVariable('TableDiary', BWACHText::t('Battery log'), VARIABLETYPE_STRING, '~HTMLBox', 100, true);
+        $this->MaintainVariable('TableShopping', BWACHText::t('Shopping and replacement round'), VARIABLETYPE_STRING, '~HTMLBox', 110, true);
+        $this->MaintainVariable('TableStats', BWACHText::t('Lifetime and discharge'), VARIABLETYPE_STRING, '~HTMLBox', 120, true);
         // Zustandsspeicher als versteckte Variablen (wie Schein): Attribute gehen beim Neu-Registrieren des
         // Moduls verloren (SUITE.md Stolperstein 5), Variablen bleiben.
-        foreach (['NotifyState' => 'Meldezustand', 'Diary' => 'Tagebuch-Daten', 'LastSeen' => 'Zuletzt gesehen', 'Retired' => 'Außer Betrieb', 'Meta' => 'Sonstiges', 'History' => 'Verlauf', 'LifeObs' => 'Meldeverhalten', 'Poll' => 'Abfragen', 'FcLog' => 'Prognose-Protokoll', 'Undo' => 'Rückgängig-Speicher'] as $ident => $name) {
+        foreach (['NotifyState' => 'Notification state', 'Diary' => 'Log data', 'LastSeen' => 'Last seen', 'Retired' => 'Out of service', 'Meta' => 'Miscellaneous', 'History' => 'History', 'LifeObs' => 'Reporting behaviour', 'Poll' => 'Queries', 'FcLog' => 'Forecast log', 'Undo' => 'Undo store'] as $ident => $name) {
             $existed = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
-            $this->MaintainVariable($ident, $name, VARIABLETYPE_STRING, '', 200, true);
+            $this->MaintainVariable($ident, BWACHText::t($name), VARIABLETYPE_STRING, '', 200, true);
             if ($existed === false) {
                 $id = IPS_GetObjectIDByIdent($ident, $this->InstanceID);
                 if ($id !== false) {
@@ -262,7 +262,7 @@ class Batteriewaechter extends IPSModule
     {
         $found = $this->found();
         if ($found === null) {
-            return 'ℹ️ Noch nicht gesucht — zuerst „Jetzt neu suchen“.';
+            return BWACHText::t('ℹ️ Not searched yet — first click "Search again now".');
         }
         $rows = $this->evaluateAll($found);
         if ($this->pollDevices($rows, $this->now())) {
@@ -326,49 +326,50 @@ class Batteriewaechter extends IPSModule
     {
         $found = $this->found();
         if ($found === null) {
-            return 'ℹ️ Noch nicht gesucht — zuerst „Jetzt neu suchen“.';
+            return BWACHText::t('ℹ️ Not searched yet — first click "Search again now".');
         }
         $out = [$this->discoveryLine($found), ''];
 
-        $out[] = 'GERÄTE (' . count($found['devices']) . '):';
+        $out[] = BWACHText::t('DEVICES (%s):', count($found['devices']));
         $n = 0;
         foreach ($found['devices'] as $id => $d) {
             if (++$n > self::MAX_PREVIEW_ROWS) {
-                $out[] = '  … und ' . (count($found['devices']) - self::MAX_PREVIEW_ROWS) . ' weitere';
+                $out[] = BWACHText::t('  … and %s more', count($found['devices']) - self::MAX_PREVIEW_ROWS);
                 break;
             }
             $parts = [];
             foreach ($d['signals'] as $kind => $list) {
                 $labels = [];
                 foreach ($list as $s) {
-                    $labels[] = '#' . $s['vid'] . ' (' . $s['basis'] . ($s['unverified'] ? ', laut Dokumentation, ungetestet' : '') . ')';
+                    $labels[] = $s['unverified'] ? BWACHText::t('#%s (%s, according to documentation, untested)', $s['vid'], $s['basis']) : '#' . $s['vid'] . ' (' . $s['basis'] . ')';
                 }
                 $parts[] = $this->kindLabel($kind) . ' ' . implode(', ', $labels);
             }
-            $out[] = '  • ' . $d['name'] . ' [' . ($d['module'] !== '' ? $d['module'] : 'Variable') . ', Schlüssel ' . $id . ']: ' . implode('; ', $parts);
+            $out[] = BWACHText::t('  • %s [%s, key %s]: %s', $d['name'], $d['module'] !== '' ? $d['module'] : BWACHText::t('Variable'), $id, implode('; ', $parts));
         }
 
         $out[] = '';
-        $out[] = 'AUSGESCHLOSSEN (' . count($found['excluded']) . '):';
+        $out[] = BWACHText::t('EXCLUDED (%s):', count($found['excluded']));
         $byReason = [];
         foreach ($found['excluded'] as $e) {
             $byReason[$e['reason']][] = $e['name'];
         }
         foreach ($byReason as $reason => $names) {
-            $out[] = '  • ' . count($names) . '× ' . $reason . ' — z. B. ' . implode(', ', array_slice(array_unique($names), 0, 3));
+            $out[] = BWACHText::t('  • %s× %s — e.g. %s', count($names), $reason, implode(', ', array_slice(array_unique($names), 0, 3)));
         }
         if (!$found['excluded']) {
-            $out[] = '  (nichts)';
+            $out[] = BWACHText::t('  (none)');
         }
 
         $out[] = '';
-        $out[] = 'NUR NACH NAMEN VORGESCHLAGEN (' . count($found['suggestions']) . ')'
-            . ($this->ReadPropertyBoolean('NameSearch') ? '' : ' — nicht aufgenommen, solange „Auch nach Namen suchen“ aus ist:');
+        $out[] = $this->ReadPropertyBoolean('NameSearch')
+            ? BWACHText::t('ONLY SUGGESTED BY NAME (%s)', count($found['suggestions']))
+            : BWACHText::t('ONLY SUGGESTED BY NAME (%s) — not included while "Also search by name" is off:', count($found['suggestions']));
         foreach (array_slice($found['suggestions'], 0, self::MAX_PREVIEW_ROWS) as $s) {
             $out[] = '  • #' . $s['vid'] . ' ' . $s['name'] . ' (' . $this->kindLabel($s['kind']) . ')';
         }
         if (!$found['suggestions']) {
-            $out[] = '  (nichts)';
+            $out[] = BWACHText::t('  (none)');
         }
         return implode("\n", $out);
     }
@@ -480,10 +481,12 @@ class Batteriewaechter extends IPSModule
     private function accuracyText(array $a): string
     {
         if ($a['n'] === 0) {
-            return 'Noch kein Wechsel mit Vergleich: Der Wächter vergleicht bei einem erkannten Wechsel, was die Prognose 14 bis 150 Tage vorher sagte, mit dem tatsächlichen Stand. Das braucht Wochen bis Monate Verlauf.';
+            return BWACHText::t('No replacement with comparison yet: when a replacement is detected, the monitor compares what the forecast said 14 to 150 days earlier with the actual level. This needs weeks to months of history.');
         }
-        $dir = abs($a['bias']) < 1 ? 'ohne erkennbare Richtung' : ($a['bias'] > 0 ? 'die Batterien hielten im Schnitt länger als vorhergesagt' : 'die Batterien entluden sich im Schnitt schneller als vorhergesagt');
-        return $a['n'] . ($a['n'] === 1 ? ' Wechsel' : ' Wechsel') . ' verglichen: im Mittel ' . BWACHLogik::num($a['meanAbs']) . ' Prozentpunkte daneben, ' . $dir . '.';
+        $dir = abs($a['bias']) < 1 ? BWACHText::t('with no clear direction') : ($a['bias'] > 0 ? BWACHText::t('the batteries lasted longer than predicted on average') : BWACHText::t('the batteries discharged faster than predicted on average'));
+        return $a['n'] === 1
+            ? BWACHText::t('%s replacement compared: off by %s percentage points on average, %s.', $a['n'], BWACHLogik::num($a['meanAbs']), $dir)
+            : BWACHText::t('%s replacements compared: off by %s percentage points on average, %s.', $a['n'], BWACHLogik::num($a['meanAbs']), $dir);
     }
 
     /** Einkaufsliste, Tauschrunde und Lebensdauerstatistik aus den aktuellen Zeilen. */
@@ -506,7 +509,7 @@ class Batteriewaechter extends IPSModule
                 'status' => $row['r']['status'],
                 'preventive' => !empty($row['r']['preventive']),
                 'days'   => ($f['days'] !== null && $f['confidence'] !== 'keine') ? $f['days'] : null,
-                'text'   => !empty($row['r']['preventive']) && $row['r']['status'] === BWACHLogik::ST_OK ? 'Vorsorglicher Wechsel fällig' : ($row['r']['status'] === BWACHLogik::ST_OK ? BWACHPrognose::forecastText($f) : implode('; ', array_slice($row['r']['reasons'], 0, 1))),
+                'text'   => !empty($row['r']['preventive']) && $row['r']['status'] === BWACHLogik::ST_OK ? BWACHText::t('Preventive replacement due') : ($row['r']['status'] === BWACHLogik::ST_OK ? BWACHPrognose::forecastText($f) : implode('; ', array_slice($row['r']['reasons'], 0, 1))),
             ];
             $cellOf[$row['id']] = BWACHZelle::isKnown($row['cell']) ? BWACHZelle::shopLabel($row['cell']) : '';
             $modOf[$row['id']]  = $row['module'];
@@ -516,12 +519,12 @@ class Batteriewaechter extends IPSModule
         $peers = [];
         foreach ($rows as $row) {
             if (isset($row['peer'])) {
-                $peers[] = ['name' => $row['name'], 'text' => BWACHLogik::num($row['peer']['factor']) . '× schneller als ' . $row['peer']['n'] . ' vergleichbare Geräte (' . BWACHLogik::num($row['peer']['rate']) . ' statt ' . BWACHLogik::num($row['peer']['median']) . ' Prozentpunkte/Tag)'];
+                $peers[] = ['name' => $row['name'], 'text' => BWACHText::t('%s× faster than %s comparable devices (%s instead of %s percentage points/day)', BWACHLogik::num($row['peer']['factor']), $row['peer']['n'], BWACHLogik::num($row['peer']['rate']), BWACHLogik::num($row['peer']['median']))];
             }
         }
         $cold = $this->ReadPropertyInteger('OutdoorTempVar') > 0
             ? BWACHPrognose::coldEffect($this->loadJson('History'), (float)$this->ReadPropertyInteger('ColdBelow'), $this->ReadPropertyInteger('ReplaceJumpPercent'))['text']
-            : 'Kälteeinfluss: keine Außentemperatur-Variable gewählt (unter „Prognose und Einkauf“ eine wählen, dann wertet der Wächter aus, ob sich Batterien bei Kälte schneller entladen)';
+            : BWACHText::t('Cold influence: no outdoor temperature variable selected (select one under "Forecast and shopping", then the monitor evaluates whether batteries discharge faster in the cold)');
         return [
             'horizon'  => $horizon,
             'shopping' => BWACHPrognose::shopping($items, $horizon, $this->stockByLabel()),
@@ -541,17 +544,18 @@ class Batteriewaechter extends IPSModule
     {
         $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
         $css = '<style>.bw{border-collapse:collapse;width:100%;font-size:14px}.bw th,.bw td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(128,128,128,.35)}</style>';
-        $out = $css . '<div style="padding:4px 2px"><b>🛒 Einkaufsliste für die nächsten ' . (int)$v['horizon'] . ' Tage</b></div>';
+        $out = $css . '<div style="padding:4px 2px"><b>' . BWACHText::t('🛒 Shopping list for the next %s days', (int)$v['horizon']) . '</b></div>';
         $sh = $v['shopping'];
         if (!$sh['need']) {
-            return $out . '<div style="padding:8px">✅ Nichts zu besorgen: kein Gerät ist schwach oder laut Prognose bald leer.</div>';
+            return $out . '<div style="padding:8px">' . BWACHText::t('✅ Nothing to buy: no device is low or, according to the forecast, empty soon.') . '</div>';
         }
-        $out .= '<div style="padding:4px 2px">' . ($sh['lines'] ? $e(implode(', ', $sh['lines'])) : 'Keine Zelltypen bekannt.') . '</div>';
+        $out .= '<div style="padding:4px 2px">' . ($sh['lines'] ? $e(implode(', ', $sh['lines'])) : BWACHText::t('No cell types known.')) . '</div>';
         if ($sh['missing']) {
-            $out .= '<div style="padding:4px 2px;opacity:.8">ℹ️ Zelltyp fehlt bei: ' . $e(implode(', ', $sh['missing'])) . ' (in der Instanz „' . $e(IPS_GetName($this->InstanceID)) . '“ unter „Geräte-Einstellungen“ in der Spalte „Zelltyp“ wählen, dann zählt die Liste mit).</div>';
+            $out .= '<div style="padding:4px 2px;opacity:.8">' . BWACHText::t('ℹ️ Cell type missing for: %s (select it in the instance "%s" under "Device settings" in the column "Cell type", then the list includes it).', $e(implode(', ', $sh['missing'])), $e(IPS_GetName($this->InstanceID))) . '</div>';
         }
         $r = $v['round'];
-        $out .= '<div style="padding:10px 2px 4px"><b>🔧 Tauschrunde</b>' . ($r['until'] !== null ? ' — am besten bis ' . date('d.m.Y', $r['until']) : '') . ' (' . $r['count'] . ($r['count'] === 1 ? ' Gerät' : ' Geräte') . ')</div>';
+        $cnt  = $r['count'] === 1 ? BWACHText::t('%s device', $r['count']) : BWACHText::t('%s devices', $r['count']);
+        $out .= '<div style="padding:10px 2px 4px">' . ($r['until'] !== null ? BWACHText::t('<b>🔧 Replacement round</b> — ideally by %s (%s)', date('d.m.Y', $r['until']), $cnt) : BWACHText::t('<b>🔧 Replacement round</b> (%s)', $cnt)) . '</div>';
         $body = '';
         foreach ($r['places'] as $place => $devs) {
             foreach ($devs as $d) {
@@ -559,7 +563,7 @@ class Batteriewaechter extends IPSModule
                 $body .= '<tr><td>' . $e($place) . '</td><td>' . $e($d['name']) . '</td><td>' . $e($cell !== null ? max(1, (int)$d['cells']) . '× ' . $cell : '—') . '</td><td>' . $e($d['text']) . '</td></tr>';
             }
         }
-        return $out . '<table class="bw"><tr><th>Ort</th><th>Gerät</th><th>Batterie</th><th>Stand</th></tr>' . $body . '</table>';
+        return $out . '<table class="bw"><tr><th>' . BWACHText::t('Location') . '</th><th>' . BWACHText::t('Device') . '</th><th>' . BWACHText::t('Battery') . '</th><th>' . BWACHText::t('State') . '</th></tr>' . $body . '</table>';
     }
 
     private function renderStats(array $v): string
@@ -567,55 +571,55 @@ class Batteriewaechter extends IPSModule
         $e = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
         $css = '<style>.bw{border-collapse:collapse;width:100%;font-size:14px}.bw th,.bw td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(128,128,128,.35)}</style>';
         $out = $css;
-        $out .= '<div style="padding:4px 2px"><b>📈 Restlaufzeit je Gerät</b></div>';
+        $out .= '<div style="padding:4px 2px"><b>' . BWACHText::t('📈 Remaining runtime per device') . '</b></div>';
         $body = '';
         $items = $v['items'];
         usort($items, function ($a, $b) { return [$a['days'] === null ? 1 : 0, $a['days'] ?? 0, $a['name']] <=> [$b['days'] === null ? 1 : 0, $b['days'] ?? 0, $b['name']]; });
         foreach ($items as $i) {
             $body .= '<tr><td>' . $e($i['name']) . '</td><td>' . $e($i['place']) . '</td><td>' . $e($i['text']) . '</td></tr>';
         }
-        $out .= '<table class="bw"><tr><th>Gerät</th><th>Ort</th><th>Restlaufzeit</th></tr>' . $body . '</table>';
+        $out .= '<table class="bw"><tr><th>' . BWACHText::t('Device') . '</th><th>' . BWACHText::t('Location') . '</th><th>' . BWACHText::t('Remaining runtime') . '</th></tr>' . $body . '</table>';
 
-        $out .= '<div style="padding:10px 2px 4px"><b>👥 Vergleich mit Gleichartigen</b></div>';
+        $out .= '<div style="padding:10px 2px 4px"><b>' . BWACHText::t('👥 Comparison with similar devices') . '</b></div>';
         if ($v['peers']) {
             $body = '';
             foreach ($v['peers'] as $pe) {
                 $body .= '<tr><td>' . $e($pe['name']) . '</td><td>' . $e($pe['text']) . '</td></tr>';
             }
-            $out .= '<table class="bw"><tr><th>Auffälliges Gerät</th><th>Entladung</th></tr>' . $body . '</table>';
+            $out .= '<table class="bw"><tr><th>' . BWACHText::t('Conspicuous device') . '</th><th>' . BWACHText::t('Discharge') . '</th></tr>' . $body . '</table>';
         } else {
-            $out .= '<div style="padding:4px 2px;opacity:.85">✅ Kein Gerät entlädt auffällig schneller als seine Gruppe (nötig: mindestens 4 Geräte gleichen Systems und Zelltyps mit bekannter Entladerate).</div>';
+            $out .= '<div style="padding:4px 2px;opacity:.85">' . BWACHText::t('✅ No device discharges noticeably faster than its group (requires at least 4 devices of the same system and cell type with a known discharge rate).') . '</div>';
         }
-        $out .= '<div style="padding:10px 2px 4px"><b>🎯 Genauigkeit der Prognose</b></div><div style="padding:4px 2px;opacity:.9">' . $e($this->accuracyText($v['accuracy'])) . '</div>';
-        $out .= '<div style="padding:10px 2px 4px"><b>🌡 Kälteeinfluss</b></div><div style="padding:4px 2px;opacity:.9">' . $e($v['cold']) . '</div>';
-        $out .= '<div style="padding:10px 2px 4px"><b>🔋 Gewechselte Batterien</b></div>';
+        $out .= '<div style="padding:10px 2px 4px"><b>' . BWACHText::t('🎯 Forecast accuracy') . '</b></div><div style="padding:4px 2px;opacity:.9">' . $e($this->accuracyText($v['accuracy'])) . '</div>';
+        $out .= '<div style="padding:10px 2px 4px"><b>' . BWACHText::t('🌡 Cold influence') . '</b></div><div style="padding:4px 2px;opacity:.9">' . $e($v['cold']) . '</div>';
+        $out .= '<div style="padding:10px 2px 4px"><b>' . BWACHText::t('🔋 Replaced batteries') . '</b></div>';
         if (!$v['changes']) {
-            $out .= '<div style="padding:4px 2px;opacity:.85">ℹ️ Noch kein Batteriewechsel erfasst.</div>';
+            $out .= '<div style="padding:4px 2px;opacity:.85">' . BWACHText::t('ℹ️ No battery replacement recorded yet.') . '</div>';
         } else {
             $body = '';
             foreach ($v['changes'] as $c) {
                 $body .= '<tr><td>' . $e($c['label']) . '</td><td>' . $e(BWACHPrognose::changeStatsText($c)) . '</td></tr>';
             }
-            $out .= '<table class="bw"><tr><th>Zeitraum</th><th>Gewechselt</th></tr>' . $body . '</table>';
+            $out .= '<table class="bw"><tr><th>' . BWACHText::t('Period') . '</th><th>' . BWACHText::t('Replaced') . '</th></tr>' . $body . '</table>';
         }
-        $out .= '<div style="padding:10px 2px 4px"><b>⏱ Lebensdauer (Zeit zwischen zwei Batteriewechseln)</b></div>';
+        $out .= '<div style="padding:10px 2px 4px"><b>' . BWACHText::t('⏱ Lifetime (time between two battery replacements)') . '</b></div>';
         if (!$v['life']) {
-            return $out . '<div style="padding:8px">ℹ️ Noch zu wenig Daten: je Gerät braucht es mindestens zwei erfasste Batteriewechsel.</div>';
+            return $out . '<div style="padding:8px">' . BWACHText::t('ℹ️ Not enough data yet: each device needs at least two recorded battery replacements.') . '</div>';
         }
         $body = '';
         foreach ($v['life'] as $l) {
-            $body .= '<tr><td>' . $e($l['name']) . '</td><td>' . $e(implode(', ', array_map(function ($d) { return BWACHLogik::num($d) . ' Tage'; }, $l['days']))) . '</td></tr>';
+            $body .= '<tr><td>' . $e($l['name']) . '</td><td>' . $e(implode(', ', array_map(function ($d) { return BWACHText::t('%s days', BWACHLogik::num($d)); }, $l['days']))) . '</td></tr>';
         }
-        $out .= '<table class="bw"><tr><th>Gerät</th><th>Lebensdauern</th></tr>' . $body . '</table>';
-        foreach (['byCell' => 'je Zelltyp', 'byModule' => 'je System'] as $k => $title) {
+        $out .= '<table class="bw"><tr><th>' . BWACHText::t('Device') . '</th><th>' . BWACHText::t('Lifetimes') . '</th></tr>' . $body . '</table>';
+        foreach (['byCell' => BWACHText::t('Average lifetime per cell type'), 'byModule' => BWACHText::t('Average lifetime per system')] as $k => $title) {
             if (!$v[$k]) {
                 continue;
             }
             $body = '';
             foreach ($v[$k] as $g => $s) {
-                $body .= '<tr><td>' . $e($g) . '</td><td>' . BWACHLogik::num($s['median']) . ' Tage</td><td>' . $s['n'] . ' Intervalle, ' . $s['devices'] . ($s['devices'] === 1 ? ' Gerät' : ' Geräte') . '</td></tr>';
+                $body .= '<tr><td>' . $e($g) . '</td><td>' . BWACHText::t('%s days', BWACHLogik::num($s['median'])) . '</td><td>' . ($s['devices'] === 1 ? BWACHText::t('%s intervals, %s device', $s['n'], $s['devices']) : BWACHText::t('%s intervals, %s devices', $s['n'], $s['devices'])) . '</td></tr>';
             }
-            $out .= '<div style="padding:10px 2px 4px"><b>Mittlere Lebensdauer ' . $title . '</b></div><table class="bw"><tr><th>' . ($k === 'byCell' ? 'Zelle' : 'System') . '</th><th>Median</th><th>Grundlage</th></tr>' . $body . '</table>';
+            $out .= '<div style="padding:10px 2px 4px"><b>' . $title . '</b></div><table class="bw"><tr><th>' . ($k === 'byCell' ? BWACHText::t('Cell') : BWACHText::t('System')) . '</th><th>' . BWACHText::t('Median') . '</th><th>' . BWACHText::t('Basis') . '</th></tr>' . $body . '</table>';
         }
         return $out;
     }
@@ -644,27 +648,27 @@ class Batteriewaechter extends IPSModule
         if ($Ident === 'ack') {
             $d = json_decode((string)$Value, true);
             if (!$this->ReadPropertyBoolean('TileAllowAck')) {
-                $msg = '⛔ Das Quittieren aus der Kachel ist in den Einstellungen ausgeschaltet.';
+                $msg = BWACHText::t('⛔ Acknowledging from the tile is switched off in the settings.');
             } elseif (is_array($d) && isset($d['key'], $d['action'])) {
                 $msg = $this->Acknowledge((string)$d['key'], (string)$d['action']);
             } else {
-                $msg = '⛔ Ungültige Anfrage aus der Kachel.';
+                $msg = BWACHText::t('⛔ Invalid request from the tile.');
             }
             $meta['ack'] = ['m' => $msg, 't' => $now];
             $this->saveJson('Meta', $meta);
         } elseif ($Ident === 'ack_place') {
             $d = json_decode((string)$Value, true);
             if (!$this->ReadPropertyBoolean('TileAllowAck')) {
-                $msg = '⛔ Das Quittieren aus der Kachel ist in den Einstellungen ausgeschaltet.';
+                $msg = BWACHText::t('⛔ Acknowledging from the tile is switched off in the settings.');
             } elseif (is_array($d) && isset($d['place'])) {
                 $msg = $this->AcknowledgePlace((string)$d['place']);
             } else {
-                $msg = '⛔ Ungültige Anfrage aus der Kachel.';
+                $msg = BWACHText::t('⛔ Invalid request from the tile.');
             }
             $meta['ack'] = ['m' => $msg, 't' => $now];
             $this->saveJson('Meta', $meta);
         } elseif ($Ident === 'undo') {
-            $meta['ack'] = ['m' => $this->ReadPropertyBoolean('TileAllowAck') ? $this->UndoAcknowledge() : '⛔ Das Quittieren aus der Kachel ist in den Einstellungen ausgeschaltet.', 't' => $now];
+            $meta['ack'] = ['m' => $this->ReadPropertyBoolean('TileAllowAck') ? $this->UndoAcknowledge() : BWACHText::t('⛔ Acknowledging from the tile is switched off in the settings.'), 't' => $now];
             $this->saveJson('Meta', $meta);
         } elseif ($Ident === 'undo_dismiss') {
             $this->saveJson('Undo', []);   // „Rückgängig“ ausblenden, ohne etwas zurückzunehmen
@@ -686,7 +690,7 @@ class Batteriewaechter extends IPSModule
     private function cellText(array $row): string
     {
         if (!BWACHZelle::isKnown($row['cell'])) {
-            return $row['cellHint'] !== '' ? 'Gerät nennt als Ersatz: ' . $row['cellHint'] . ' (Zelltyp nicht eindeutig, bitte unter „Geräte-Einstellungen“ wählen)' : '';
+            return $row['cellHint'] !== '' ? BWACHText::t('Device names as replacement: %s (cell type ambiguous, please select under "Device settings")', $row['cellHint']) : '';
         }
         $text = ($row['cells'] > 1 ? $row['cells'] . '× ' : '') . BWACHZelle::label($row['cell']);
         if (!$row['cellAuto']) {
@@ -694,7 +698,9 @@ class Batteriewaechter extends IPSModule
         }
         // AA/AAA nennen nur die Bauform, ob Alkali oder Akku, weiß das Gerät nicht
         $form = in_array($row['cell'], ['aa_alkali', 'aaa_alkali', 'c_alkali', 'd_alkali'], true);
-        return $text . ' — laut Gerät („' . $row['cellHint'] . '“)' . ($form ? ', nur die Bauform: ob Alkali oder Akku, ist unbekannt' : '');
+        return $form
+            ? BWACHText::t('%s — according to the device ("%s"), only the form factor: whether alkaline or rechargeable is unknown', $text, $row['cellHint'])
+            : BWACHText::t('%s — according to the device ("%s")', $text, $row['cellHint']);
     }
 
     /** „Letzter Wechsel: 12.10.2026 (vor 3 Tagen), die Batterie davor hielt 14 Monate“ aus den Tagebucheinträgen; leer ohne Eintrag. */
@@ -703,9 +709,9 @@ class Batteriewaechter extends IPSModule
         if ($c === null) {
             return '';
         }
-        $text = 'Letzter Wechsel: ' . date('d.m.Y', (int)$c['last']) . ' (vor ' . BWACHLogik::daysDat(max(0, $now - (int)$c['last'])) . ')';
+        $text = BWACHText::t('Last replacement: %s (%s ago)', date('d.m.Y', (int)$c['last']), BWACHLogik::daysDat(max(0, $now - (int)$c['last'])));
         if ($c['prev'] !== null && (int)$c['last'] > (int)$c['prev']) {
-            $text .= ' · die Batterie davor hielt ' . BWACHLogik::daysDat((int)$c['last'] - (int)$c['prev']);
+            $text = BWACHText::t('%s · the previous battery lasted %s', $text, BWACHLogik::daysDat((int)$c['last'] - (int)$c['prev']));
         }
         return $text;
     }
@@ -729,8 +735,8 @@ class Batteriewaechter extends IPSModule
                 'valueAgeSec'  => $r['valueAge'],
                 'lifeAgeSec'   => $r['lifeAge'],
                 'cellKey'      => BWACHZelle::isKnown($row['cell']) ? (string)BWACHZelle::shopLabel($row['cell']) : '',
-                'valueAgeText' => $r['valueAge'] === null ? '—' : 'vor ' . BWACHLogik::daysDat($r['valueAge']),
-                'lifeText'     => $r['lifeAge'] === null ? '—' : 'vor ' . BWACHLogik::daysDat($r['lifeAge']),
+                'valueAgeText' => $r['valueAge'] === null ? '—' : BWACHText::t('%s ago', BWACHLogik::daysDat($r['valueAge'])),
+                'lifeText'     => $r['lifeAge'] === null ? '—' : BWACHText::t('%s ago', BWACHLogik::daysDat($r['lifeAge'])),
                 'headline'     => $this->headline($r),
                 'critical'     => (bool)$r['critical'],
                 'quality'      => $r['quality'],
@@ -763,7 +769,7 @@ class Batteriewaechter extends IPSModule
             'allowAck' => $this->ReadPropertyBoolean('TileAllowAck'),
             'light'    => $this->ReadPropertyBoolean('LightTheme'),
             'shopping' => $this->tileShopping($views),
-            'asOf'     => date('H:i', $now) . ' Uhr',
+            'asOf'     => BWACHText::t("%s o'clock", date('H:i', $now)),
             'message'  => $message,
             'undoText' => $this->undoLabel(),
         ], JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
@@ -780,10 +786,10 @@ class Batteriewaechter extends IPSModule
     public function Acknowledge(string $key, string $action): string
     {
         if ($key === '') {
-            return 'ℹ️ Bitte zuerst ein Gerät wählen.';
+            return BWACHText::t('ℹ️ Please select a device first.');
         }
         if (!in_array($action, [BWACHMeldung::ACK_REPLACED, BWACHMeldung::ACK_SNOOZE, BWACHMeldung::ACK_RETIRED], true)) {
-            return '⛔ Unbekannte Aktion „' . $action . '“.';
+            return BWACHText::t('⛔ Unknown action "%s".', $action);
         }
         $found = $this->found();
         $name  = null;
@@ -798,11 +804,11 @@ class Batteriewaechter extends IPSModule
             $name = $row !== null ? $row['name'] : (string)$found['devices'][$key]['name'];
         }
         if ($name === null) {
-            return '⛔ Gerät „' . $key . '“ nicht gefunden (vielleicht schon außer Betrieb oder ausgenommen).';
+            return BWACHText::t('⛔ Device "%s" not found (perhaps already out of service or excluded).', $key);
         }
         $undo = [];
         $msg  = $this->ackApply((string)$key, $action, $name, $undo);
-        $this->undoStore($undo, ($action === BWACHMeldung::ACK_REPLACED ? 'Batteriewechsel' : ($action === BWACHMeldung::ACK_SNOOZE ? 'Zurückgestellt' : 'Außer Betrieb')) . ' bei „' . $name . '“');
+        $this->undoStore($undo, $action === BWACHMeldung::ACK_REPLACED ? BWACHText::t('Battery replacement for "%s"', $name) : ($action === BWACHMeldung::ACK_SNOOZE ? BWACHText::t('Postponed "%s"', $name) : BWACHText::t('Out of service "%s"', $name)));
         $this->Check();
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
@@ -818,20 +824,20 @@ class Batteriewaechter extends IPSModule
         $item  = ['key' => $key, 'name' => $name, 'action' => $action, 'state' => $state[$key] ?? null, 'retired' => $this->loadJson('Retired')[$key] ?? null, 'diaryT' => null];
         if ($action === BWACHMeldung::ACK_REPLACED) {
             $before = $this->loadJson('Diary');
-            $diary  = BWACHMeldung::diaryAdd($before, ['t' => $now, 'key' => $key, 'name' => $name, 'type' => 'manuell', 'note' => 'von Hand eingetragen']);
+            $diary  = BWACHMeldung::diaryAdd($before, ['t' => $now, 'key' => $key, 'name' => $name, 'type' => 'manuell', 'note' => BWACHText::t('entered by hand')]);
             if (count($diary) > count($before)) {
                 $item['diaryT'] = $now;
             }
             $this->saveJson('Diary', $diary);
-            $msg = '✅ Batteriewechsel bei „' . $name . '“ eingetragen. Der Wächter wartet ' . BWACHMeldung::REPLACE_GRACE_DAYS . ' Tage, bis das Gerät den neuen Stand meldet.';
+            $msg = BWACHText::t('✅ Battery replacement for "%s" entered. The monitor waits %s days until the device reports the new level.', $name, BWACHMeldung::REPLACE_GRACE_DAYS);
         } elseif ($action === BWACHMeldung::ACK_SNOOZE) {
             $days = $this->ReadPropertyInteger('SnoozeDays');
-            $msg  = '✅ „' . $name . '“ zurückgestellt bis ' . date('d.m.Y', $now + max(1, $days) * 86400) . '. Danach meldet sich der Wächter wieder, falls der Befund bleibt.';
+            $msg  = BWACHText::t('✅ "%s" postponed until %s. After that the monitor reports again if the finding persists.', $name, date('d.m.Y', $now + max(1, $days) * 86400));
         } else {
             $retired = $this->loadJson('Retired');
             $retired[$key] = $now;
             $this->saveJson('Retired', $retired);
-            $msg = '✅ „' . $name . '“ ist außer Betrieb und wird nicht mehr überwacht. Wieder aufnehmen: unter „Geräte-Einstellungen“ oder „Quittieren“.';
+            $msg = BWACHText::t('✅ "%s" is out of service and is no longer monitored. To put it back into service: under "Device settings" or "Acknowledge".', $name);
         }
         $this->saveJson('NotifyState', BWACHMeldung::acknowledge($state, $key, $action, $now, $this->ReadPropertyInteger('SnoozeDays')));
         if ($undo !== null) {
@@ -862,7 +868,7 @@ class Batteriewaechter extends IPSModule
     {
         $u = $this->loadJson('Undo');
         if (empty($u['items']) || $this->now() - (int)$u['t'] > self::UNDO_SECONDS) {
-            return 'ℹ️ Es gibt nichts zurückzunehmen.';
+            return BWACHText::t('ℹ️ There is nothing to undo.');
         }
         $state   = $this->loadJson('NotifyState');
         $retired = $this->loadJson('Retired');
@@ -891,7 +897,7 @@ class Batteriewaechter extends IPSModule
         $this->saveJson('Undo', []);
         $n   = count($u['items']);
         $this->Check();
-        $msg = '↩️ Zurückgenommen: ' . $u['label'] . ($n > 1 ? ' (' . $n . ' Geräte)' : '') . '.';
+        $msg = $n > 1 ? BWACHText::t('↩️ Undone: %s (%s devices).', $u['label'], $n) : BWACHText::t('↩️ Undone: %s.', $u['label']);
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
         $this->refreshRetiredFields($this->found());
@@ -906,14 +912,14 @@ class Batteriewaechter extends IPSModule
     {
         $found = $this->found();
         if ($found === null) {
-            return 'ℹ️ Noch nicht gesucht: zuerst „Jetzt neu suchen“.';
+            return BWACHText::t('ℹ️ Not searched yet: first click "Search again now".');
         }
         $place = $place === '' ? 'ohne Ort' : $place;
         $now   = $this->now();
         $v     = $this->views($this->evaluateAll($found), $now);
         $devs  = $v['round']['places'][$place] ?? [];
         if (!$devs) {
-            return 'ℹ️ In der Tauschrunde steht für „' . $place . '“ nichts.';
+            return BWACHText::t('ℹ️ Nothing is in the replacement round for "%s".', $place);
         }
         $n = 0;
         $undo = [];
@@ -921,9 +927,11 @@ class Batteriewaechter extends IPSModule
             $this->ackApply((string)$d['id'], BWACHMeldung::ACK_REPLACED, (string)$d['name'], $undo);
             $n++;
         }
-        $this->undoStore($undo, 'Alles getauscht in „' . $place . '“');
+        $this->undoStore($undo, BWACHText::t('Everything replaced in "%s"', $place));
         $this->Check();
-        $msg = '✅ ' . $n . ($n === 1 ? ' Gerät' : ' Geräte') . ' in „' . $place . '“ als getauscht eingetragen. Der Wächter wartet ' . BWACHMeldung::REPLACE_GRACE_DAYS . ' Tage, bis die Geräte den neuen Stand melden.';
+        $msg = $n === 1
+            ? BWACHText::t('✅ %s device in "%s" entered as replaced. The monitor waits %s days until the devices report the new level.', $n, $place, BWACHMeldung::REPLACE_GRACE_DAYS)
+            : BWACHText::t('✅ %s devices in "%s" entered as replaced. The monitor waits %s days until the devices report the new level.', $n, $place, BWACHMeldung::REPLACE_GRACE_DAYS);
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
         return $msg;
@@ -936,16 +944,16 @@ class Batteriewaechter extends IPSModule
     public function AddReplacement(string $key, string $date): string
     {
         if ($key === '') {
-            return 'ℹ️ Bitte zuerst ein Gerät wählen.';
+            return BWACHText::t('ℹ️ Please select a device first.');
         }
         $now = $this->now();
         $t   = BWACHMeldung::parseDate($date, $now);
         if ($t === null) {
-            return '⛔ Datum nicht lesbar oder in der Zukunft: bitte TT.MM.JJJJ eingeben (z. B. ' . date('d.m.Y', $now - 86400 * 30) . ').';
+            return BWACHText::t('⛔ Date unreadable or in the future: please enter DD.MM.YYYY (e.g. %s).', date('d.m.Y', $now - 86400 * 30));
         }
         $found = $this->found();
         if ($found === null || !isset($found['devices'][$key])) {
-            return '⛔ Gerät „' . $key . '“ nicht gefunden.';
+            return BWACHText::t('⛔ Device "%s" not found.', $key);
         }
         $name = $key;
         foreach ($this->evaluateAll($found) as $r) {
@@ -955,15 +963,15 @@ class Batteriewaechter extends IPSModule
             }
         }
         $diary = $this->loadJson('Diary');
-        $new   = BWACHMeldung::diaryAdd($diary, ['t' => $t, 'key' => $key, 'name' => $name, 'type' => 'nachgetragen', 'note' => 'von Hand nachgetragen']);
+        $new   = BWACHMeldung::diaryAdd($diary, ['t' => $t, 'key' => $key, 'name' => $name, 'type' => 'nachgetragen', 'note' => BWACHText::t('added later by hand')]);
         if (count($new) === count($diary)) {
-            return 'ℹ️ Für „' . $name . '“ gibt es schon einen Eintrag innerhalb von ' . BWACHMeldung::DIARY_DEDUPE_DAYS . ' Tagen um dieses Datum. Nichts geändert.';
+            return BWACHText::t('ℹ️ There is already an entry for "%s" within %s days of this date. Nothing changed.', $name, BWACHMeldung::DIARY_DEDUPE_DAYS);
         }
         usort($new, function ($a, $b) { return (int)$a['t'] <=> (int)$b['t']; });
         $this->saveJson('Diary', $new);
         $this->saveJson('Undo', []);   // das letzte „Rückgängig“ gälte sonst für einen Stand, den es nicht mehr gibt
         $this->Check();
-        $msg = '✅ Wechsel bei „' . $name . '“ am ' . date('d.m.Y', $t) . ' nachgetragen.';
+        $msg = BWACHText::t('✅ Replacement for "%s" on %s added later.', $name, date('d.m.Y', $t));
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
         return $msg;
@@ -988,11 +996,11 @@ class Batteriewaechter extends IPSModule
     {
         $found = $this->found();
         if ($found === null) {
-            return 'Noch nicht gesucht: zuerst „Jetzt neu suchen“.';
+            return BWACHText::t('Not searched yet: first click "Search again now".');
         }
         $now   = $this->now();
         $diary = $this->loadJson('Diary');
-        $out   = [BWACHLogik::csvRow(['Name', 'Ort', 'System', 'Zelltyp', 'Zellen', 'Batteriestand %', 'Status', 'Funk', 'Letzter Wechsel', 'Lebenszeichen vor Tagen'])];
+        $out   = [BWACHLogik::csvRow([BWACHText::t('Name'), BWACHText::t('Location'), BWACHText::t('System'), BWACHText::t('Cell type'), BWACHText::t('Cells'), BWACHText::t('Battery level %'), BWACHText::t('Status'), BWACHText::t('Radio'), BWACHText::t('Last replacement'), BWACHText::t('Sign of life, days ago')])];
         $rows  = $this->evaluateAll($found);
         usort($rows, function ($a, $b) { return strcasecmp($a['place'] . "\0" . $a['name'], $b['place'] . "\0" . $b['name']); });
         foreach ($rows as $row) {
@@ -1103,7 +1111,7 @@ class Batteriewaechter extends IPSModule
     private function forecastJson(array $f, bool $hasPercent): array
     {
         if (!$hasPercent) {
-            return ['days' => null, 'confidence' => 'unbekannt', 'emptyAt' => null, 'slopePerDay' => null, 'quality' => null, 'text' => '', 'why' => 'kein Prozentwert (das Gerät meldet nur schwach/leer)'];
+            return ['days' => null, 'confidence' => 'unbekannt', 'emptyAt' => null, 'slopePerDay' => null, 'quality' => null, 'text' => '', 'why' => BWACHText::t('no percentage value (the device only reports low/empty)')];
         }
         return [
             'days'        => $f['days'],
@@ -1124,23 +1132,23 @@ class Batteriewaechter extends IPSModule
     {
         $old = $this->oldInstances();
         if (!$old) {
-            return 'ℹ️ Keine BY_BatterieMonitor-Instanz gefunden — es gibt nichts zu übernehmen.';
+            return BWACHText::t('ℹ️ No BY_BatterieMonitor instance found — there is nothing to import.');
         }
         $id  = array_key_first($old);
         $cfg = json_decode((string)IPS_GetConfiguration($id), true);
         if (!is_array($cfg)) {
-            return '⛔ Die Einstellungen der alten Instanz #' . $id . ' lassen sich nicht lesen.';
+            return BWACHText::t('⛔ The settings of the old instance #%s cannot be read.', $id);
         }
         $res = BWACHLogik::importOldConfig($cfg, function (int $i) { return IPS_InstanceExists($i); });
         foreach ($res['fields'] as $field => $value) {
             $this->UpdateFormField($field, $field === 'PushTargets' ? 'values' : 'value', $value);
         }
-        $msg = '✅ Aus „' . $old[$id] . '“ (#' . $id . ') in die Maske übernommen: ' . implode(', ', $res['taken']) . '.'
-            . "\nNicht übernommen: " . implode('; ', $res['skipped']) . '.'
-            . "\nDie Werte stehen jetzt im Formular, aber noch NICHT gespeichert: bitte prüfen und „Übernehmen“ klicken."
-            . (count($old) > 1 ? "\nHinweis: Es gibt " . count($old) . ' alte Instanzen, übernommen wurde die erste.' : '')
-            . "\nDanach kann die alte Instanz entfernt werden. Der Wächter findet die Batterien ohnehin von selbst, die alte Geräteliste braucht es nicht.";
-        $this->UpdateFormField('ImportStatus', 'caption', 'ℹ️ Letzte Übernahme aus „' . $old[$id] . '“ — noch „Übernehmen“ klicken, wenn die Werte stimmen.');
+        $msg = BWACHText::t('✅ Imported from "%s" (#%s) into the form: %s.', $old[$id], $id, implode(', ', $res['taken']))
+            . "\n" . BWACHText::t('Not imported: %s.', implode('; ', $res['skipped']))
+            . "\n" . BWACHText::t('The values are now in the form but NOT saved yet: please check them and click "Apply".')
+            . (count($old) > 1 ? "\n" . BWACHText::t('Note: There are %s old instances, the first one was imported.', count($old)) : '')
+            . "\n" . BWACHText::t('Afterwards the old instance can be removed. The monitor finds the batteries on its own anyway; the old device list is not needed.');
+        $this->UpdateFormField('ImportStatus', 'caption', BWACHText::t('ℹ️ Last import from "%s" — still click "Apply" if the values are correct.', $old[$id]));
         return $msg;
     }
 
@@ -1160,17 +1168,17 @@ class Batteriewaechter extends IPSModule
     public function Unretire(string $key): string
     {
         if ($key === '') {
-            return 'ℹ️ Bitte zuerst ein Gerät aus der Liste „Gerät außer Betrieb“ wählen.';
+            return BWACHText::t('ℹ️ Please first select a device from the list "Device out of service".');
         }
         $retired = $this->loadJson('Retired');
         if (!isset($retired[$key])) {
-            return 'ℹ️ Gerät „' . $key . '“ stand nicht auf der Liste „Außer Betrieb“.';
+            return BWACHText::t('ℹ️ Device "%s" was not on the "Out of service" list.', $key);
         }
         unset($retired[$key]);
         $this->saveJson('Retired', $retired);
         $this->Check();
         $this->refreshRetiredFields($this->found());
-        return '✅ Gerät wieder aufgenommen.';
+        return BWACHText::t('✅ Device put back into service.');
     }
 
     /**
@@ -1183,13 +1191,15 @@ class Batteriewaechter extends IPSModule
         $keep  = array_values(array_filter($diary, function ($e) { return (string)($e['type'] ?? '') !== 'erkannt'; }));
         $n     = count($diary) - count($keep);
         if ($n === 0) {
-            return 'ℹ️ Es gibt keine automatisch erkannten Wechsel im Tagebuch.';
+            return BWACHText::t('ℹ️ There are no automatically detected replacements in the log.');
         }
         $this->saveJson('Diary', $keep);
         $this->saveJson('Undo', []);
         $this->saveJson('FcLog', []);   // der Vergleich mit der Prognose hing an den gelöschten Wechseln
         $this->Check();
-        $msg = '✅ ' . $n . ($n === 1 ? ' automatisch erkannter Wechsel' : ' automatisch erkannte Wechsel') . ' gelöscht. Von Hand eingetragene bleiben.';
+        $msg = $n === 1
+            ? BWACHText::t('✅ %s automatically detected replacement deleted. Manually entered ones remain.', $n)
+            : BWACHText::t('✅ %s automatically detected replacements deleted. Manually entered ones remain.', $n);
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
         return $msg;
@@ -1201,7 +1211,7 @@ class Batteriewaechter extends IPSModule
         $n = count($this->loadJson('Retired'));
         $this->saveJson('Retired', []);
         $this->Check();
-        $msg = $n === 0 ? 'ℹ️ Es war kein Gerät außer Betrieb.' : '✅ ' . $n . ($n === 1 ? ' Gerät wieder aufgenommen.' : ' Geräte wieder aufgenommen.');
+        $msg = $n === 0 ? BWACHText::t('ℹ️ No device was out of service.') : ($n === 1 ? BWACHText::t('✅ %s device put back into service.', $n) : BWACHText::t('✅ %s devices put back into service.', $n));
         $this->UpdateFormField('AckStatus', 'caption', $msg);
         $this->refreshRetiredFields($this->found());
         return $msg;
@@ -1213,7 +1223,7 @@ class Batteriewaechter extends IPSModule
     {
         $found = $this->found();
         if ($found === null) {
-            return 'Noch nicht gesucht: zuerst „Jetzt neu suchen“.';
+            return BWACHText::t('Not searched yet: first click "Search again now".');
         }
         $v = $this->views($this->evaluateAll($found), $this->now());
         return BWACHPrognose::shoppingText($v['shopping'], $v['round'], (int)$v['horizon'], $v['round']['until'] === null ? '' : date('d.m.Y', $v['round']['until']));
@@ -1224,31 +1234,31 @@ class Batteriewaechter extends IPSModule
     {
         $channels = ['push' => $this->ReadPropertyBoolean('NotifyPush'), 'mail' => $this->ReadPropertyBoolean('NotifyMail')];
         if (!$channels['push'] && !$channels['mail']) {
-            return 'ℹ️ Kein Zustellweg ausgewählt (Push oder E-Mail unter „Meldungen“ ankreuzen).';
+            return BWACHText::t('ℹ️ No delivery channel selected (tick push or e-mail under "Notifications").');
         }
         // Die erste Zeile des Textes ist die Überschrift, die schon im Titel steht: nicht doppelt senden
         $parts = explode("\n", $this->ShoppingText(), 2);
-        $ok    = $this->deliver('🛒 Batterien einkaufen', $parts[1] ?? $parts[0], 'bell', $channels);
-        return $ok > 0 ? '✅ Einkaufsliste gesendet' : '⚠️ Die Einkaufsliste konnte nicht zugestellt werden' . ($this->lastMailError !== '' ? ' — ' . $this->lastMailError : '') . '.';
+        $ok    = $this->deliver(BWACHText::t('🛒 Buy batteries'), $parts[1] ?? $parts[0], 'bell', $channels);
+        return $ok > 0 ? BWACHText::t('✅ Shopping list sent') : ($this->lastMailError !== '' ? BWACHText::t('⚠️ The shopping list could not be delivered — %s.', $this->lastMailError) : BWACHText::t('⚠️ The shopping list could not be delivered.'));
     }
 
     public function SendTest(): string
     {
-        $m = ['title' => '🧪 Batteriewächter Test', 'text' => 'Wenn diese Meldung ankommt, funktioniert der Zustellweg. Keine echte Batteriemeldung.', 'sound' => 'bell'];
+        $m = ['title' => BWACHText::t('🧪 Battery Monitor test'), 'text' => BWACHText::t('If this notification arrives, the delivery channel works. Not a real battery notification.'), 'sound' => 'bell'];
         $parts = [];
         if ($this->ReadPropertyBoolean('NotifyPush')) {
             $r = $this->sendPush($m['title'], $m['text'], $m['sound']);
             $parts[] = $r['targets'] === 0
-                ? 'Push: ⚠️ keine Push-Ziele gefunden (weder Kachel-Visualisierung noch WebFront)'
-                : 'Push: ' . ($r['ok'] === $r['targets'] ? '✅ ' : '⚠️ ') . $r['ok'] . ' von ' . $r['targets'] . ' Zielen';
+                ? BWACHText::t('Push: ⚠️ no push targets found (neither tile visualization nor WebFront)')
+                : ($r['ok'] === $r['targets'] ? BWACHText::t('Push: ✅ %s of %s targets', $r['ok'], $r['targets']) : BWACHText::t('Push: ⚠️ %s of %s targets', $r['ok'], $r['targets']));
         }
         if ($this->ReadPropertyBoolean('NotifyMail')) {
-            $parts[] = 'E-Mail: ' . ($this->sendMail($m['title'], $m['text']) ? '✅ gesendet' : '⚠️ nicht gesendet — ' . $this->lastMailError);
+            $parts[] = $this->sendMail($m['title'], $m['text']) ? BWACHText::t('E-mail: ✅ sent') : BWACHText::t('E-mail: ⚠️ not sent — %s', $this->lastMailError);
         }
         if (strpos(implode(' ', $parts), '✅') !== false) {
             $this->notifyReset();   // der Zustellweg funktioniert wieder
         }
-        $out = $parts ? implode(' · ', $parts) : 'ℹ️ Kein Zustellweg ausgewählt (Push oder E-Mail unter „Meldungen“ ankreuzen).';
+        $out = $parts ? implode(' · ', $parts) : BWACHText::t('ℹ️ No delivery channel selected (tick push or e-mail under "Notifications").');
         $this->UpdateFormField('NotifyStatus', 'caption', $out);
         return $out;
     }
@@ -1272,7 +1282,7 @@ class Batteriewaechter extends IPSModule
         $meta['retryFails'] = $fails;
         $meta['retryAfter'] = $now + $wait;
         $this->saveJson('Meta', $meta);
-        $this->LogMessage('Zustellung fehlgeschlagen (' . $fails . '. Versuch in Folge). Nächster Versuch um ' . date('H:i', $now + $wait) . ' Uhr, bis dahin ruhen die Meldungen.', KL_WARNING);
+        $this->LogMessage(BWACHText::t('Delivery failed (attempt %s in a row). Next attempt at %s, notifications pause until then.', $fails, date('H:i', $now + $wait)), KL_WARNING);
     }
 
     /** Eine Meldung ist angekommen: Wartezeit zurücksetzen. */
