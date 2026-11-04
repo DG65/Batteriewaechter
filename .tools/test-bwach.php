@@ -1674,6 +1674,8 @@ check('Grobe Stufen (nur 2 verschiedene Werte): keine Prognose, Grund genannt', 
 check('Ein Messpunkt: Einzahl „1 Messpunkt über 0 Tage“', strpos(BWACHPrognose::forecast([[$GLOBALS['CLOCK'] ?: 1, 80]], 5)['why'], 'zu wenig Verlauf (1 Messpunkt über 0 Tage,') === 0, BWACHPrognose::forecast([[1, 80]], 5)['why']);
 check('Englisch: „1 data point over 0 days“ statt „1 data points“', (function () { BWACHText::setzen(null); $w = BWACHPrognose::forecast([[1, 80]], 5)['why']; BWACHText::setzen('bwachDe'); return strpos($w, 'too little history (1 data point over 0 days,') === 0; })());
 check('Englisch: ein verschiedener Wert in der Einzahl', (function () { BWACHText::setzen(null); $ser = []; for ($i = 0; $i < 6; $i++) { $ser[] = [1000000 + $i * 5 * 86400, 80]; } $w = BWACHPrognose::forecast($ser, 5)['why']; BWACHText::setzen('bwachDe'); return strpos($w, 'only 1 distinct value,') !== false; })());
+check('Zahlen: deutsch mit Komma, englisch mit Punkt', BWACHLogik::num(1.5) === '1,5' && (function () { BWACHText::setzen(null); $n = BWACHLogik::num(1.5); BWACHText::setzen('bwachDe'); return $n === '1.5'; })());
+check('Erkennungsart: deutsch „profil“, englisch „profile“; gespeicherter Code unverändert', BWACHLogik::basisText(BWACHLogik::BASIS_PROFILE) === 'profil' && (function () { BWACHText::setzen(null); $b = BWACHLogik::basisText('profil') . '/' . BWACHLogik::basisText('manuell'); BWACHText::setzen('bwachDe'); return $b === 'profile/manual'; })() && BWACHLogik::BASIS_PROFILE === 'profil');
 // flach
 $flat = [];
 foreach ([0, 15, 30, 45, 60] as $d) { $flat = BWACHPrognose::historyAdd($flat, $T0 + $d * $Dd, 100.0 - $d * 0.001); }

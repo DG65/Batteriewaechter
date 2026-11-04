@@ -341,7 +341,7 @@ class Batteriewaechter extends IPSModule
             foreach ($d['signals'] as $kind => $list) {
                 $labels = [];
                 foreach ($list as $s) {
-                    $labels[] = $s['unverified'] ? BWACHText::t('#%s (%s, according to documentation, untested)', $s['vid'], $s['basis']) : '#' . $s['vid'] . ' (' . $s['basis'] . ')';
+                    $labels[] = $s['unverified'] ? BWACHText::t('#%s (%s, according to documentation, untested)', $s['vid'], BWACHLogik::basisText((string)$s['basis'])) : '#' . $s['vid'] . ' (' . BWACHLogik::basisText((string)$s['basis']) . ')';
                 }
                 $parts[] = $this->kindLabel($kind) . ' ' . implode(', ', $labels);
             }
@@ -2875,15 +2875,15 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'CheckBox', 'name' => 'EscalatePush', 'caption' => BWACHText::t('Escalation via push')],
                 ['type' => 'CheckBox', 'name' => 'EscalateMail', 'caption' => BWACHText::t('Escalation via email')],
                 ['type' => 'CheckBox', 'name' => 'QuietEnabled', 'caption' => BWACHText::t('Quiet hours: no notifications at night (the notification is sent afterwards)')],
-                ['type' => 'NumberSpinner', 'name' => 'QuietFromHour', 'caption' => BWACHText::t('Quiet hours from'), 'suffix' => BWACHText::t(' o\'clock'), 'minimum' => 0, 'maximum' => 23],
-                ['type' => 'NumberSpinner', 'name' => 'QuietToHour', 'caption' => BWACHText::t('Quiet hours until'), 'suffix' => BWACHText::t(' o\'clock'), 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'NumberSpinner', 'name' => 'QuietFromHour', 'caption' => BWACHText::t('Quiet hours from'), 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'NumberSpinner', 'name' => 'QuietToHour', 'caption' => BWACHText::t('Quiet hours until'), 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
                 ['type' => 'CheckBox', 'name' => 'CriticalIgnoresQuiet', 'caption' => BWACHText::t('Critical devices may break through quiet hours')],
                 ['type' => 'CheckBox', 'name' => 'DigestEnabled', 'caption' => BWACHText::t('Send weekly report')],
                 ['type' => 'Select', 'name' => 'DigestWeekday', 'caption' => BWACHText::t('Weekday'), 'options' => [
                     ['caption' => BWACHText::t('Monday'), 'value' => 1], ['caption' => BWACHText::t('Tuesday'), 'value' => 2], ['caption' => BWACHText::t('Wednesday'), 'value' => 3],
                     ['caption' => BWACHText::t('Thursday'), 'value' => 4], ['caption' => BWACHText::t('Friday'), 'value' => 5], ['caption' => BWACHText::t('Saturday'), 'value' => 6], ['caption' => BWACHText::t('Sunday'), 'value' => 7],
                 ]],
-                ['type' => 'NumberSpinner', 'name' => 'DigestHour', 'caption' => BWACHText::t('From'), 'suffix' => BWACHText::t(' o\'clock'), 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'NumberSpinner', 'name' => 'DigestHour', 'caption' => BWACHText::t('From'), 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
                 ['type' => 'CheckBox', 'name' => 'DigestWhenOk', 'caption' => BWACHText::t('Send weekly report even if everything is OK')],
                 ['type' => 'PopupButton', 'caption' => BWACHText::t('How do notifications work together?'), 'width' => '480px', 'popup' => [
                     'caption' => BWACHText::t('Notifications'),
@@ -3155,9 +3155,9 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'NumberSpinner', 'name' => 'LowPercent', 'caption' => BWACHText::t('Battery low below'), 'suffix' => ' %', 'minimum' => 1, 'maximum' => 99],
                 ['type' => 'NumberSpinner', 'name' => 'EmptyPercent', 'caption' => BWACHText::t('Battery empty up to'), 'suffix' => ' %', 'minimum' => 0, 'maximum' => 50],
                 ['type' => 'NumberSpinner', 'name' => 'CriticalLowPercent', 'caption' => BWACHText::t('Low below — critical devices'), 'suffix' => ' %', 'minimum' => 1, 'maximum' => 99],
-                ['type' => 'NumberSpinner', 'name' => 'ValueOldDays', 'caption' => BWACHText::t('Battery value counts as outdated after'), 'suffix' => BWACHText::t(' day(s)'), 'minimum' => 1, 'maximum' => 3650],
-                ['type' => 'NumberSpinner', 'name' => 'StillDays', 'caption' => BWACHText::t('Radio silence after (standard devices)'), 'suffix' => BWACHText::t(' day(s)'), 'minimum' => 1, 'maximum' => 365],
-                ['type' => 'NumberSpinner', 'name' => 'StillDaysEvent', 'caption' => BWACHText::t('Radio silence after (event sensors)'), 'suffix' => BWACHText::t(' day(s)'), 'minimum' => 1, 'maximum' => 365],
+                ['type' => 'NumberSpinner', 'name' => 'ValueOldDays', 'caption' => BWACHText::t('Battery value counts as outdated after'), 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 3650],
+                ['type' => 'NumberSpinner', 'name' => 'StillDays', 'caption' => BWACHText::t('Radio silence after (standard devices)'), 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 365],
+                ['type' => 'NumberSpinner', 'name' => 'StillDaysEvent', 'caption' => BWACHText::t('Radio silence after (event sensors)'), 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 365],
                 ['type' => 'NumberSpinner', 'name' => 'UnreachMinutes', 'caption' => BWACHText::t('If a device reports "unreachable" (e.g. HomeMatic UNREACH), this counts as radio silence after (0 = do not evaluate the report)'), 'suffix' => BWACHText::t(' minutes'), 'minimum' => 0, 'maximum' => 10080],
                 ['type' => 'NumberSpinner', 'name' => 'CheckIntervalMin', 'caption' => BWACHText::t('Check interval'), 'suffix' => ' min', 'minimum' => 5, 'maximum' => 1440],
                 ['type' => 'PopupButton', 'caption' => BWACHText::t('How do the thresholds work together?'), 'width' => '400px', 'popup' => [

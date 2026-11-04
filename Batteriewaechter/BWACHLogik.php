@@ -425,7 +425,7 @@ final class BWACHLogik
                 foreach ($list as $sg) {
                     $v = $byVid[(int)$sg['vid']] ?? null;
                     $known[(int)$sg['vid']] = true;
-                    $line = BWACHText::t('%s ← %s (type %s, profile %s, detected via %s)', $kind, $v['ident'] ?? '?', $v['type'] ?? '?', ($v['profile'] ?? '') !== '' ? $v['profile'] : BWACHText::t('none'), $sg['basis']);
+                    $line = BWACHText::t('%s ← %s (type %s, profile %s, detected via %s)', $kind, $v['ident'] ?? '?', $v['type'] ?? '?', ($v['profile'] ?? '') !== '' ? $v['profile'] : BWACHText::t('none'), self::basisText((string)$sg['basis']));
                     $mods[$m]['sig'][$line] = ($mods[$m]['sig'][$line] ?? 0) + 1;
                 }
             }
@@ -1136,8 +1136,17 @@ final class BWACHLogik
     /** Zahl mit deutschem Komma, ohne überflüssige Nullen. */
     public static function num(float $v): string
     {
-        $s = rtrim(rtrim(number_format($v, 2, ',', ''), '0'), ',');
+        // Dezimalzeichen in der Sprache von Symcon: Schlüssel „.“, deutsch „,“
+        $sep = BWACHText::t('.');
+        $s = rtrim(rtrim(number_format($v, 2, $sep, ''), '0'), $sep);
         return $s === '' || $s === '-' ? '0' : $s;
+    }
+
+    /** Erkennungsart (BASIS_*) für die Anzeige; der gespeicherte Code bleibt deutsch. */
+    public static function basisText(string $basis): string
+    {
+        $map = [self::BASIS_PROFILE => 'profile', self::BASIS_IDENT => 'ident', self::BASIS_NAME => 'name', self::BASIS_MANUAL => 'manual'];
+        return isset($map[$basis]) ? BWACHText::t($map[$basis]) : $basis;
     }
 
     /** Wie days(), aber nach „vor“/„seit“ (Dativ): „16 Tagen“, sonst unverändert. */

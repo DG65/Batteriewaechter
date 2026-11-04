@@ -24,6 +24,8 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['BWACHLogik.php', "\$sep = BWACHText::t('.');", "\$sep = ',';", 'Zahlen: Dezimalzeichen nicht übersetzt'],
+    ['BWACHLogik.php', "return isset(\$map[\$basis]) ? BWACHText::t(\$map[\$basis]) : \$basis;", "return \$basis;", 'Erkennungsart roh angezeigt'],
     ['BWACHPrognose.php', "\$pts  = \$n === 1 ?", "\$pts  = \$n === 0 ?", 'Prognose: Einzahl Messpunkt nicht erkannt'],
     ['BWACHPrognose.php', "\$base['why'] = \$distinct === 1", "\$base['why'] = \$distinct === 0", 'Prognose: Einzahl verschiedener Wert nicht erkannt'],
     ['module.php', "'CometWiFiThermostat' => 'CWIFI_SendAction'];", "];", 'Abfrage: Comet wird nicht abgefragt'],

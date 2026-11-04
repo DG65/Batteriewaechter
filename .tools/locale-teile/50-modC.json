@@ -121,7 +121,6 @@
     "Escalation via email": "Eskalation per E-Mail",
     "Quiet hours: no notifications at night (the notification is sent afterwards)": "Ruhezeit: nachts nicht melden (die Meldung wird danach nachgeholt)",
     "Quiet hours from": "Ruhezeit von",
-    " o'clock": " Uhr",
     "Quiet hours until": "Ruhezeit bis",
     "Critical devices may break through quiet hours": "Kritische Geräte dürfen die Ruhezeit durchbrechen",
     "Send weekly report": "Wochenbericht senden",
@@ -209,7 +208,6 @@
     "Battery empty up to": "Batterie leer bis",
     "Low below — critical devices": "Schwach unter — kritische Geräte",
     "Battery value counts as outdated after": "Batteriewert gilt als veraltet nach",
-    " day(s)": " Tagen",
     "Radio silence after (standard devices)": "Funkstille nach (Standard-Geräte)",
     "Radio silence after (event sensors)": "Funkstille nach (Ereignismelder)",
     "If a device reports \"unreachable\" (e.g. HomeMatic UNREACH), this counts as radio silence after (0 = do not evaluate the report)": "Meldet ein Gerät „nicht erreichbar“ (z. B. HomeMatic UNREACH), zählt das als Funkstille nach (0 = Meldung nicht auswerten)",
@@ -330,5 +328,6 @@
     "Radio silence": "Funkstille",
     "Battery empty soon": "Batterie bald leer",
     "Battery empty": "Batterie leer",
-    "Battery low": "Batterie schwach"
+    "Battery low": "Batterie schwach",
+    " days": " Tagen"
 }

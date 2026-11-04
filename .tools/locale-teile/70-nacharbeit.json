@@ -9,5 +9,11 @@
     "%s %s device monitored: %s (checked %s).": "%s %s Gerät überwacht: %s (geprüft %s Uhr).",
     "%s device monitored · as of %s": "%s Gerät überwacht · Stand %s",
     "radio silence after %s day": "Funkstille nach %s Tag",
-    "%s days (%s interval)": "%s Tage (%s Intervall)"
+    "%s days (%s interval)": "%s Tage (%s Intervall)",
+    ".": ",",
+    "profile": "profil",
+    "ident": "ident",
+    "name": "name",
+    "manual": "manuell",
+    ":00": " Uhr"
 }

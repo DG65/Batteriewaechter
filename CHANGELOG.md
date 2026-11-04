@@ -8,6 +8,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 ### Fixed
 - **Einzahl bei Anzahl 1** (live in der englischen Oberfläche gesehen: „1 data points“, „1 distinct values“): Prognose-Gründe, Zusammenfassung („1 Gerät überwacht“), Fußzeile der Kachel, „Funkstille nach 1 Tag“ in der Spalte „Gilt“ und die Lebensdauer-Statistik („1 Intervall“) nutzen bei 1 die Einzahl, auf Deutsch wie auf Englisch.
 - **Englische Texte durchgesehen:** einheitliche Begriffe („Days remaining“, „Devices found“, „More variables“, „Effect of cold“, „empty soon“, „email“, amerikanische Schreibweise), Germanismen ersetzt („Undo store“, „o'clock“, „State“ in der Einkaufstabelle, „Radio“ in der CSV), README.en.md angeglichen. Deutsch unverändert.
+- **Zahlen und Erkennungsart in der englischen Oberfläche** (live gesehen): Zahlen haben im Englischen einen Dezimalpunkt („1.5 years“ statt „1,5“), der Trockenlauf und die Diagnose nennen die Erkennungsart übersetzt („profile“ statt „profil“). Die Einheit hinter den Tageszahlen im Formular heißt „days“ statt „day(s)“. Deutsch unverändert.
 
 ## [0.20.0] - 2026-11-04
 
