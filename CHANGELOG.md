@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.2] - 2026-11-05
+
+### Fixed
+- **Prüfung wieder schnell (SUITE.md Stolperstein 24):** Symcons `Translate()` liest bei jedem Aufruf die `locale.json`. Eine Prüfung übersetzt hunderte Texte und dauerte live 2,5 Sekunden, das Formular gut 1 Sekunde. Jetzt wird jeder Text höchstens einmal je Prozess bei Symcon erfragt und gemerkt (Merkliste, Verbund-Muster nach WPModbusHub). Der Wächter liest dafür keine eigene Datei, die Store-Richtlinien erlauben Dateizugriffe nur als Ausnahme. Neue Prüfungen im Prüfstand begrenzen die `Translate()`-Aufrufe.
+
 ## [0.20.1] - 2026-11-04
 
 ### Fixed

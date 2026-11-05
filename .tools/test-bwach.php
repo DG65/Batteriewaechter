@@ -89,7 +89,7 @@ class IPSModule
 
     public function __construct($InstanceID = 12345) { mkinst($this->InstanceID, 'Batteriewächter', 'Batteriewaechter'); }
     /** Wie Symcon mit deutscher Oberfläche: Text aus locale.json, sonst unverändert. */
-    public function Translate(string $t): string { return bwachDe($t); }
+    public function Translate(string $t): string { $GLOBALS['TRANSLATE_CALLS'] = ($GLOBALS['TRANSLATE_CALLS'] ?? 0) + 1; return bwachDe($t); }
     public function Create() {}
     public function ApplyChanges() {}
     public function RegisterPropertyString(string $n, string $d): void { $this->props[$n] ??= $d; }
@@ -1675,6 +1675,9 @@ check('Ein Messpunkt: Einzahl „1 Messpunkt über 0 Tage“', strpos(BWACHProgn
 check('Englisch: „1 data point over 0 days“ statt „1 data points“', (function () { BWACHText::setzen(null); $w = BWACHPrognose::forecast([[1, 80]], 5)['why']; BWACHText::setzen('bwachDe'); return strpos($w, 'too little history (1 data point over 0 days,') === 0; })());
 check('Englisch: ein verschiedener Wert in der Einzahl', (function () { BWACHText::setzen(null); $ser = []; for ($i = 0; $i < 6; $i++) { $ser[] = [1000000 + $i * 5 * 86400, 80]; } $w = BWACHPrognose::forecast($ser, 5)['why']; BWACHText::setzen('bwachDe'); return strpos($w, 'only 1 distinct value,') !== false; })());
 check('Zahlen: deutsch mit Komma, englisch mit Punkt', BWACHLogik::num(1.5) === '1,5' && (function () { BWACHText::setzen(null); $n = BWACHLogik::num(1.5); BWACHText::setzen('bwachDe'); return $n === '1.5'; })());
+check('Stolperstein 24: zweite Prüfung samt Formular und Diagnose fragt Symcon kein einziges Mal (Merkliste)', (function () { BWACHText::vergessen(); $m = freshModule(); $m->Search(); $m->Check(); $m->GetConfigurationForm(); $m->Diagnosis(); $erst = $GLOBALS['TRANSLATE_CALLS'] = 0; $m->Check(); $m->GetConfigurationForm(); $m->Diagnosis(); return $GLOBALS['TRANSLATE_CALLS'] === 0 && strpos($m->Diagnosis(), 'Batteriewächter') === 0; })(), (string)($GLOBALS['TRANSLATE_CALLS'] ?? '?'));
+check('Stolperstein 24: jeder Text wird höchstens einmal erfragt', (function () { BWACHText::vergessen(); $n = 0; $f = BWACHText::mitMerkliste(function ($t) use (&$n) { $n++; return 'x:' . $t; }); $a = $f('Battery low'); $b = $f('Battery low'); $f('Battery empty'); BWACHText::vergessen(); return $a === 'x:Battery low' && $b === $a && $n === 2; })());
+check('Stolperstein 24: kein eigenes Lesen der locale.json im Modul (Store: Dateizugriff nur als Ausnahme)', (function () use ($MODDIR) { foreach (glob($MODDIR . '/*.php') as $f) { if (preg_match('/locale\.json/', preg_replace('#//.*$|/\*.*?\*/#ms', '', (string)file_get_contents($f)))) { return false; } } return true; })());
 check('Erkennungsart: deutsch „profil“, englisch „profile“; gespeicherter Code unverändert', BWACHLogik::basisText(BWACHLogik::BASIS_PROFILE) === 'profil' && (function () { BWACHText::setzen(null); $b = BWACHLogik::basisText('profil') . '/' . BWACHLogik::basisText('manuell'); BWACHText::setzen('bwachDe'); return $b === 'profile/manual'; })() && BWACHLogik::BASIS_PROFILE === 'profil');
 // flach
 $flat = [];

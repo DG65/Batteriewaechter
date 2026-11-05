@@ -43,9 +43,9 @@ class Batteriewaechter extends IPSModule
     {
         parent::__construct($InstanceID);
         // Logik-Klassen übersetzen über BWACHText; Quelltexte englisch, Deutsch in locale.json.
-        BWACHText::setzen(function (string $text): string {
+        BWACHText::setzen(BWACHText::mitMerkliste(function (string $text): string {
             return $this->Translate($text);
-        });
+        }));
     }
 
     private const LIBRARY_GUID = '{68C5991B-8E85-23AC-C254-B446AF035AF8}';

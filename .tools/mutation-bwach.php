@@ -24,6 +24,8 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['BWACHText.php', "if (!isset(self::\$gemerkt[\$text])) {", "if (true) {", 'Stolperstein 24: Merkliste wird nie genutzt'],
+    ['module.php', "BWACHText::setzen(BWACHText::mitMerkliste(function (string \$text): string {\n            return \$this->Translate(\$text);\n        }));", "BWACHText::setzen(function (string \$text): string {\n            return \$this->Translate(\$text);\n        });", 'Stolperstein 24: Modul fragt Symcon für jeden Text'],
     ['BWACHLogik.php', "\$sep = BWACHText::t('.');", "\$sep = ',';", 'Zahlen: Dezimalzeichen nicht übersetzt'],
     ['BWACHLogik.php', "return isset(\$map[\$basis]) ? BWACHText::t(\$map[\$basis]) : \$basis;", "return \$basis;", 'Erkennungsart roh angezeigt'],
     ['BWACHPrognose.php', "\$pts  = \$n === 1 ?", "\$pts  = \$n === 0 ?", 'Prognose: Einzahl Messpunkt nicht erkannt'],
