@@ -24,6 +24,9 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['module.php', "'rowCount' => max(5, min(60, count(\$dr['rows']))),", "'rowCount' => 12,", 'Geräteliste: feste Höhe'],
+    ['module.php', "\$rows    = array_values(array_filter(\$rows, function (\$r) { return (int)(\$r['Instance'] ?? 0) <= 0 || IPS_InstanceExists((int)\$r['Instance']); }));", "", 'Vorbereiten: verwaiste Zeilen bleiben'],
+    ['module.php', "\$this->UpdateFormField('DeviceSettings', 'values', json_encode(\$rows));", "", 'Vorbereiten: Liste wird nicht gesetzt'],
     ['module.php', "\$m = (int)(\$row['detect'] ?? -1) >= 0 ? (int)\$row['detect'] : \$mode;", "\$m = \$mode;", 'Wechselerkennung je Gerät wird übergangen'],
     ['BWACHLogik.php', "if ((int)(\$own['detect'] ?? -1) < 0 && (int)(\$r['Detect'] ?? -1) >= 0) {", "if ((int)(\$r['Detect'] ?? -1) >= 0) {", 'Gruppen-Regel überschreibt die eigene Wechselerkennung'],
     ['BWACHLogik.php', "if ((int)(\$own['detect'] ?? -1) < 0 && (int)(\$r['Detect'] ?? -1) >= 0) {", "if (false) {", 'Gruppen-Regel setzt keine Wechselerkennung'],

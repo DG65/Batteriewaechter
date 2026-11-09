@@ -3648,7 +3648,7 @@ class Batteriewaechter extends IPSModule
                 ['type' => 'Label', 'name' => 'RuleLine', 'caption' => $line],
                 ['type' => 'Label', 'caption' => 'A rule applies to all devices its pattern matches: by location (category of the instance), system (module), name or, for instances with several sensors, by the sensor (name of the battery variable). Separate several patterns with commas (OR); upper and lower case do not matter. The first matching rule from the top applies, so exceptions belong at the top. A device\'s own setting in "Device settings" takes precedence as soon as it differs from the default (cell type selected, event sensor, critical, excluded). The column "Applies" there shows what finally counts for a device.'],
                 [
-                    'type' => 'List', 'name' => 'GroupRules', 'caption' => 'Rules', 'rowCount' => 6, 'add' => true, 'delete' => true, 'changeOrder' => true,
+                    'type' => 'List', 'name' => 'GroupRules', 'caption' => 'Rules', 'rowCount' => max(4, min(30, count($rules) + 1)), 'add' => true, 'delete' => true, 'changeOrder' => true,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
@@ -3715,14 +3715,40 @@ class Batteriewaechter extends IPSModule
         ]);
     }
 
+    /** Zeilen der Geräte-Einstellungen, deren Instanz gelöscht ist. */
+    private function orphanRowCount(array $rows): int
+    {
+        return count(array_filter($rows, function ($r) { return (int)($r['Instance'] ?? 0) > 0 && !IPS_InstanceExists((int)$r['Instance']); }));
+    }
+
+    /**
+     * „Übernehmen“ der Konsole erscheint erst, wenn sich im Formular etwas geändert hat. Neue Zeilen, die das Modul selbst
+     * in die Liste setzt, zählen dafür nicht. Diese Funktion setzt die Liste (alle erkannten Geräte, ohne Zeilen gelöschter
+     * Instanzen) per UpdateFormField neu ins offene Formular; gespeichert wird erst mit „Übernehmen“ durch den Nutzer
+     * (keine Selbstpersistenz, SUITE.md Formular-Regel 1). Ungespeicherte eigene Änderungen in der Liste werden dabei
+     * durch den gespeicherten Stand ersetzt.
+     */
+    public function PrepareDeviceSettings(): string
+    {
+        $rows    = $this->deviceRows()['rows'];
+        $orphans = $this->orphanRowCount($rows);
+        $rows    = array_values(array_filter($rows, function ($r) { return (int)($r['Instance'] ?? 0) <= 0 || IPS_InstanceExists((int)$r['Instance']); }));
+        $this->UpdateFormField('DeviceSettings', 'values', json_encode($rows));
+        $msg = $orphans === 1
+            ? BWACHText::t('💾 List prepared: %s devices, %s row of a deleted instance removed. Now click "Apply" below to save.', count($rows), $orphans)
+            : BWACHText::t('💾 List prepared: %s devices, %s rows of deleted instances removed. Now click "Apply" below to save.', count($rows), $orphans);
+        $this->UpdateFormField('DeviceRowsLine', 'caption', $msg);
+        return $msg;
+    }
+
     private function DevicesPanel(array $dr): array
     {
         $fill = $dr['filled'] > 0
             ? BWACHText::t($dr['filled'] === 1 ? 'For %s device the cell type is already filled in because the device reports it itself (for AA/AAA only the size, alkaline is assumed: please change for rechargeables).' : 'For %s devices the cell type is already filled in because the device reports it itself (for AA/AAA only the size, alkaline is assumed: please change for rechargeables).', $dr['filled'])
             : '';
         $line = $dr['added'] > 0
-            ? BWACHText::t('✅ All detected devices are already in the list (%s new, not yet saved). Just select the cell type and number of cells per device, then click "Apply" below.', $dr['added']) . ($fill !== '' ? ' ' . $fill : '')
-            : ($dr['filled'] > 0 ? BWACHText::t('✅ All detected devices are in the list, not yet saved. %s To save, click "Apply" below.', $fill)
+            ? BWACHText::t('✅ All detected devices are already in the list (%s new, not yet saved). Just select the cell type and number of cells per device and click "Apply" below; "Apply" appears as soon as something in the list has changed, "💾 Prepare list for saving" does that for you.', $dr['added']) . ($fill !== '' ? ' ' . $fill : '')
+            : ($dr['filled'] > 0 ? BWACHText::t('✅ All detected devices are in the list, not yet saved. %s To save, click "💾 Prepare list for saving" and then "Apply" below.', $fill)
             : (count($dr['rows']) > 0 ? BWACHText::t('✅ All detected devices are in the list.') : BWACHText::t('ℹ️ No devices detected yet: first press "Search again now" above.')));
         return [
             'type' => 'ExpansionPanel', 'expanded' => $dr['added'] > 0 || $dr['filled'] > 0,
@@ -3734,8 +3760,10 @@ class Batteriewaechter extends IPSModule
                     ['type' => 'Label', 'caption' => $this->deviceHelp()],
                 ]],
                 ...$this->retiredItems($this->found(), 'Settings'),
+                ['type' => 'Button', 'caption' => '💾 Prepare list for saving', 'visible' => $dr['added'] > 0 || $dr['filled'] > 0 || $this->orphanRowCount($dr['rows']) > 0,
+                    'onClick' => 'echo BWACH_PrepareDeviceSettings($id);'],
                 [
-                    'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Devices', 'rowCount' => 12, 'add' => true, 'delete' => true,
+                    'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Devices', 'rowCount' => max(5, min(60, count($dr['rows']))), 'add' => true, 'delete' => true,
                     'loadValuesFromConfiguration' => false,
                     'sort' => $this->deviceSort(),
                     'values' => $dr['rows'],

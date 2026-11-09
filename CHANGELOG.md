@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.5] - 2026-11-09
+
+### Fixed
+- **„Übernehmen“ fehlte bei neuen Zeilen** (Dietmar, nach der Matter-Umstellung: 24 neue Zeilen „noch nicht gespeichert“, aber kein „Übernehmen“): Die Konsole zeigt „Übernehmen“ erst nach einer Änderung im Formular, vom Modul eingefügte Zeilen zählen dafür nicht. Neu ist der Knopf „💾 Liste zum Speichern vorbereiten“ (nur sichtbar bei neuen, vorbelegten oder verwaisten Zeilen): Er setzt die Liste mit allen erkannten Geräten und ohne Zeilen gelöschter Instanzen neu ins Formular, gespeichert wird dann mit „Übernehmen“. Das Modul speichert selbst nichts (keine Selbstpersistenz). Der Hinweistext sagt jetzt, wann „Übernehmen“ erscheint.
+- **Listenhöhe:** Die Liste „Geräte“ ist so hoch, wie es Zeilen gibt (5 bis 60), die Gruppen-Regeln ebenso (mindestens 4, höchstens 30).
+
 ## [0.20.4] - 2026-11-09
 
 ### Added
