@@ -23,5 +23,14 @@
     "replaced by the Matter composite device #%s (same node %s)": "ersetzt durch das Matter-Composite-Gerät #%s (derselbe Knoten %s)",
     "Matter composite devices: settings and history of %s device(s) taken over from the deleted instances per endpoint.": "Matter-Composite-Geräte: Einstellungen und Verlauf von %s Gerät(en) aus den gelöschten Instanzen je Endpunkt übernommen.",
     "⚠️ Instance deleted; these settings apply to #%s until that row is saved": "⚠️ Instanz gelöscht; die Einstellungen gelten für #%s, bis dessen Zeile gespeichert ist",
-    "⚠️ Instance deleted: delete this row": "⚠️ Instanz gelöscht: diese Zeile löschen"
+    "⚠️ Instance deleted: delete this row": "⚠️ Instanz gelöscht: diese Zeile löschen",
+    "Replacement detection": "Wechselerkennung",
+    "As set globally": "Wie eingestellt",
+    "Percentage jump and flag": "Prozentsprung und Flag",
+    "Percentage jump only": "Nur Prozentsprung",
+    "Off": "Aus",
+    "replacement detection by percentage jump only": "Wechselerkennung nur am Prozentsprung",
+    "no automatic replacement detection": "keine automatische Wechselerkennung",
+    "replacement detection by percentage jump and flag": "Wechselerkennung am Prozentsprung und am Flag",
+    "Replacement detection: \"As set globally\" follows the setting under \"Acknowledge and battery log\". \"Percentage jump only\" ignores a flickering \"low\" flag (e.g. HomeMatic LOWBAT); devices that only report the flag then have no automatic detection. Percentages calculated from voltage only count from a jump of 40 points to at least 80 %.": "Wechselerkennung: „Wie eingestellt“ folgt der Einstellung unter „Quittieren und Batterietagebuch“. „Nur Prozentsprung“ übergeht ein flackerndes „schwach“-Flag (z. B. HomeMatic LOWBAT); Geräte, die nur das Flag melden, haben dann keine automatische Erkennung. Aus der Spannung berechnete Prozentwerte zählen erst ab einem Sprung um 40 Punkte auf mindestens 80 %."
 }

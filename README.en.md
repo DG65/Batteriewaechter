@@ -66,7 +66,7 @@ Switch them on under "Notifications". The monitor reports "battery empty", "batt
 
 ## Acknowledge and battery log
 
-Under "Acknowledge and battery log" choose a device and an action: **I replaced it** (goes into the log with the date, 3 days of waiting until the device reports its new level), **Remind me later** or **Out of service** (no longer monitored, can be put back into service at any time, also under "Device settings"). The log also detects replacements by itself: the percentage rises by at least 25 points (adjustable) or the "low" flag is reset. If the flag flickers (e.g. with HomeMatic), "Detect battery replacements automatically" limits detection to the percentage jump or switches it off.
+Under "Acknowledge and battery log" choose a device and an action: **I replaced it** (goes into the log with the date, 3 days of waiting until the device reports its new level), **Remind me later** or **Out of service** (no longer monitored, can be put back into service at any time, also under "Device settings"). The log also detects replacements by itself: the percentage rises by at least 25 points (adjustable) or the "low" flag is reset. If the flag flickers (e.g. with HomeMatic), "Detect battery replacements automatically" limits detection to the percentage jump or switches it off; for single devices or by group rule, use the column "Replacement detection" in the device settings.
 
 ## Supported systems
 

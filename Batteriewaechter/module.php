@@ -1490,10 +1490,12 @@ class Batteriewaechter extends IPSModule
             $cur = ['p' => $row['r']['percent'], 'f' => $row['r']['flagLow']];
             $prev = isset($last[$key]) ? ['p' => $last[$key]['p'] ?? null, 'f' => $last[$key]['f'] ?? null] : null;
             $desc = null;
-            if ($mode > 0 && $prev !== null) {
+            // Eigene Wahl des Geräts (oder seiner Gruppen-Regel) geht vor der globalen Einstellung
+            $m = (int)($row['detect'] ?? -1) >= 0 ? (int)$row['detect'] : $mode;
+            if ($m > 0 && $prev !== null) {
                 // Nur Prozentsprung: das Flag zählt für die Erkennung nicht (gemerkt wird es trotzdem)
-                $p = $mode === 1 ? ['p' => $prev['p'], 'f' => null] : $prev;
-                $c = $mode === 1 ? ['p' => $cur['p'], 'f' => null] : $cur;
+                $p = $m === 1 ? ['p' => $prev['p'], 'f' => null] : $prev;
+                $c = $m === 1 ? ['p' => $cur['p'], 'f' => null] : $cur;
                 $desc = BWACHMeldung::detectReplacement($p, $c, $jump, !empty($row['r']['derived']));
             }
             if ($desc !== null) {
@@ -2106,6 +2108,7 @@ class Batteriewaechter extends IPSModule
                     'NoStill'  => (bool)($r['NoStill'] ?? false),
                     'Excluded' => (bool)($r['Excluded'] ?? false),
                     'Poll'     => (bool)($r['Poll'] ?? false),
+                    'Detect'   => max(-1, min(2, (int)($r['Detect'] ?? -1))),
                     'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                     'PlaceSet'  => $this->cleanAlias((string)($r['PlaceSet'] ?? '')),
                 ];
@@ -2178,6 +2181,7 @@ class Batteriewaechter extends IPSModule
                         'cell'      => BWACHZelle::isKnown((string)($r['Cell'] ?? '')) ? (string)$r['Cell'] : BWACHZelle::UNKNOWN,
                         'cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                         'poll'      => (bool)($r['Poll'] ?? false),
+                        'detect'    => max(-1, min(2, (int)($r['Detect'] ?? -1))),
                         'stillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                         'alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                         'place'     => $this->cleanAlias((string)($r['PlaceOwn'] ?? '')),
@@ -2224,7 +2228,7 @@ class Batteriewaechter extends IPSModule
             $sibs  = ($isInstance && isset($d['node'])) ? $this->matterSiblings($id) : [];
             $label = $this->deviceLabel($d, $id, $isInstance, $sibs);
             // Eigene Einstellung, dann die erste passende Gruppen-Regel
-            $st = BWACHLogik::applyRules($settings[(string)$key] ?? $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false, 'noStill' => false, 'place' => ''], $label, $rules);
+            $st = BWACHLogik::applyRules($settings[(string)$key] ?? $settings[$id] ?? ['group' => BWACHLogik::GROUP_STANDARD, 'critical' => false, 'ignoreAge' => false, 'excluded' => false, 'cell' => BWACHZelle::UNKNOWN, 'cells' => 1, 'poll' => false, 'detect' => -1, 'noStill' => false, 'place' => ''], $label, $rules);
             if ($st['excluded'] || isset($retired[(string)$key])) {
                 continue;
             }
@@ -2323,7 +2327,7 @@ class Batteriewaechter extends IPSModule
                 'members' => array_values(array_map('intval', $d['members'] ?? [])), 'sigIds' => array_map(function ($list) { return array_values(array_map(function ($s) { return (int)$s['vid']; }, $list)); }, $d['signals']),
                 'cellHint' => $cellHint, 'cellAuto' => $cellAuto, 'sourceList' => $this->sourceList($d['signals']),
                 'change' => BWACHMeldung::changeInfo($diaryAll, (string)$key),
-                'signal' => $isInstance ? $this->signalInfo($id) : null, 'pollOn' => $st['poll']];
+                'signal' => $isInstance ? $this->signalInfo($id) : null, 'pollOn' => $st['poll'], 'detect' => (int)($st['detect'] ?? -1)];
         }
         $this->applyPeers($rows);
         usort($rows, function ($a, $b) {
@@ -3318,7 +3322,7 @@ class Batteriewaechter extends IPSModule
             'group' => (string)$own['Group'], 'critical' => (bool)$own['Critical'], 'ignoreAge' => (bool)$own['IgnoreAge'],
             'excluded' => (bool)$own['Excluded'], 'cell' => (string)$own['Cell'], 'cells' => (int)$own['Cells'], 'poll' => (bool)$own['Poll'],
             'stillDays' => (int)($own['StillDays'] ?? 0), 'noStill' => (bool)($own['NoStill'] ?? false),
-            'place' => (string)($own['PlaceOwn'] ?? ''),
+            'place' => (string)($own['PlaceOwn'] ?? ''), 'detect' => (int)($own['Detect'] ?? -1),
         ], $label, $rules);
         $parts = [BWACHZelle::isKnown($eff['cell']) ? ($eff['cells'] > 1 ? $eff['cells'] . '× ' : '') . (string)BWACHZelle::shopLabel($eff['cell']) : BWACHText::t('cell type not set')];
         if ($eff['group'] === BWACHLogik::GROUP_EVENT) { $parts[] = BWACHText::t('event sensor'); }
@@ -3334,6 +3338,10 @@ class Batteriewaechter extends IPSModule
         }
         if ((int)($eff['stillDays'] ?? 0) > 0) { $parts[] = (int)$eff['stillDays'] === 1 ? BWACHText::t('radio silence after %s day', 1) : BWACHText::t('radio silence after %s days', (int)$eff['stillDays']); }
         if ($eff['excluded']) { $parts[] = BWACHText::t('excluded'); }
+        $det = (int)($eff['detect'] ?? -1);
+        if ($det === 1) { $parts[] = BWACHText::t('replacement detection by percentage jump only'); }
+        if ($det === 0) { $parts[] = BWACHText::t('no automatic replacement detection'); }
+        if ($det === 2 && $this->ReadPropertyInteger('ReplaceDetect') !== 2) { $parts[] = BWACHText::t('replacement detection by percentage jump and flag'); }
         if ($eff['rule'] !== null) {
             $rl = $rules[$eff['rule']];
             $parts[] = $rl['Label'] !== '' ? BWACHText::t('rule %s (%s)', $eff['rule'] + 1, $rl['Label']) : BWACHText::t('rule %s', $eff['rule'] + 1);
@@ -3478,6 +3486,7 @@ class Batteriewaechter extends IPSModule
                     'Cell'      => $cell,
                     'Cells'     => max(1, min(12, (int)($r['Cells'] ?? 1))),
                     'Poll'      => (bool)($r['Poll'] ?? false),
+                    'Detect'    => max(-1, min(2, (int)($r['Detect'] ?? -1))),
                     'StillDays' => max(0, min(3650, (int)($r['StillDays'] ?? 0))),
                     'Alias'     => $this->cleanAlias((string)($r['Alias'] ?? '')),
                     'Sensor'    => $sen,
@@ -3511,7 +3520,7 @@ class Batteriewaechter extends IPSModule
                     }
                     $have[$hk] = true;
                     $base = $instRows[$id] ?? ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'NoStill' => false, 'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'PlaceOwn' => '', 'ReachVar' => 0, 'ReachInv' => false];
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => BWACHZelle::UNKNOWN, 'Cells' => 1, 'Poll' => false, 'Detect' => -1, 'StillDays' => 0, 'Alias' => '', 'PlaceOwn' => '', 'ReachVar' => 0, 'ReachInv' => false];
                     // Die Einstellung der Instanz gilt bisher für alle ihre Sensoren: die neue Zeile übernimmt sie, ändert also nichts
                     $row = ['Instance' => $id] + array_merge($base, ['Alias' => '', 'Sensor' => $sen]);
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD, $sen);
@@ -3526,7 +3535,7 @@ class Batteriewaechter extends IPSModule
                     $cell = $this->cellFromDevice($id);
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
-                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0, 'PlaceOwn' => '', 'ReachVar' => 0, 'ReachInv' => false];
+                        'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'Detect' => -1, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0, 'PlaceOwn' => '', 'ReachVar' => 0, 'ReachInv' => false];
                     // Nach der Matter-Umstellung: die Zeile der gelöschten Instanz als Vorlage, damit „Übernehmen“ nichts verliert
                     $from = (int)($adopted[$hk] ?? 0);
                     if ($from > 0 && isset($instRows[$from])) {
@@ -3664,6 +3673,12 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Without radio silence check', 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Exclude', 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Query', 'name' => 'Poll', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Replacement detection', 'name' => 'Detect', 'width' => '200px', 'add' => -1, 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'As set globally', 'value' => -1],
+                            ['caption' => 'Percentage jump and flag', 'value' => 2],
+                            ['caption' => 'Percentage jump only', 'value' => 1],
+                            ['caption' => 'Off', 'value' => 0],
+                        ]]],
                         ['caption' => 'Radio silence after (days)', 'name' => 'StillDays', 'width' => '160px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
                         ['caption' => 'Matches', 'name' => 'Hits', 'width' => '70px', 'add' => 0],
                     ],
@@ -3695,6 +3710,7 @@ class Batteriewaechter extends IPSModule
             BWACHText::t('Display name: a name of your own for the device in tile, tables, notifications and log (empty = name of the instance). Group rules keep working with the name of the instance.'),
             BWACHText::t('Cell type (own) and cells (own): these are the settings of this one device. If a group rule applies to the device, the column "Applies" shows the value that finally counts; the two columns stay as they are as long as the device has no value of its own.'),
             BWACHText::t('Cell type and number of cells: with these the monitor converts voltages into a state of charge and compiles the shopping list. If a Matter device reports its cell type itself, it is already filled in.'),
+            BWACHText::t('Replacement detection: "As set globally" follows the setting under "Acknowledge and battery log". "Percentage jump only" ignores a flickering "low" flag (e.g. HomeMatic LOWBAT); devices that only report the flag then have no automatic detection. Percentages calculated from voltage only count from a jump of 40 points to at least 80 %.'),
             BWACHText::t('Query: for Z-Wave, Matter and Comet WiFi thermostats. If the battery value is older than %s days, the monitor sends the device a status request at most every %s days and shows whether it answers. A sleeping Z-Wave device only answers at its next wake-up; whether that delivers the battery value earlier is not proven there. Matter devices answered within a few seconds in first tests. A Comet thermostat is queried with "all fields", because only that delivers the battery level. For other systems the tick does nothing.', $pAfter, $pEvery),
         ]);
     }
@@ -3750,6 +3766,12 @@ class Batteriewaechter extends IPSModule
                         ['caption' => 'Invert reachability', 'name' => 'ReachInv', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Display name', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                         ['caption' => 'Query (Z-Wave, Matter, Comet)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Replacement detection', 'name' => 'Detect', 'width' => '200px', 'add' => -1, 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'As set globally', 'value' => -1],
+                            ['caption' => 'Percentage jump and flag', 'value' => 2],
+                            ['caption' => 'Percentage jump only', 'value' => 1],
+                            ['caption' => 'Off', 'value' => 0],
+                        ]]],
                         ['caption' => 'Radio silence after (days, 0 = default)', 'name' => 'StillDays', 'width' => '230px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
                         ['caption' => 'Set location', 'name' => 'PlaceSet', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],

@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.4] - 2026-11-09
+
+### Added
+- **Wechselerkennung je Gerät** (Forum: ein HomeMatic-Kühlschrankkontakt mit flackerndem LOW_BAT, andere Geräte melden nur LOWBAT und würden bei einer globalen Umstellung ihre Erkennung verlieren): In „Geräte-Einstellungen“ und in den Gruppen-Regeln gibt es die Spalte „Wechselerkennung“ mit „Wie eingestellt“ (Standard, folgt der globalen Einstellung), „Prozentsprung und Flag“, „Nur Prozentsprung“ und „Aus“. Eine eigene Wahl geht vor der Regel, die Regel vor der globalen Einstellung. „Gilt“ nennt eine abweichende Wahl. Aus der Spannung berechnete Prozentwerte zählen wie bisher erst ab einem Sprung um 40 Punkte auf mindestens 80 %.
+
 ## [0.20.3] - 2026-11-09
 
 ### Added

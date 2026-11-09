@@ -430,6 +430,9 @@ final class BWACHLogik
         if (!$own['poll'] && !empty($r['Poll'])) {
             $own['poll'] = true;
         }
+        if ((int)($own['detect'] ?? -1) < 0 && (int)($r['Detect'] ?? -1) >= 0) {
+            $own['detect'] = (int)$r['Detect'];   // Wechselerkennung aus der Regel, falls das Gerät keine eigene Wahl hat
+        }
         return $own;
     }
 
