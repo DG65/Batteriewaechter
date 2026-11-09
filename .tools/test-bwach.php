@@ -145,12 +145,24 @@ function bwachDe(string $t): string
     }
     return $de[$t] ?? $t;
 }
+/** Nachbildung der Konsole: übersetzt caption und label exakt passender Texte über locale.json. */
+function konsoleDe($x)
+{
+    if (!is_array($x)) { return $x; }
+    foreach ($x as $k => $v) {
+        if (($k === 'caption' || $k === 'label') && is_string($v)) { $x[$k] = bwachDe($v); }
+        elseif (is_array($v)) { $x[$k] = konsoleDe($v); }
+    }
+    return $x;
+}
 require $MODDIR . '/module.php';
 BWACHText::setzen('bwachDe');
 
 class BWTest extends Batteriewaechter
 {
     public function __construct() { parent::__construct(12345); }
+    /** Wie die Symcon-Konsole (SUITE.md Store-Punkt 25): caption/label im Formular übersetzt die Konsole selbst. */
+    public function GetConfigurationForm(): string { return json_encode(konsoleDe(json_decode(parent::GetConfigurationForm(), true)), JSON_UNESCAPED_UNICODE); }
     protected function now(): int { return $GLOBALS['CLOCK']; }
 }
 /** Wie BWTest, aber mit Änderungen für das Panel „Neu“ (in der Auslieferung ist es leer, bis die erste Version veröffentlicht ist). */
@@ -711,6 +723,11 @@ check('Befunde: leer / schwach / still, Datenqualität löst nichts aus', BWACHM
 check('Wechsel: 15 % → 100 % erkannt', BWACHMeldung::detectReplacement(['p' => 15.0, 'f' => null], ['p' => 100.0, 'f' => null], 25) !== null);
 check('Wechsel: Sprung genau 25 Punkte erkannt, 24 nicht', BWACHMeldung::detectReplacement(['p' => 40.0, 'f' => null], ['p' => 65.0, 'f' => null], 25) !== null && BWACHMeldung::detectReplacement(['p' => 40.0, 'f' => null], ['p' => 64.0, 'f' => null], 25) === null);
 check('Wechsel: Flag „schwach“ → „ok“ erkannt', BWACHMeldung::detectReplacement(['p' => null, 'f' => true], ['p' => null, 'f' => false], 25) !== null);
+$wx = function (int $mode, array $p, array $c) { $m = freshModule(['ReplaceDetect' => $mode]); $m->Search(); $m->Check(); $before = count(json_decode($m->GetValue('Diary'), true) ?: []); $ls = json_decode($m->GetValue('LastSeen'), true) ?: []; $k = array_key_first($ls); $ls[$k]['p'] = $p['p']; $ls[$k]['f'] = $p['f']; $m->SetValue('LastSeen', json_encode($ls)); return [$m, $k, $before]; };
+check('Wechselerkennung: Standard ist „Prozentsprung und Flag“', (function () { $m = freshModule(); return $m->ReadPropertyInteger('ReplaceDetect') === 2; })());
+check('Wechselerkennung „aus“: auch ein großer Prozentsprung trägt nichts ins Tagebuch ein', (function () { $m = freshModule(['ReplaceDetect' => 0]); $m->Search(); $m->Check(); $ls = json_decode($m->GetValue('LastSeen'), true) ?: []; foreach ($ls as $k => $v) { if (($v['p'] ?? null) !== null) { $ls[$k]['p'] = 1.0; } } $m->SetValue('LastSeen', json_encode($ls)); $GLOBALS['CLOCK'] += 60; $m->Check(); return count(array_filter(json_decode($m->GetValue('Diary'), true) ?: [], function ($e) { return $e['type'] === 'erkannt'; })) === 0; })());
+check('Wechselerkennung „nur Prozentsprung“: zurückgesetztes Flag zählt nicht, Prozentsprung schon', (function () { $m = freshModule(['ReplaceDetect' => 1]); $m->Search(); $m->Check(); $ls = json_decode($m->GetValue('LastSeen'), true) ?: []; $flagOnly = 0; $pct = 0; foreach ($ls as $k => $v) { if (($v['f'] ?? null) === false && ($v['p'] ?? null) === null) { $ls[$k]['f'] = true; $flagOnly++; } elseif (($v['p'] ?? null) !== null && $v['p'] >= 60) { $ls[$k]['p'] = 1.0; $pct++; } } $m->SetValue('LastSeen', json_encode($ls)); $GLOBALS['CLOCK'] += 60; $m->Check(); $d = array_filter(json_decode($m->GetValue('Diary'), true) ?: [], function ($e) { return $e['type'] === 'erkannt'; }); $byFlag = array_filter($d, function ($e) { return strpos($e['note'], 'zurückgesetzt') !== false; }); return $flagOnly > 0 && $pct > 0 && count($byFlag) === 0 && count($d) > 0; })());
+check('Wechselerkennung Standard: zurückgesetztes Flag trägt einen Wechsel ein', (function () { $m = freshModule(); $m->Search(); $m->Check(); $ls = json_decode($m->GetValue('LastSeen'), true) ?: []; $n = 0; foreach ($ls as $k => $v) { if (($v['f'] ?? null) === false && ($v['p'] ?? null) === null) { $ls[$k]['f'] = true; $n++; } } $m->SetValue('LastSeen', json_encode($ls)); $GLOBALS['CLOCK'] += 60; $m->Check(); return $n > 0 && count(array_filter(json_decode($m->GetValue('Diary'), true) ?: [], function ($e) { return strpos($e['note'], 'zurückgesetzt') !== false; })) > 0; })());
 check('Berechnet: Flag zurückgesetzt, Anstieg genau 40 Punkte auf 85 % zählt', BWACHMeldung::detectReplacement(['p' => 45.0, 'f' => true], ['p' => 85.0, 'f' => false], 25, true) !== null);
 check('Berechnet: Flag zurückgesetzt bei kleinem Prozentanstieg kein Wechsel, bei 15 → 100 % schon', BWACHMeldung::detectReplacement(['p' => 5.0, 'f' => true], ['p' => 12.0, 'f' => false], 25, true) === null && BWACHMeldung::detectReplacement(['p' => null, 'f' => true], ['p' => null, 'f' => false], 25, true) === null && BWACHMeldung::detectReplacement(['p' => 15.0, 'f' => true], ['p' => 100.0, 'f' => false], 25, true) !== null && BWACHMeldung::detectReplacement(['p' => 50.0, 'f' => true], ['p' => 85.0, 'f' => false], 25, true) === null);
 check('Kein Wechsel: erste Beobachtung, sinkender Wert, Flag false → true', BWACHMeldung::detectReplacement(null, ['p' => 100.0, 'f' => null], 25) === null

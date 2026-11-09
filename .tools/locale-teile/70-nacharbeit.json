@@ -15,5 +15,9 @@
     "ident": "ident",
     "name": "name",
     "manual": "manuell",
-    ":00": " Uhr"
+    ":00": " Uhr",
+    "Detect battery replacements automatically": "Batteriewechsel automatisch erkennen",
+    "By percentage jump and \"low\" flag": "Am Prozentsprung und am „schwach“-Flag",
+    "By percentage jump only (for flickering \"low\" flags, e.g. HomeMatic)": "Nur am Prozentsprung (bei flackerndem „schwach“-Flag, z. B. HomeMatic)",
+    "Off (enter replacements by hand only)": "Aus (Wechsel nur von Hand eintragen)"
 }

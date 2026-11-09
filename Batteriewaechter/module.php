@@ -137,6 +137,8 @@ class Batteriewaechter extends IPSModule
         $this->RegisterPropertyInteger('DigestHour', 8);
         $this->RegisterPropertyBoolean('DigestWhenOk', false);
         $this->RegisterPropertyInteger('ReplaceJumpPercent', 25);
+        // Wechselerkennung: 2 = Prozentsprung und Flag (Standard), 1 = nur Prozentsprung (Flag flackert z. B. bei HomeMatic), 0 = aus
+        $this->RegisterPropertyInteger('ReplaceDetect', 2);
 
         $this->RegisterAttributeString('Found', '');
         $this->RegisterAttributeInteger('LastDiscoveryTs', 0);
@@ -1410,6 +1412,7 @@ class Batteriewaechter extends IPSModule
         $diary = $this->loadJson('Diary');
         $state = $this->loadJson('NotifyState');
         $jump  = $this->ReadPropertyInteger('ReplaceJumpPercent');
+        $mode  = $this->ReadPropertyInteger('ReplaceDetect');
         $fc    = $this->loadJson('FcLog');
         $fcChanged = false;
         $newLast = $last;
@@ -1419,7 +1422,13 @@ class Batteriewaechter extends IPSModule
             $key = $row['id'];
             $cur = ['p' => $row['r']['percent'], 'f' => $row['r']['flagLow']];
             $prev = isset($last[$key]) ? ['p' => $last[$key]['p'] ?? null, 'f' => $last[$key]['f'] ?? null] : null;
-            $desc = BWACHMeldung::detectReplacement($prev, $cur, $jump, !empty($row['r']['derived']));
+            $desc = null;
+            if ($mode > 0 && $prev !== null) {
+                // Nur Prozentsprung: das Flag zählt für die Erkennung nicht (gemerkt wird es trotzdem)
+                $p = $mode === 1 ? ['p' => $prev['p'], 'f' => null] : $prev;
+                $c = $mode === 1 ? ['p' => $cur['p'], 'f' => null] : $cur;
+                $desc = BWACHMeldung::detectReplacement($p, $c, $jump, !empty($row['r']['derived']));
+            }
             if ($desc !== null) {
                 $entry = ['t' => $now, 'key' => $key, 'name' => $row['name'], 'type' => 'erkannt', 'note' => $desc];
                 // Prognose gegen die Wirklichkeit: Stand vor dem Wechsel gegen das, was die Prognose Wochen vorher sagte
@@ -2683,12 +2692,12 @@ class Batteriewaechter extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => BWACHText::t('👋  What is this module for?'),
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => BWACHText::t('The Battery Monitor finds the batteries of your wireless devices (sensors, thermostats, window contacts and smoke detectors …) on its own and tells you which ones need replacing — before a device fails.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('The benefit over a simple "empty" list: it tells a low battery apart from a device that no longer sends anything at all, and it says honestly when a battery value is doubtful (ancient, contradictory or impossible). An "OK" from 2023 is not OK.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('First press "🔎 Search again now" and use "What would be found?" to check that the matches are right. After that everything runs on its own.')],
-                ['type' => 'Button', 'caption' => BWACHText::t('Got it – do not show again'), 'onClick' => 'BWACH_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'The Battery Monitor finds the batteries of your wireless devices (sensors, thermostats, window contacts and smoke detectors …) on its own and tells you which ones need replacing — before a device fails.'],
+                ['type' => 'Label', 'caption' => 'The benefit over a simple "empty" list: it tells a low battery apart from a device that no longer sends anything at all, and it says honestly when a battery value is doubtful (ancient, contradictory or impossible). An "OK" from 2023 is not OK.'],
+                ['type' => 'Label', 'caption' => 'First press "🔎 Search again now" and use "What would be found?" to check that the matches are right. After that everything runs on its own.'],
+                ['type' => 'Button', 'caption' => 'Got it – do not show again', 'onClick' => 'BWACH_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -2728,9 +2737,9 @@ class Batteriewaechter extends IPSModule
             }
         }
         if ($cut) {
-            $items[] = ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ Older changes are listed in the file CHANGELOG.md in the repository.')];
+            $items[] = ['type' => 'Label', 'caption' => 'ℹ️ Older changes are listed in the file CHANGELOG.md in the repository.'];
         }
-        $items[] = ['type' => 'Button', 'caption' => BWACHText::t('Got it – do not show again'), 'onClick' => 'BWACH_AckNews($id);'];
+        $items[] = ['type' => 'Button', 'caption' => 'Got it – do not show again', 'onClick' => 'BWACH_AckNews($id);'];
         return [
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => BWACHText::t('🆕  New up to version %s', array_key_last($pending)),
@@ -2746,23 +2755,23 @@ class Batteriewaechter extends IPSModule
             : BWACHText::t('ℹ️ Battery Monitor');
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('📖  Documentation and help'),
+            'caption' => '📖  Documentation and help',
             'items' => [
                 ['type' => 'Label', 'caption' => $verTxt],
-                ['type' => 'Button', 'caption' => BWACHText::t('💬 Forum thread'), 'onClick' => "echo '" . self::FORUM_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => BWACHText::t('What is found: variables with the Symcon profiles ~Battery ("low" flag), ~Battery.Reversed ("OK" flag) and ~Battery.100 (percent) as well as variables with typical identifiers (e.g. battery, battery_low, LOWBAT, battery_percent, battery_voltage). Several signals of one device (e.g. percent and flag) are merged into ONE device.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('What is deliberately not found: home storage and vehicle batteries (module list "Excluded modules"), aggregate values such as the "weakest battery" of a room, and variables that belong to no device instance. The dry run gives the reason for every exclusion.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('The three times: (1) Age of the battery value — when the device last reported its battery level; some devices do this only every few months. (2) Sign of life — the latest update of a measurement variable of the device (variables with an action such as setpoints do not count, Symcon often writes them itself); if it stays away, that is radio silence, not a low battery. (3) The device itself with its status.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Status: "empty" and "low" from the percentage (thresholds below) or the device flag; "unknown" if there is nothing to evaluate (e.g. only a voltage — with a cell type selected, the monitor converts it into a state of charge). If a device reports flag and percent and the two contradict each other, the monitor shows the contradiction and rates by the newer signal; for critical devices the worse statement applies.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Radio silence: by default 7 days without a sign of life. Devices that only send on events (window contacts, smoke detectors) belong in the group "Event sensor" under "Device settings" (default 30 days).')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Result: key figure variables (empty, low, radio silence …) and two table variables ("Action needed", "All devices") that can be placed in the WebFront via a link.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Notifications (under "🔔 Notifications", off by default): first notification, reminder after N days, quiet hours, weekly report, escalation for critical devices — via push (tile visualization and WebFront) and email. Under "✅ Acknowledge" you tell the monitor what is going on with a device.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Forecast, shopping, replacement round: set under "🧮 Forecast and shopping". Enter the cell type per device under "Device settings", then the monitor can convert voltages and count the shopping list. The results are the variables "Shopping and replacement round" and "Lifetime and discharge" below the instance.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Conspicuous devices, radio quality, cold: if a device discharges more than twice as fast as comparable ones (same system, same cell type, at least 4 devices with a known discharge rate), the monitor marks it and names possible causes (defective, poor radio connection, continuous transmitting). It shows the radio quality where the device provides it (e.g. Zigbee linkquality). The effect of cold needs an outdoor temperature variable and several weeks of history in cold AND warm weather.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Querying sleeping devices: Z-Wave, Matter and Comet WiFi thermostats, only where switched on per device, only if the battery value is older than set. It also queries during radio silence if the query is switched on for the device. The monitor says whether the device answered; if no answer comes (for Z-Wave after 14 days, for Matter and Comet after 6 hours), that is shown as a finding.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Tile: add the instance as a tile in the tile visualization. Tapping a row expands it (reasons, age, buttons to acknowledge); the filter row at the top shows only what matters right now.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Battery log: the monitor detects a battery replacement by the jump of the percentage or by the reset "low" flag and records it with the date. The lifetime per device and cell type appears in the statistics once enough replacements have been collected; earlier replacements can be added later with a date.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Scripts: BWACH_Search(<InstanceID>) searches again, BWACH_Check(<InstanceID>) evaluates, BWACH_Preview(<InstanceID>) returns the dry run as text, BWACH_Acknowledge(<InstanceID>, \'<key>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') acknowledges, BWACH_SendTest(<InstanceID>) sends a test notification, BWACH_ShoppingText and BWACH_SendShopping return or send the shopping list, BWACH_DeviceListCsv the device list, BWACH_AddReplacement(<InstanceID>, \'<key>\', \'DD.MM.YYYY\') adds an earlier replacement, BWACH_AcknowledgePlace(<InstanceID>, \'<location>\') acknowledges the replacement round of a location, BWACH_Diagnosis(<InstanceID>) returns the diagnostics for the forum.')],
+                ['type' => 'Button', 'caption' => '💬 Forum thread', 'onClick' => "echo '" . self::FORUM_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'What is found: variables with the Symcon profiles ~Battery ("low" flag), ~Battery.Reversed ("OK" flag) and ~Battery.100 (percent) as well as variables with typical identifiers (e.g. battery, battery_low, LOWBAT, battery_percent, battery_voltage). Several signals of one device (e.g. percent and flag) are merged into ONE device.'],
+                ['type' => 'Label', 'caption' => 'What is deliberately not found: home storage and vehicle batteries (module list "Excluded modules"), aggregate values such as the "weakest battery" of a room, and variables that belong to no device instance. The dry run gives the reason for every exclusion.'],
+                ['type' => 'Label', 'caption' => 'The three times: (1) Age of the battery value — when the device last reported its battery level; some devices do this only every few months. (2) Sign of life — the latest update of a measurement variable of the device (variables with an action such as setpoints do not count, Symcon often writes them itself); if it stays away, that is radio silence, not a low battery. (3) The device itself with its status.'],
+                ['type' => 'Label', 'caption' => 'Status: "empty" and "low" from the percentage (thresholds below) or the device flag; "unknown" if there is nothing to evaluate (e.g. only a voltage — with a cell type selected, the monitor converts it into a state of charge). If a device reports flag and percent and the two contradict each other, the monitor shows the contradiction and rates by the newer signal; for critical devices the worse statement applies.'],
+                ['type' => 'Label', 'caption' => 'Radio silence: by default 7 days without a sign of life. Devices that only send on events (window contacts, smoke detectors) belong in the group "Event sensor" under "Device settings" (default 30 days).'],
+                ['type' => 'Label', 'caption' => 'Result: key figure variables (empty, low, radio silence …) and two table variables ("Action needed", "All devices") that can be placed in the WebFront via a link.'],
+                ['type' => 'Label', 'caption' => 'Notifications (under "🔔 Notifications", off by default): first notification, reminder after N days, quiet hours, weekly report, escalation for critical devices — via push (tile visualization and WebFront) and email. Under "✅ Acknowledge" you tell the monitor what is going on with a device.'],
+                ['type' => 'Label', 'caption' => 'Forecast, shopping, replacement round: set under "🧮 Forecast and shopping". Enter the cell type per device under "Device settings", then the monitor can convert voltages and count the shopping list. The results are the variables "Shopping and replacement round" and "Lifetime and discharge" below the instance.'],
+                ['type' => 'Label', 'caption' => 'Conspicuous devices, radio quality, cold: if a device discharges more than twice as fast as comparable ones (same system, same cell type, at least 4 devices with a known discharge rate), the monitor marks it and names possible causes (defective, poor radio connection, continuous transmitting). It shows the radio quality where the device provides it (e.g. Zigbee linkquality). The effect of cold needs an outdoor temperature variable and several weeks of history in cold AND warm weather.'],
+                ['type' => 'Label', 'caption' => 'Querying sleeping devices: Z-Wave, Matter and Comet WiFi thermostats, only where switched on per device, only if the battery value is older than set. It also queries during radio silence if the query is switched on for the device. The monitor says whether the device answered; if no answer comes (for Z-Wave after 14 days, for Matter and Comet after 6 hours), that is shown as a finding.'],
+                ['type' => 'Label', 'caption' => 'Tile: add the instance as a tile in the tile visualization. Tapping a row expands it (reasons, age, buttons to acknowledge); the filter row at the top shows only what matters right now.'],
+                ['type' => 'Label', 'caption' => 'Battery log: the monitor detects a battery replacement by the jump of the percentage or by the reset "low" flag and records it with the date. The lifetime per device and cell type appears in the statistics once enough replacements have been collected; earlier replacements can be added later with a date.'],
+                ['type' => 'Label', 'caption' => 'Scripts: BWACH_Search(<InstanceID>) searches again, BWACH_Check(<InstanceID>) evaluates, BWACH_Preview(<InstanceID>) returns the dry run as text, BWACH_Acknowledge(<InstanceID>, \'<key>\', \'getauscht\'|\'zurueckgestellt\'|\'ausser_betrieb\') acknowledges, BWACH_SendTest(<InstanceID>) sends a test notification, BWACH_ShoppingText and BWACH_SendShopping return or send the shopping list, BWACH_DeviceListCsv the device list, BWACH_AddReplacement(<InstanceID>, \'<key>\', \'DD.MM.YYYY\') adds an earlier replacement, BWACH_AcknowledgePlace(<InstanceID>, \'<location>\') acknowledges the replacement round of a location, BWACH_Diagnosis(<InstanceID>) returns the diagnostics for the forum.'],
             ],
         ];
     }
@@ -2773,17 +2782,17 @@ class Batteriewaechter extends IPSModule
         $line  = $found === null ? BWACHText::t('ℹ️ Not searched yet.') : $this->discoveryLine($found);
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('🔎  Devices found'),
+            'caption' => '🔎  Devices found',
             'items' => [
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => BWACHText::t('🔎 Search again now'), 'onClick' => 'echo BWACH_Search($id);'],
-                    ['type' => 'Button', 'caption' => BWACHText::t('📋 What would be found?'), 'onClick' => 'echo BWACH_Preview($id);'],
-                    ['type' => 'Button', 'caption' => BWACHText::t('🩺 Diagnostics for the forum'), 'onClick' => 'echo BWACH_Diagnosis($id);'],
+                    ['type' => 'Button', 'caption' => '🔎 Search again now', 'onClick' => 'echo BWACH_Search($id);'],
+                    ['type' => 'Button', 'caption' => '📋 What would be found?', 'onClick' => 'echo BWACH_Preview($id);'],
+                    ['type' => 'Button', 'caption' => '🩺 Diagnostics for the forum', 'onClick' => 'echo BWACH_Diagnosis($id);'],
                 ]],
                 ['type' => 'Label', 'name' => 'DiscoveryStatus', 'caption' => $line],
-                ['type' => 'CheckBox', 'name' => 'NameSearch', 'caption' => BWACHText::t('Also search by name (less precise — may produce false matches)')],
-                ['type' => 'ValidationTextBox', 'name' => 'ExcludedModules', 'caption' => BWACHText::t('Excluded modules (comma-separated)')],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ Variables of these modules count as energy storage or vehicle battery and are not suggested as device batteries. The list is only a starting point — adjust as needed.')],
+                ['type' => 'CheckBox', 'name' => 'NameSearch', 'caption' => 'Also search by name (less precise — may produce false matches)'],
+                ['type' => 'ValidationTextBox', 'name' => 'ExcludedModules', 'caption' => 'Excluded modules (comma-separated)'],
+                ['type' => 'Label', 'caption' => 'ℹ️ Variables of these modules count as energy storage or vehicle battery and are not suggested as device batteries. The list is only a starting point — adjust as needed.'],
             ],
         ];
     }
@@ -2797,15 +2806,15 @@ class Batteriewaechter extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('🔋  Status'),
+            'caption' => '🔋  Status',
             'items' => [
-                ['type' => 'Button', 'caption' => BWACHText::t('🔄 Check now'), 'onClick' => 'echo BWACH_Check($id);'],
+                ['type' => 'Button', 'caption' => '🔄 Check now', 'onClick' => 'echo BWACH_Check($id);'],
                 ['type' => 'Label', 'name' => 'CheckStatus', 'caption' => $line],
                 ['type' => 'Label', 'name' => 'TimerStatus', 'caption' => $this->timerLine()],
-                ['type' => 'Label', 'caption' => BWACHText::t('Tile: add this instance as a tile in the tile visualization. The tile shows the devices by urgency, with filter, battery log and the buttons to acknowledge — without a title of its own, the instance name provides it.')],
-                ['type' => 'CheckBox', 'name' => 'LightTheme', 'caption' => BWACHText::t('Light tile appearance (light grey background with dark text)')],
-                ['type' => 'CheckBox', 'name' => 'TileAllowAck', 'caption' => BWACHText::t('Allow acknowledging from the tile ("replaced", "later", "out of service")')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Anyone allowed to see the tile can then also acknowledge. Switch off if the tile should only display. The tables "Action needed", "All devices" and "Battery log" are also available as variables below the instance in the object tree (can be placed in the WebFront via a link).')],
+                ['type' => 'Label', 'caption' => 'Tile: add this instance as a tile in the tile visualization. The tile shows the devices by urgency, with filter, battery log and the buttons to acknowledge — without a title of its own, the instance name provides it.'],
+                ['type' => 'CheckBox', 'name' => 'LightTheme', 'caption' => 'Light tile appearance (light grey background with dark text)'],
+                ['type' => 'CheckBox', 'name' => 'TileAllowAck', 'caption' => 'Allow acknowledging from the tile ("replaced", "later", "out of service")'],
+                ['type' => 'Label', 'caption' => 'Anyone allowed to see the tile can then also acknowledge. Switch off if the tile should only display. The tables "Action needed", "All devices" and "Battery log" are also available as variables below the instance in the object tree (can be placed in the WebFront via a link).'],
             ],
         ];
     }
@@ -2848,51 +2857,51 @@ class Batteriewaechter extends IPSModule
 
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('🔔  Notifications'),
+            'caption' => '🔔  Notifications',
             'items' => [
-                ['type' => 'CheckBox', 'name' => 'NotificationsActive', 'caption' => BWACHText::t('Notifications active')],
+                ['type' => 'CheckBox', 'name' => 'NotificationsActive', 'caption' => 'Notifications active'],
                 ['type' => 'Label', 'name' => 'NotifyStatus', 'caption' => $head . ' ' . $pushLine . ' ' . $mailLine],
-                ['type' => 'Label', 'caption' => BWACHText::t('Notified are "battery empty", "battery low" and "radio silence". Doubtful data (outdated, contradiction) only appear in the weekly report and in the tables. Several findings of one run arrive as ONE message.')],
-                ['type' => 'CheckBox', 'name' => 'NotifyPush', 'caption' => BWACHText::t('Notify via push (tile visualization and WebFront)')],
+                ['type' => 'Label', 'caption' => 'Notified are "battery empty", "battery low" and "radio silence". Doubtful data (outdated, contradiction) only appear in the weekly report and in the tables. Several findings of one run arrive as ONE message.'],
+                ['type' => 'CheckBox', 'name' => 'NotifyPush', 'caption' => 'Notify via push (tile visualization and WebFront)'],
                 [
-                    'type' => 'List', 'name' => 'PushTargets', 'caption' => BWACHText::t('Only these push targets (empty = all found)'), 'rowCount' => 3, 'add' => true, 'delete' => true,
+                    'type' => 'List', 'name' => 'PushTargets', 'caption' => 'Only these push targets (empty = all found)', 'rowCount' => 3, 'add' => true, 'delete' => true,
                     'columns' => [
-                        ['caption' => BWACHText::t('Instance'), 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
+                        ['caption' => 'Instance', 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
                     ],
                 ],
-                ['type' => 'CheckBox', 'name' => 'NotifyMail', 'caption' => BWACHText::t('Notify via email')],
-                ['type' => 'SelectInstance', 'name' => 'MailInstance', 'caption' => BWACHText::t('SMTP instance')],
-                ['type' => 'ValidationTextBox', 'name' => 'MailTo', 'caption' => BWACHText::t('Recipients (several separated by commas; empty = the one set in the SMTP instance)')],
-                ['type' => 'Button', 'caption' => BWACHText::t('📨 Send test notification'), 'onClick' => 'echo BWACH_SendTest($id);'],
+                ['type' => 'CheckBox', 'name' => 'NotifyMail', 'caption' => 'Notify via email'],
+                ['type' => 'SelectInstance', 'name' => 'MailInstance', 'caption' => 'SMTP instance'],
+                ['type' => 'ValidationTextBox', 'name' => 'MailTo', 'caption' => 'Recipients (several separated by commas; empty = the one set in the SMTP instance)'],
+                ['type' => 'Button', 'caption' => '📨 Send test notification', 'onClick' => 'echo BWACH_SendTest($id);'],
                 ['type' => 'Label', 'name' => 'ImportStatus', 'caption' => $this->importLine()],
-                ['type' => 'Button', 'caption' => BWACHText::t('📥 Import from BY_BatterieMonitor'), 'onClick' => 'echo BWACH_ImportOld($id);'],
-                ['type' => 'NumberSpinner', 'name' => 'ConfirmMinutes', 'caption' => BWACHText::t('First notification only once the finding has persisted this long (0 = immediately)'), 'suffix' => BWACHText::t(' minutes'), 'minimum' => 0, 'maximum' => 1440],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ Filters out single outliers of a device (one bad value, then good again). Critical devices always notify immediately. Reminders and escalation are not affected.')],
-                ['type' => 'NumberSpinner', 'name' => 'ReminderDays', 'caption' => BWACHText::t('Reminder while the finding persists, every'), 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 90],
-                ['type' => 'NumberSpinner', 'name' => 'CriticalReminderDays', 'caption' => BWACHText::t('Reminder for critical devices every'), 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 30],
-                ['type' => 'NumberSpinner', 'name' => 'SnoozeDays', 'caption' => BWACHText::t('"Remind me later" postpones by'), 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 90],
-                ['type' => 'NumberSpinner', 'name' => 'EscalateHours', 'caption' => BWACHText::t('Escalation for critical devices if nobody reacts, after (0 = off)'), 'suffix' => BWACHText::t(' hours'), 'minimum' => 0, 'maximum' => 720],
-                ['type' => 'CheckBox', 'name' => 'EscalatePush', 'caption' => BWACHText::t('Escalation via push')],
-                ['type' => 'CheckBox', 'name' => 'EscalateMail', 'caption' => BWACHText::t('Escalation via email')],
-                ['type' => 'CheckBox', 'name' => 'QuietEnabled', 'caption' => BWACHText::t('Quiet hours: no notifications at night (the notification is sent afterwards)')],
-                ['type' => 'NumberSpinner', 'name' => 'QuietFromHour', 'caption' => BWACHText::t('Quiet hours from'), 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
-                ['type' => 'NumberSpinner', 'name' => 'QuietToHour', 'caption' => BWACHText::t('Quiet hours until'), 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
-                ['type' => 'CheckBox', 'name' => 'CriticalIgnoresQuiet', 'caption' => BWACHText::t('Critical devices may break through quiet hours')],
-                ['type' => 'CheckBox', 'name' => 'DigestEnabled', 'caption' => BWACHText::t('Send weekly report')],
-                ['type' => 'Select', 'name' => 'DigestWeekday', 'caption' => BWACHText::t('Weekday'), 'options' => [
-                    ['caption' => BWACHText::t('Monday'), 'value' => 1], ['caption' => BWACHText::t('Tuesday'), 'value' => 2], ['caption' => BWACHText::t('Wednesday'), 'value' => 3],
-                    ['caption' => BWACHText::t('Thursday'), 'value' => 4], ['caption' => BWACHText::t('Friday'), 'value' => 5], ['caption' => BWACHText::t('Saturday'), 'value' => 6], ['caption' => BWACHText::t('Sunday'), 'value' => 7],
+                ['type' => 'Button', 'caption' => '📥 Import from BY_BatterieMonitor', 'onClick' => 'echo BWACH_ImportOld($id);'],
+                ['type' => 'NumberSpinner', 'name' => 'ConfirmMinutes', 'caption' => 'First notification only once the finding has persisted this long (0 = immediately)', 'suffix' => BWACHText::t(' minutes'), 'minimum' => 0, 'maximum' => 1440],
+                ['type' => 'Label', 'caption' => 'ℹ️ Filters out single outliers of a device (one bad value, then good again). Critical devices always notify immediately. Reminders and escalation are not affected.'],
+                ['type' => 'NumberSpinner', 'name' => 'ReminderDays', 'caption' => 'Reminder while the finding persists, every', 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 90],
+                ['type' => 'NumberSpinner', 'name' => 'CriticalReminderDays', 'caption' => 'Reminder for critical devices every', 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 30],
+                ['type' => 'NumberSpinner', 'name' => 'SnoozeDays', 'caption' => '"Remind me later" postpones by', 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 90],
+                ['type' => 'NumberSpinner', 'name' => 'EscalateHours', 'caption' => 'Escalation for critical devices if nobody reacts, after (0 = off)', 'suffix' => BWACHText::t(' hours'), 'minimum' => 0, 'maximum' => 720],
+                ['type' => 'CheckBox', 'name' => 'EscalatePush', 'caption' => 'Escalation via push'],
+                ['type' => 'CheckBox', 'name' => 'EscalateMail', 'caption' => 'Escalation via email'],
+                ['type' => 'CheckBox', 'name' => 'QuietEnabled', 'caption' => 'Quiet hours: no notifications at night (the notification is sent afterwards)'],
+                ['type' => 'NumberSpinner', 'name' => 'QuietFromHour', 'caption' => 'Quiet hours from', 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'NumberSpinner', 'name' => 'QuietToHour', 'caption' => 'Quiet hours until', 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'CheckBox', 'name' => 'CriticalIgnoresQuiet', 'caption' => 'Critical devices may break through quiet hours'],
+                ['type' => 'CheckBox', 'name' => 'DigestEnabled', 'caption' => 'Send weekly report'],
+                ['type' => 'Select', 'name' => 'DigestWeekday', 'caption' => 'Weekday', 'options' => [
+                    ['caption' => 'Monday', 'value' => 1], ['caption' => 'Tuesday', 'value' => 2], ['caption' => 'Wednesday', 'value' => 3],
+                    ['caption' => 'Thursday', 'value' => 4], ['caption' => 'Friday', 'value' => 5], ['caption' => 'Saturday', 'value' => 6], ['caption' => 'Sunday', 'value' => 7],
                 ]],
-                ['type' => 'NumberSpinner', 'name' => 'DigestHour', 'caption' => BWACHText::t('From'), 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
-                ['type' => 'CheckBox', 'name' => 'DigestWhenOk', 'caption' => BWACHText::t('Send weekly report even if everything is OK')],
-                ['type' => 'PopupButton', 'caption' => BWACHText::t('How do notifications work together?'), 'width' => '480px', 'popup' => [
-                    'caption' => BWACHText::t('Notifications'),
+                ['type' => 'NumberSpinner', 'name' => 'DigestHour', 'caption' => 'From', 'suffix' => BWACHText::t(':00'), 'minimum' => 0, 'maximum' => 23],
+                ['type' => 'CheckBox', 'name' => 'DigestWhenOk', 'caption' => 'Send weekly report even if everything is OK'],
+                ['type' => 'PopupButton', 'caption' => 'How do notifications work together?', 'width' => '480px', 'popup' => [
+                    'caption' => 'Notifications',
                     'items' => [
-                        ['type' => 'Label', 'caption' => BWACHText::t('First notification: as soon as a device is "empty", "low" or "silent". After that only the reminder at the set interval while the finding persists. A NEW, worse finding (e.g. from "low" to "empty") is again a first notification.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('Quiet hours: notifications are not discarded but sent after the quiet hours. Critical devices may break through them if that is ticked.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('Escalation: only for critical devices. If nobody has acknowledged after the set time, a second notification goes out via the escalation channels.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('Flapping values: a finding only counts as ended once it has been gone for 24 hours. So a device jumping between "empty" and "ok" does not notify anew every time.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('Delivery: if a notification cannot be delivered via any channel, this is written to the Symcon message log, and the monitor tries again on the next run.')],
+                        ['type' => 'Label', 'caption' => 'First notification: as soon as a device is "empty", "low" or "silent". After that only the reminder at the set interval while the finding persists. A NEW, worse finding (e.g. from "low" to "empty") is again a first notification.'],
+                        ['type' => 'Label', 'caption' => 'Quiet hours: notifications are not discarded but sent after the quiet hours. Critical devices may break through them if that is ticked.'],
+                        ['type' => 'Label', 'caption' => 'Escalation: only for critical devices. If nobody has acknowledged after the set time, a second notification goes out via the escalation channels.'],
+                        ['type' => 'Label', 'caption' => 'Flapping values: a finding only counts as ended once it has been gone for 24 hours. So a device jumping between "empty" and "ok" does not notify anew every time.'],
+                        ['type' => 'Label', 'caption' => 'Delivery: if a notification cannot be delivered via any channel, this is written to the Symcon message log, and the monitor tries again on the next run.'],
                     ],
                 ]],
             ],
@@ -2988,7 +2997,7 @@ class Batteriewaechter extends IPSModule
     /** Auswahl der Geräte, die außer Betrieb gesetzt sind (zum einzelnen Wiederaufnehmen). */
     private function retiredOptions(?array $found): array
     {
-        $opts = [['caption' => BWACHText::t('— Select device —'), 'value' => '']];
+        $opts = [['caption' => '— Select device —', 'value' => '']];
         foreach (array_keys($this->loadJson('Retired')) as $k) {
             $opts[] = ['caption' => $found !== null && isset($found['devices'][$k]) ? (string)$found['devices'][$k]['name'] : (string)$k, 'value' => (string)$k];
         }
@@ -3013,8 +3022,8 @@ class Batteriewaechter extends IPSModule
         return [
             ['type' => 'Label', 'name' => 'RetiredLine' . $suffix, 'caption' => $this->retiredLine($found)],
             ['type' => 'RowLayout', 'items' => [
-                ['type' => 'Select', 'name' => 'RetiredPick' . $suffix, 'caption' => BWACHText::t('Device out of service'), 'width' => '320px', 'options' => $this->retiredOptions($found)],
-                ['type' => 'Button', 'caption' => BWACHText::t('↩️ Put this device back into service'), 'onClick' => 'echo BWACH_Unretire($id, $RetiredPick' . $suffix . ');'],
+                ['type' => 'Select', 'name' => 'RetiredPick' . $suffix, 'caption' => 'Device out of service', 'width' => '320px', 'options' => $this->retiredOptions($found)],
+                ['type' => 'Button', 'caption' => '↩️ Put this device back into service', 'onClick' => 'echo BWACH_Unretire($id, $RetiredPick' . $suffix . ');'],
             ]],
         ];
     }
@@ -3046,8 +3055,8 @@ class Batteriewaechter extends IPSModule
     private function AckPanel(): array
     {
         $found = $this->found();
-        $options = [['caption' => BWACHText::t('— Select device —'), 'value' => '']];
-        $placeOptions = [['caption' => BWACHText::t('— Select location —'), 'value' => '']];
+        $options = [['caption' => '— Select device —', 'value' => '']];
+        $placeOptions = [['caption' => '— Select location —', 'value' => '']];
         if ($found !== null) {
             $rows = $this->evaluateAll($found);
             foreach ($this->views($rows, $this->now())['round']['places'] as $pl => $devs) {
@@ -3060,44 +3069,49 @@ class Batteriewaechter extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('✅  Acknowledge and battery log'),
+            'caption' => '✅  Acknowledge and battery log',
             'items' => [
-                ['type' => 'Label', 'caption' => BWACHText::t('Select a device and say what is going on: "I replaced it" enters the replacement in the log (3 days of waiting until the device reports the new level), "Remind me later" postpones the notification, "Out of service" permanently removes the device from monitoring.')],
-                ['type' => 'Select', 'name' => 'AckDevice', 'caption' => BWACHText::t('Device'), 'options' => $options],
-                ['type' => 'Select', 'name' => 'AckAction', 'caption' => BWACHText::t('What is going on?'), 'options' => [
-                    ['caption' => BWACHText::t('I replaced it'), 'value' => BWACHMeldung::ACK_REPLACED],
-                    ['caption' => BWACHText::t('Remind me later'), 'value' => BWACHMeldung::ACK_SNOOZE],
-                    ['caption' => BWACHText::t('Device is out of service'), 'value' => BWACHMeldung::ACK_RETIRED],
+                ['type' => 'Label', 'caption' => 'Select a device and say what is going on: "I replaced it" enters the replacement in the log (3 days of waiting until the device reports the new level), "Remind me later" postpones the notification, "Out of service" permanently removes the device from monitoring.'],
+                ['type' => 'Select', 'name' => 'AckDevice', 'caption' => 'Device', 'options' => $options],
+                ['type' => 'Select', 'name' => 'AckAction', 'caption' => 'What is going on?', 'options' => [
+                    ['caption' => 'I replaced it', 'value' => BWACHMeldung::ACK_REPLACED],
+                    ['caption' => 'Remind me later', 'value' => BWACHMeldung::ACK_SNOOZE],
+                    ['caption' => 'Device is out of service', 'value' => BWACHMeldung::ACK_RETIRED],
                 ]],
-                ['type' => 'Button', 'caption' => BWACHText::t('✔️ Execute'), 'onClick' => 'echo BWACH_Acknowledge($id, $AckDevice, $AckAction);'],
+                ['type' => 'Button', 'caption' => '✔️ Execute', 'onClick' => 'echo BWACH_Acknowledge($id, $AckDevice, $AckAction);'],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'ValidationTextBox', 'name' => 'AckDate', 'caption' => BWACHText::t('Date of an earlier replacement (DD.MM.YYYY)'), 'width' => '320px'],
-                    ['type' => 'Button', 'caption' => BWACHText::t('📅 Add replacement later'), 'onClick' => 'echo BWACH_AddReplacement($id, $AckDevice, $AckDate);'],
+                    ['type' => 'ValidationTextBox', 'name' => 'AckDate', 'caption' => 'Date of an earlier replacement (DD.MM.YYYY)', 'width' => '320px'],
+                    ['type' => 'Button', 'caption' => '📅 Add replacement later', 'onClick' => 'echo BWACH_AddReplacement($id, $AckDevice, $AckDate);'],
                 ]],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ "Add replacement later" enters a dated replacement in the log that happened before the monitor existed. This improves lifetime and preventive replacement, but does not trigger a notification.')],
+                ['type' => 'Label', 'caption' => 'ℹ️ "Add replacement later" enters a dated replacement in the log that happened before the monitor existed. This improves lifetime and preventive replacement, but does not trigger a notification.'],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Select', 'name' => 'AckPlace', 'caption' => BWACHText::t('Location from the replacement round'), 'width' => '320px', 'options' => $placeOptions],
-                    ['type' => 'Button', 'caption' => BWACHText::t('✔️ All replaced there'), 'onClick' => 'echo BWACH_AcknowledgePlace($id, $AckPlace);'],
+                    ['type' => 'Select', 'name' => 'AckPlace', 'caption' => 'Location from the replacement round', 'width' => '320px', 'options' => $placeOptions],
+                    ['type' => 'Button', 'caption' => '✔️ All replaced there', 'onClick' => 'echo BWACH_AcknowledgePlace($id, $AckPlace);'],
                 ]],
-                ['type' => 'Label', 'name' => 'AckStatus', 'caption' => BWACHText::t('ℹ️ Nothing acknowledged yet.')],
-                ['type' => 'Button', 'caption' => BWACHText::t('↩️ Undo last acknowledgement'), 'onClick' => 'echo BWACH_UndoAcknowledge($id);'],
+                ['type' => 'Label', 'name' => 'AckStatus', 'caption' => 'ℹ️ Nothing acknowledged yet.'],
+                ['type' => 'Button', 'caption' => '↩️ Undo last acknowledgement', 'onClick' => 'echo BWACH_UndoAcknowledge($id);'],
                 ...$this->retiredItems($found, ''),
-                ['type' => 'PopupButton', 'caption' => BWACHText::t('Put all out-of-service devices back …'), 'width' => '320px', 'popup' => [
-                    'caption' => BWACHText::t('Put all back into service?'),
+                ['type' => 'PopupButton', 'caption' => 'Put all out-of-service devices back …', 'width' => '320px', 'popup' => [
+                    'caption' => 'Put all back into service?',
                     'items' => [
-                        ['type' => 'Label', 'caption' => BWACHText::t('⚠️ This puts ALL devices of the list "Out of service" back into monitoring. If you removed them on purpose, you must set them out of service again one by one afterwards. For a single device use the selection above.')],
-                        ['type' => 'Button', 'caption' => BWACHText::t('↩️ Yes, put all back into service'), 'onClick' => 'echo BWACH_UnretireAll($id);'],
+                        ['type' => 'Label', 'caption' => '⚠️ This puts ALL devices of the list "Out of service" back into monitoring. If you removed them on purpose, you must set them out of service again one by one afterwards. For a single device use the selection above.'],
+                        ['type' => 'Button', 'caption' => '↩️ Yes, put all back into service', 'onClick' => 'echo BWACH_UnretireAll($id);'],
                     ],
                 ]],
                 ['type' => 'Label', 'name' => 'DiaryLine', 'caption' => $this->diaryLine()],
-                ['type' => 'PopupButton', 'caption' => BWACHText::t('Delete automatically detected replacements …'), 'width' => '320px', 'popup' => [
-                    'caption' => BWACHText::t('Delete detected replacements?'),
+                ['type' => 'PopupButton', 'caption' => 'Delete automatically detected replacements …', 'width' => '320px', 'popup' => [
+                    'caption' => 'Delete detected replacements?',
                     'items' => [
-                        ['type' => 'Label', 'caption' => BWACHText::t('⚠️ This deletes all AUTOMATICALLY detected entries from the battery log (type "detected"). Replacements entered by hand or added later remain. Useful if the monitor mistook voltage fluctuations for battery replacements. Lifetime, statistics and forecast comparison are rebuilt afterwards.')],
-                        ['type' => 'Button', 'caption' => BWACHText::t('🗑️ Yes, delete detected replacements'), 'onClick' => 'echo BWACH_DeleteDetectedChanges($id);'],
+                        ['type' => 'Label', 'caption' => '⚠️ This deletes all AUTOMATICALLY detected entries from the battery log (type "detected"). Replacements entered by hand or added later remain. Useful if the monitor mistook voltage fluctuations for battery replacements. Lifetime, statistics and forecast comparison are rebuilt afterwards.'],
+                        ['type' => 'Button', 'caption' => '🗑️ Yes, delete detected replacements', 'onClick' => 'echo BWACH_DeleteDetectedChanges($id);'],
                     ],
                 ]],
-                ['type' => 'NumberSpinner', 'name' => 'ReplaceJumpPercent', 'caption' => BWACHText::t('Detect a replacement if the percentage rises by at least this much'), 'suffix' => BWACHText::t(' percentage points'), 'minimum' => 5, 'maximum' => 90],
+                ['type' => 'Select', 'name' => 'ReplaceDetect', 'caption' => 'Detect battery replacements automatically', 'options' => [
+                    ['caption' => 'By percentage jump and "low" flag', 'value' => 2],
+                    ['caption' => 'By percentage jump only (for flickering "low" flags, e.g. HomeMatic)', 'value' => 1],
+                    ['caption' => 'Off (enter replacements by hand only)', 'value' => 0],
+                ]],
+                ['type' => 'NumberSpinner', 'name' => 'ReplaceJumpPercent', 'caption' => 'Detect a replacement if the percentage rises by at least this much', 'suffix' => BWACHText::t(' percentage points'), 'minimum' => 5, 'maximum' => 90],
             ],
         ];
     }
@@ -3106,40 +3120,40 @@ class Batteriewaechter extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('🧮  Forecast and shopping'),
+            'caption' => '🧮  Forecast and shopping',
             'items' => [
-                ['type' => 'Label', 'caption' => BWACHText::t('The monitor records the history of every device (in the module itself, no Symcon archive needed) and estimates from it how long the battery will last. This only works where the device reports its state of charge finely and often enough; otherwise it honestly says "days remaining unknown" with a reason. A forecast needs at least 4 data points over 14 days since the last battery replacement.')],
-                ['type' => 'NumberSpinner', 'name' => 'ForecastHorizonDays', 'caption' => BWACHText::t('Shopping list and replacement round for the next'), 'suffix' => BWACHText::t(' days'), 'minimum' => 7, 'maximum' => 365],
-                ['type' => 'ValidationTextBox', 'name' => 'ShopLink', 'caption' => BWACHText::t('Link for the shopping list (optional, with {Zelltyp})')],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ If you like, enter the search of your retailer here, e.g. https://www.example.org/search?q={Zelltyp}. {Zelltyp} is replaced by the designation (AAA, CR2032 …); the tile then shows a search link after every line of the shopping list. Empty = no link; the monitor names no retailer and sends nothing there.')],
+                ['type' => 'Label', 'caption' => 'The monitor records the history of every device (in the module itself, no Symcon archive needed) and estimates from it how long the battery will last. This only works where the device reports its state of charge finely and often enough; otherwise it honestly says "days remaining unknown" with a reason. A forecast needs at least 4 data points over 14 days since the last battery replacement.'],
+                ['type' => 'NumberSpinner', 'name' => 'ForecastHorizonDays', 'caption' => 'Shopping list and replacement round for the next', 'suffix' => BWACHText::t(' days'), 'minimum' => 7, 'maximum' => 365],
+                ['type' => 'ValidationTextBox', 'name' => 'ShopLink', 'caption' => 'Link for the shopping list (optional, with {Zelltyp})'],
+                ['type' => 'Label', 'caption' => 'ℹ️ If you like, enter the search of your retailer here, e.g. https://www.example.org/search?q={Zelltyp}. {Zelltyp} is replaced by the designation (AAA, CR2032 …); the tile then shows a search link after every line of the shopping list. Empty = no link; the monitor names no retailer and sends nothing there.'],
                 ['type' => 'RowLayout', 'items' => [
-                    ['type' => 'Button', 'caption' => BWACHText::t('🛒 Shopping list as text'), 'onClick' => 'echo BWACH_ShoppingText($id);'],
-                    ['type' => 'Button', 'caption' => BWACHText::t('✉️ Send shopping list now'), 'onClick' => 'echo BWACH_SendShopping($id);'],
-                    ['type' => 'Button', 'caption' => BWACHText::t('📄 Device list as CSV'), 'onClick' => 'echo BWACH_DeviceListCsv($id);'],
+                    ['type' => 'Button', 'caption' => '🛒 Shopping list as text', 'onClick' => 'echo BWACH_ShoppingText($id);'],
+                    ['type' => 'Button', 'caption' => '✉️ Send shopping list now', 'onClick' => 'echo BWACH_SendShopping($id);'],
+                    ['type' => 'Button', 'caption' => '📄 Device list as CSV', 'onClick' => 'echo BWACH_DeviceListCsv($id);'],
                 ]],
-                ['type' => 'List', 'name' => 'Stock', 'caption' => BWACHText::t('Stock at home (subtracted from the shopping list)'), 'rowCount' => 4, 'add' => true, 'delete' => true,
+                ['type' => 'List', 'name' => 'Stock', 'caption' => 'Stock at home (subtracted from the shopping list)', 'rowCount' => 4, 'add' => true, 'delete' => true,
                     'columns' => [
-                        ['caption' => BWACHText::t('Cell type'), 'name' => 'Cell', 'width' => 'auto', 'add' => 'aaa_alkali', 'edit' => ['type' => 'Select', 'options' => array_values(array_filter(BWACHZelle::options(), function ($o) { return $o['value'] !== BWACHZelle::UNKNOWN; }))]],
-                        ['caption' => BWACHText::t('Quantity on hand'), 'name' => 'Count', 'width' => '110px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 9999]],
+                        ['caption' => 'Cell type', 'name' => 'Cell', 'width' => 'auto', 'add' => 'aaa_alkali', 'edit' => ['type' => 'Select', 'options' => array_values(array_filter(BWACHZelle::options(), function ($o) { return $o['value'] !== BWACHZelle::UNKNOWN; }))]],
+                        ['caption' => 'Quantity on hand', 'name' => 'Count', 'width' => '110px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 9999]],
                     ]],
-                ['type' => 'NumberSpinner', 'name' => 'PreventiveMonths', 'caption' => BWACHText::t('Replace critical devices preventively every (0 = off)'), 'suffix' => BWACHText::t(' months'), 'minimum' => 0, 'maximum' => 60],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ Preventive replacement applies only to devices marked as "critical" under "Device settings" or by a group rule (e.g. smoke detectors), and only if a last replacement is in the log (detected, entered or added later). A due replacement appears in the replacement round and is notified, even if the battery is still good.')],
-                ['type' => 'NumberSpinner', 'name' => 'SoonDays', 'caption' => BWACHText::t('Notify "empty soon" if the forecast says the battery lasts at most'), 'suffix' => BWACHText::t(' more days'), 'minimum' => 3, 'maximum' => 90],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ "Empty soon" is only notified with high or medium forecast confidence, never with low.')],
-                ['type' => 'CheckBox', 'name' => 'LearnIntervals', 'caption' => BWACHText::t('Learn reporting behavior (detect radio silence earlier if a device otherwise sends very regularly)')],
-                ['type' => 'SelectVariable', 'name' => 'OutdoorTempVar', 'caption' => BWACHText::t('Outdoor temperature (optional, for the effect of cold on discharge)')],
-                ['type' => 'NumberSpinner', 'name' => 'ColdBelow', 'caption' => BWACHText::t('Counts as "cold" below'), 'suffix' => ' °C', 'minimum' => -20, 'maximum' => 20],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ The effect of cold is only evaluated once at least 3 devices each have 3 periods in cold and in warm weather — so after one winter at the earliest. Until then it honestly says "not enough data yet".')],
-                ['type' => 'NumberSpinner', 'name' => 'PollAfterDays', 'caption' => BWACHText::t('Query sleeping devices if the battery value is older than'), 'suffix' => BWACHText::t(' days'), 'minimum' => 3, 'maximum' => 365],
-                ['type' => 'NumberSpinner', 'name' => 'PollEveryDays', 'caption' => BWACHText::t('Query at most every'), 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 90],
-                ['type' => 'Label', 'caption' => BWACHText::t('ℹ️ The query is switched on per device under "Device settings" (column "Query"), OFF by default. It exists for Z-Wave and Matter devices and Comet WiFi thermostats. A sleeping Z-Wave device only answers it at its next wake-up; until then it waits in the queue of the Z-Wave instance; querying too often fills this queue. Matter devices answered within a few seconds in first tests. For Matter, the power source instance (endpoint 0) is queried, because the battery level lives there. A Comet thermostat gets the "all fields" request, because only that contains the battery level; it noticeably wakes the device, so only with the tick and at the set interval.')],
-                ['type' => 'NumberSpinner', 'name' => 'OrphanDays', 'caption' => BWACHText::t('Suggest a device as "probably removed" if it has been silent this long (0 = off)'), 'suffix' => BWACHText::t(' days'), 'minimum' => 0, 'maximum' => 720],
-                ['type' => 'PopupButton', 'caption' => BWACHText::t('How reliable is the forecast?'), 'width' => '500px', 'popup' => [
-                    'caption' => BWACHText::t('How reliable is the forecast, and what does "calculated from voltage" mean?'),
+                ['type' => 'NumberSpinner', 'name' => 'PreventiveMonths', 'caption' => 'Replace critical devices preventively every (0 = off)', 'suffix' => BWACHText::t(' months'), 'minimum' => 0, 'maximum' => 60],
+                ['type' => 'Label', 'caption' => 'ℹ️ Preventive replacement applies only to devices marked as "critical" under "Device settings" or by a group rule (e.g. smoke detectors), and only if a last replacement is in the log (detected, entered or added later). A due replacement appears in the replacement round and is notified, even if the battery is still good.'],
+                ['type' => 'NumberSpinner', 'name' => 'SoonDays', 'caption' => 'Notify "empty soon" if the forecast says the battery lasts at most', 'suffix' => BWACHText::t(' more days'), 'minimum' => 3, 'maximum' => 90],
+                ['type' => 'Label', 'caption' => 'ℹ️ "Empty soon" is only notified with high or medium forecast confidence, never with low.'],
+                ['type' => 'CheckBox', 'name' => 'LearnIntervals', 'caption' => 'Learn reporting behavior (detect radio silence earlier if a device otherwise sends very regularly)'],
+                ['type' => 'SelectVariable', 'name' => 'OutdoorTempVar', 'caption' => 'Outdoor temperature (optional, for the effect of cold on discharge)'],
+                ['type' => 'NumberSpinner', 'name' => 'ColdBelow', 'caption' => 'Counts as "cold" below', 'suffix' => ' °C', 'minimum' => -20, 'maximum' => 20],
+                ['type' => 'Label', 'caption' => 'ℹ️ The effect of cold is only evaluated once at least 3 devices each have 3 periods in cold and in warm weather — so after one winter at the earliest. Until then it honestly says "not enough data yet".'],
+                ['type' => 'NumberSpinner', 'name' => 'PollAfterDays', 'caption' => 'Query sleeping devices if the battery value is older than', 'suffix' => BWACHText::t(' days'), 'minimum' => 3, 'maximum' => 365],
+                ['type' => 'NumberSpinner', 'name' => 'PollEveryDays', 'caption' => 'Query at most every', 'suffix' => BWACHText::t(' days'), 'minimum' => 1, 'maximum' => 90],
+                ['type' => 'Label', 'caption' => 'ℹ️ The query is switched on per device under "Device settings" (column "Query"), OFF by default. It exists for Z-Wave and Matter devices and Comet WiFi thermostats. A sleeping Z-Wave device only answers it at its next wake-up; until then it waits in the queue of the Z-Wave instance; querying too often fills this queue. Matter devices answered within a few seconds in first tests. For Matter, the power source instance (endpoint 0) is queried, because the battery level lives there. A Comet thermostat gets the "all fields" request, because only that contains the battery level; it noticeably wakes the device, so only with the tick and at the set interval.'],
+                ['type' => 'NumberSpinner', 'name' => 'OrphanDays', 'caption' => 'Suggest a device as "probably removed" if it has been silent this long (0 = off)', 'suffix' => BWACHText::t(' days'), 'minimum' => 0, 'maximum' => 720],
+                ['type' => 'PopupButton', 'caption' => 'How reliable is the forecast?', 'width' => '500px', 'popup' => [
+                    'caption' => 'How reliable is the forecast, and what does "calculated from voltage" mean?',
                     'items' => [
-                        ['type' => 'Label', 'caption' => BWACHText::t('The days remaining are an estimate from the history so far (robust straight line, insensitive to single outliers). High confidence: steady history over at least 60 days and 8 data points; medium: at least 30 days; otherwise low. Batteries do not always discharge evenly (cold, load, radio problems) — the number is a guide, not a promise.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('If a device reports only a voltage, the monitor converts it into a state of charge using a typical discharge curve of the selected cell type. This is an approximation (no manufacturer datasheet values) and is always shown as "calculated from voltage". If the voltage does not fit the selected cell type, the monitor reports that instead of guessing.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('The monitor cannot reliably detect the cell type from the voltage (3 V can be a coin cell or two alkaline cells). It names candidates but never chooses by itself.')],
+                        ['type' => 'Label', 'caption' => 'The days remaining are an estimate from the history so far (robust straight line, insensitive to single outliers). High confidence: steady history over at least 60 days and 8 data points; medium: at least 30 days; otherwise low. Batteries do not always discharge evenly (cold, load, radio problems) — the number is a guide, not a promise.'],
+                        ['type' => 'Label', 'caption' => 'If a device reports only a voltage, the monitor converts it into a state of charge using a typical discharge curve of the selected cell type. This is an approximation (no manufacturer datasheet values) and is always shown as "calculated from voltage". If the voltage does not fit the selected cell type, the monitor reports that instead of guessing.'],
+                        ['type' => 'Label', 'caption' => 'The monitor cannot reliably detect the cell type from the voltage (3 V can be a coin cell or two alkaline cells). It names candidates but never chooses by itself.'],
                     ],
                 ]],
             ],
@@ -3150,22 +3164,22 @@ class Batteriewaechter extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('⚙️  Thresholds'),
+            'caption' => '⚙️  Thresholds',
             'items' => [
-                ['type' => 'NumberSpinner', 'name' => 'LowPercent', 'caption' => BWACHText::t('Battery low below'), 'suffix' => ' %', 'minimum' => 1, 'maximum' => 99],
-                ['type' => 'NumberSpinner', 'name' => 'EmptyPercent', 'caption' => BWACHText::t('Battery empty up to'), 'suffix' => ' %', 'minimum' => 0, 'maximum' => 50],
-                ['type' => 'NumberSpinner', 'name' => 'CriticalLowPercent', 'caption' => BWACHText::t('Low below — critical devices'), 'suffix' => ' %', 'minimum' => 1, 'maximum' => 99],
-                ['type' => 'NumberSpinner', 'name' => 'ValueOldDays', 'caption' => BWACHText::t('Battery value counts as outdated after'), 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 3650],
-                ['type' => 'NumberSpinner', 'name' => 'StillDays', 'caption' => BWACHText::t('Radio silence after (standard devices)'), 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 365],
-                ['type' => 'NumberSpinner', 'name' => 'StillDaysEvent', 'caption' => BWACHText::t('Radio silence after (event sensors)'), 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 365],
-                ['type' => 'NumberSpinner', 'name' => 'UnreachMinutes', 'caption' => BWACHText::t('If a device reports "unreachable" (e.g. HomeMatic UNREACH), this counts as radio silence after (0 = do not evaluate the report)'), 'suffix' => BWACHText::t(' minutes'), 'minimum' => 0, 'maximum' => 10080],
-                ['type' => 'NumberSpinner', 'name' => 'CheckIntervalMin', 'caption' => BWACHText::t('Check interval'), 'suffix' => ' min', 'minimum' => 5, 'maximum' => 1440],
-                ['type' => 'PopupButton', 'caption' => BWACHText::t('How do the thresholds work together?'), 'width' => '400px', 'popup' => [
-                    'caption' => BWACHText::t('Thresholds'),
+                ['type' => 'NumberSpinner', 'name' => 'LowPercent', 'caption' => 'Battery low below', 'suffix' => ' %', 'minimum' => 1, 'maximum' => 99],
+                ['type' => 'NumberSpinner', 'name' => 'EmptyPercent', 'caption' => 'Battery empty up to', 'suffix' => ' %', 'minimum' => 0, 'maximum' => 50],
+                ['type' => 'NumberSpinner', 'name' => 'CriticalLowPercent', 'caption' => 'Low below — critical devices', 'suffix' => ' %', 'minimum' => 1, 'maximum' => 99],
+                ['type' => 'NumberSpinner', 'name' => 'ValueOldDays', 'caption' => 'Battery value counts as outdated after', 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 3650],
+                ['type' => 'NumberSpinner', 'name' => 'StillDays', 'caption' => 'Radio silence after (standard devices)', 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 365],
+                ['type' => 'NumberSpinner', 'name' => 'StillDaysEvent', 'caption' => 'Radio silence after (event sensors)', 'suffix' => BWACHText::t("\u{00A0}days"), 'minimum' => 1, 'maximum' => 365],
+                ['type' => 'NumberSpinner', 'name' => 'UnreachMinutes', 'caption' => 'If a device reports "unreachable" (e.g. HomeMatic UNREACH), this counts as radio silence after (0 = do not evaluate the report)', 'suffix' => BWACHText::t(' minutes'), 'minimum' => 0, 'maximum' => 10080],
+                ['type' => 'NumberSpinner', 'name' => 'CheckIntervalMin', 'caption' => 'Check interval', 'suffix' => ' min', 'minimum' => 5, 'maximum' => 1440],
+                ['type' => 'PopupButton', 'caption' => 'How do the thresholds work together?', 'width' => '400px', 'popup' => [
+                    'caption' => 'Thresholds',
                     'items' => [
-                        ['type' => 'Label', 'caption' => BWACHText::t('Percentage up to the "empty" limit = empty, below the "low" limit = low. Critical devices (marked under Device settings) report "low" earlier.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('A battery value counts as outdated if the device has not reported it for this many days. This is not an alarm but a hint: the displayed level is then no longer reliable. Some devices report their battery level only every few months; for them the age check can be switched off individually.')],
-                        ['type' => 'Label', 'caption' => BWACHText::t('Radio silence depends on the sign of life of the device (any update), not on the battery value. Choose the days generously if a device sends only rarely.')],
+                        ['type' => 'Label', 'caption' => 'Percentage up to the "empty" limit = empty, below the "low" limit = low. Critical devices (marked under Device settings) report "low" earlier.'],
+                        ['type' => 'Label', 'caption' => 'A battery value counts as outdated if the device has not reported it for this many days. This is not an alarm but a hint: the displayed level is then no longer reliable. Some devices report their battery level only every few months; for them the age check can be switched off individually.'],
+                        ['type' => 'Label', 'caption' => 'Radio silence depends on the sign of life of the device (any update), not on the battery value. Choose the days generously if a device sends only rarely.'],
                     ],
                 ]],
             ],
@@ -3505,7 +3519,7 @@ class Batteriewaechter extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'expanded' => !$allDone,
-            'caption' => BWACHText::t('🚀  First steps'),
+            'caption' => '🚀  First steps',
             'items' => $items,
         ];
     }
@@ -3525,38 +3539,38 @@ class Batteriewaechter extends IPSModule
                 : (count($open) > 8 ? BWACHText::t('⚠️ Still without cell type: %s and %s more.', implode(', ', array_slice($open, 0, 8)), count($open) - 8) : BWACHText::t('⚠️ Still without cell type: %s.', implode(', ', $open))));
         return [
             'type' => 'ExpansionPanel', 'expanded' => count($rules) === 0 && count($open) > 0,
-            'caption' => BWACHText::t('👥  Groups'),
+            'caption' => '👥  Groups',
             'items' => [
                 ['type' => 'Label', 'name' => 'RuleLine', 'caption' => $line],
-                ['type' => 'Label', 'caption' => BWACHText::t('A rule applies to all devices its pattern matches: by location (category of the instance), system (module), name or, for instances with several sensors, by the sensor (name of the battery variable). Separate several patterns with commas (OR); upper and lower case do not matter. The first matching rule from the top applies, so exceptions belong at the top. A device\'s own setting in "Device settings" takes precedence as soon as it differs from the default (cell type selected, event sensor, critical, excluded). The column "Applies" there shows what finally counts for a device.')],
+                ['type' => 'Label', 'caption' => 'A rule applies to all devices its pattern matches: by location (category of the instance), system (module), name or, for instances with several sensors, by the sensor (name of the battery variable). Separate several patterns with commas (OR); upper and lower case do not matter. The first matching rule from the top applies, so exceptions belong at the top. A device\'s own setting in "Device settings" takes precedence as soon as it differs from the default (cell type selected, event sensor, critical, excluded). The column "Applies" there shows what finally counts for a device.'],
                 [
-                    'type' => 'List', 'name' => 'GroupRules', 'caption' => BWACHText::t('Rules'), 'rowCount' => 6, 'add' => true, 'delete' => true, 'changeOrder' => true,
+                    'type' => 'List', 'name' => 'GroupRules', 'caption' => 'Rules', 'rowCount' => 6, 'add' => true, 'delete' => true, 'changeOrder' => true,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
-                        ['caption' => BWACHText::t('No.'), 'name' => 'Nr', 'width' => '45px', 'add' => 0],
-                        ['caption' => BWACHText::t('On'), 'name' => 'Active', 'width' => '50px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Label'), 'name' => 'Label', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                        ['caption' => BWACHText::t('Criterion'), 'name' => 'Kind', 'width' => '150px', 'add' => BWACHLogik::RULE_PLACE, 'edit' => ['type' => 'Select', 'options' => [
-                            ['caption' => BWACHText::t('Location (category)'), 'value' => BWACHLogik::RULE_PLACE],
-                            ['caption' => BWACHText::t('System (module)'), 'value' => BWACHLogik::RULE_MODULE],
-                            ['caption' => BWACHText::t('Name contains'), 'value' => BWACHLogik::RULE_NAME],
-                            ['caption' => BWACHText::t('Sensor contains'), 'value' => BWACHLogik::RULE_SENSOR],
+                        ['caption' => 'No.', 'name' => 'Nr', 'width' => '45px', 'add' => 0],
+                        ['caption' => 'On', 'name' => 'Active', 'width' => '50px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Label', 'name' => 'Label', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Criterion', 'name' => 'Kind', 'width' => '150px', 'add' => BWACHLogik::RULE_PLACE, 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'Location (category)', 'value' => BWACHLogik::RULE_PLACE],
+                            ['caption' => 'System (module)', 'value' => BWACHLogik::RULE_MODULE],
+                            ['caption' => 'Name contains', 'value' => BWACHLogik::RULE_NAME],
+                            ['caption' => 'Sensor contains', 'value' => BWACHLogik::RULE_SENSOR],
                         ]]],
-                        ['caption' => BWACHText::t('Pattern (comma = or)'), 'name' => 'Pattern', 'width' => 'auto', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                        ['caption' => BWACHText::t('Cell type'), 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
-                        ['caption' => BWACHText::t('Cells'), 'name' => 'Cells', 'width' => '80px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
-                        ['caption' => BWACHText::t('Group'), 'name' => 'Group', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => [
-                            ['caption' => BWACHText::t('do not change'), 'value' => ''],
-                            ['caption' => BWACHText::t('Event sensor'), 'value' => BWACHLogik::GROUP_EVENT],
+                        ['caption' => 'Pattern (comma = or)', 'name' => 'Pattern', 'width' => 'auto', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Cell type', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
+                        ['caption' => 'Cells', 'name' => 'Cells', 'width' => '80px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
+                        ['caption' => 'Group', 'name' => 'Group', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'do not change', 'value' => ''],
+                            ['caption' => 'Event sensor', 'value' => BWACHLogik::GROUP_EVENT],
                         ]]],
-                        ['caption' => BWACHText::t('Critical'), 'name' => 'Critical', 'width' => '70px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Without age check'), 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Without radio silence check'), 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Exclude'), 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Query'), 'name' => 'Poll', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Radio silence after (days)'), 'name' => 'StillDays', 'width' => '160px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
-                        ['caption' => BWACHText::t('Matches'), 'name' => 'Hits', 'width' => '70px', 'add' => 0],
+                        ['caption' => 'Critical', 'name' => 'Critical', 'width' => '70px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Without age check', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Without radio silence check', 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Exclude', 'name' => 'Excluded', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Query', 'name' => 'Poll', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Radio silence after (days)', 'name' => 'StillDays', 'width' => '160px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
+                        ['caption' => 'Matches', 'name' => 'Hits', 'width' => '70px', 'add' => 0],
                     ],
                 ],
             ],
@@ -3601,48 +3615,48 @@ class Batteriewaechter extends IPSModule
             : (count($dr['rows']) > 0 ? BWACHText::t('✅ All detected devices are in the list.') : BWACHText::t('ℹ️ No devices detected yet: first press "Search again now" above.')));
         return [
             'type' => 'ExpansionPanel', 'expanded' => $dr['added'] > 0 || $dr['filled'] > 0,
-            'caption' => BWACHText::t('🏷️  Device settings'),
+            'caption' => '🏷️  Device settings',
             'items' => [
                 ['type' => 'Label', 'name' => 'DeviceRowsLine', 'caption' => $line],
-                ['type' => 'Label', 'caption' => BWACHText::t('Every detected device is listed here with neutral defaults. Only change what differs. For many identical devices at once there is the panel "Groups". The column "Applies" shows what finally counts for a device. Click a column header to sort the list.')],
-                ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => BWACHText::t('❔  What do the columns mean?'), 'items' => [
+                ['type' => 'Label', 'caption' => 'Every detected device is listed here with neutral defaults. Only change what differs. For many identical devices at once there is the panel "Groups". The column "Applies" shows what finally counts for a device. Click a column header to sort the list.'],
+                ['type' => 'ExpansionPanel', 'expanded' => false, 'caption' => '❔  What do the columns mean?', 'items' => [
                     ['type' => 'Label', 'caption' => $this->deviceHelp()],
                 ]],
                 ...$this->retiredItems($this->found(), 'Settings'),
                 [
-                    'type' => 'List', 'name' => 'DeviceSettings', 'caption' => BWACHText::t('Devices'), 'rowCount' => 12, 'add' => true, 'delete' => true,
+                    'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Devices', 'rowCount' => 12, 'add' => true, 'delete' => true,
                     'loadValuesFromConfiguration' => false,
                     'sort' => $this->deviceSort(),
                     'values' => $dr['rows'],
                     'columns' => [
-                        ['caption' => BWACHText::t('Device instance'), 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'sortColumn' => 'Name', 'edit' => ['type' => 'SelectInstance']],
-                        ['caption' => BWACHText::t('Sensor'), 'name' => 'SensorName', 'width' => '150px', 'add' => ''],
-                        ['caption' => BWACHText::t('Sensor variable'), 'name' => 'Sensor', 'width' => '0px', 'visible' => false, 'add' => 0, 'save' => true],
-                        ['caption' => BWACHText::t('Location'), 'name' => 'Place', 'width' => '140px', 'add' => ''],
-                        ['caption' => BWACHText::t('System'), 'name' => 'Module', 'width' => '120px', 'add' => ''],
-                        ['caption' => BWACHText::t('Battery level'), 'name' => 'Percent', 'width' => '110px', 'add' => '—', 'sortColumn' => 'PercentSort'],
-                        ['caption' => BWACHText::t('Applies'), 'name' => 'Effect', 'width' => '260px', 'add' => ''],
-                        ['caption' => BWACHText::t('Last replacement'), 'name' => 'Change', 'width' => '120px', 'add' => '—', 'sortColumn' => 'ChangeSort'],
-                        ['caption' => BWACHText::t('Sort value replacement'), 'name' => 'ChangeSort', 'width' => '0px', 'visible' => false, 'add' => 0],
-                        ['caption' => BWACHText::t('Name'), 'name' => 'Name', 'width' => '0px', 'visible' => false, 'add' => ''],
-                        ['caption' => BWACHText::t('Sort value battery level'), 'name' => 'PercentSort', 'width' => '0px', 'visible' => false, 'add' => 1000],
-                        ['caption' => BWACHText::t('Group'), 'name' => 'Group', 'width' => '170px', 'add' => BWACHLogik::GROUP_STANDARD, 'edit' => ['type' => 'Select', 'options' => [
-                            ['caption' => BWACHText::t('Standard'), 'value' => BWACHLogik::GROUP_STANDARD],
-                            ['caption' => BWACHText::t('Event sensor'), 'value' => BWACHLogik::GROUP_EVENT],
+                        ['caption' => 'Device instance', 'name' => 'Instance', 'width' => 'auto', 'add' => 0, 'sortColumn' => 'Name', 'edit' => ['type' => 'SelectInstance']],
+                        ['caption' => 'Sensor', 'name' => 'SensorName', 'width' => '150px', 'add' => ''],
+                        ['caption' => 'Sensor variable', 'name' => 'Sensor', 'width' => '0px', 'visible' => false, 'add' => 0, 'save' => true],
+                        ['caption' => 'Location', 'name' => 'Place', 'width' => '140px', 'add' => ''],
+                        ['caption' => 'System', 'name' => 'Module', 'width' => '120px', 'add' => ''],
+                        ['caption' => 'Battery level', 'name' => 'Percent', 'width' => '110px', 'add' => '—', 'sortColumn' => 'PercentSort'],
+                        ['caption' => 'Applies', 'name' => 'Effect', 'width' => '260px', 'add' => ''],
+                        ['caption' => 'Last replacement', 'name' => 'Change', 'width' => '120px', 'add' => '—', 'sortColumn' => 'ChangeSort'],
+                        ['caption' => 'Sort value replacement', 'name' => 'ChangeSort', 'width' => '0px', 'visible' => false, 'add' => 0],
+                        ['caption' => 'Name', 'name' => 'Name', 'width' => '0px', 'visible' => false, 'add' => ''],
+                        ['caption' => 'Sort value battery level', 'name' => 'PercentSort', 'width' => '0px', 'visible' => false, 'add' => 1000],
+                        ['caption' => 'Group', 'name' => 'Group', 'width' => '170px', 'add' => BWACHLogik::GROUP_STANDARD, 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'Standard', 'value' => BWACHLogik::GROUP_STANDARD],
+                            ['caption' => 'Event sensor', 'value' => BWACHLogik::GROUP_EVENT],
                         ]]],
-                        ['caption' => BWACHText::t('Critical'), 'name' => 'Critical', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Without age check'), 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Without radio silence check'), 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Exclude'), 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Cell type (own)'), 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
-                        ['caption' => BWACHText::t('Cells (own)'), 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
-                        ['caption' => BWACHText::t('Location (own)'), 'name' => 'PlaceOwn', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                        ['caption' => BWACHText::t('Reachability (variable)'), 'name' => 'ReachVar', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                        ['caption' => BWACHText::t('Invert reachability'), 'name' => 'ReachInv', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Display name'), 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                        ['caption' => BWACHText::t('Query (Z-Wave, Matter, Comet)'), 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Radio silence after (days, 0 = default)'), 'name' => 'StillDays', 'width' => '230px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
-                        ['caption' => BWACHText::t('Set location'), 'name' => 'PlaceSet', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Critical', 'name' => 'Critical', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Without age check', 'name' => 'IgnoreAge', 'width' => '150px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Without radio silence check', 'name' => 'NoStill', 'width' => '180px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Exclude', 'name' => 'Excluded', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Cell type (own)', 'name' => 'Cell', 'width' => '230px', 'add' => BWACHZelle::UNKNOWN, 'edit' => ['type' => 'Select', 'options' => BWACHZelle::options()]],
+                        ['caption' => 'Cells (own)', 'name' => 'Cells', 'width' => '120px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 12]],
+                        ['caption' => 'Location (own)', 'name' => 'PlaceOwn', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Reachability (variable)', 'name' => 'ReachVar', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                        ['caption' => 'Invert reachability', 'name' => 'ReachInv', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Display name', 'name' => 'Alias', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Query (Z-Wave, Matter, Comet)', 'name' => 'Poll', 'width' => '190px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Radio silence after (days, 0 = default)', 'name' => 'StillDays', 'width' => '230px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 0, 'maximum' => 3650]],
+                        ['caption' => 'Set location', 'name' => 'PlaceSet', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],
                 ],
             ],
@@ -3653,41 +3667,41 @@ class Batteriewaechter extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('➕  More variables'),
+            'caption' => '➕  More variables',
             'items' => [
-                ['type' => 'Label', 'caption' => BWACHText::t('For battery variables that are not found automatically. The kind determines how the value is read: "Percent" (0–100), "Flag: low" (TRUE = battery low), "Flag: OK" (TRUE = battery OK) or "Voltage" (only displayed).')],
+                ['type' => 'Label', 'caption' => 'For battery variables that are not found automatically. The kind determines how the value is read: "Percent" (0–100), "Flag: low" (TRUE = battery low), "Flag: OK" (TRUE = battery OK) or "Voltage" (only displayed).'],
                 [
-                    'type' => 'List', 'name' => 'ManualVariables', 'caption' => BWACHText::t('Variables'), 'rowCount' => 5, 'add' => true, 'delete' => true,
+                    'type' => 'List', 'name' => 'ManualVariables', 'caption' => 'Variables', 'rowCount' => 5, 'add' => true, 'delete' => true,
                     'columns' => [
-                        ['caption' => BWACHText::t('Variable'), 'name' => 'Variable', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                        ['caption' => BWACHText::t('Kind'), 'name' => 'Kind', 'width' => '200px', 'add' => BWACHLogik::KIND_PERCENT, 'edit' => ['type' => 'Select', 'options' => [
-                            ['caption' => BWACHText::t('Percent'), 'value' => BWACHLogik::KIND_PERCENT],
-                            ['caption' => BWACHText::t('Flag: low'), 'value' => BWACHLogik::KIND_FLAG],
-                            ['caption' => BWACHText::t('Flag: OK'), 'value' => BWACHLogik::KIND_FLAG_REV],
-                            ['caption' => BWACHText::t('Voltage'), 'value' => BWACHLogik::KIND_VOLTAGE],
-                            ['caption' => BWACHText::t('Text: low if it contains …'), 'value' => BWACHLogik::KIND_TEXT],
+                        ['caption' => 'Variable', 'name' => 'Variable', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                        ['caption' => 'Kind', 'name' => 'Kind', 'width' => '200px', 'add' => BWACHLogik::KIND_PERCENT, 'edit' => ['type' => 'Select', 'options' => [
+                            ['caption' => 'Percent', 'value' => BWACHLogik::KIND_PERCENT],
+                            ['caption' => 'Flag: low', 'value' => BWACHLogik::KIND_FLAG],
+                            ['caption' => 'Flag: OK', 'value' => BWACHLogik::KIND_FLAG_REV],
+                            ['caption' => 'Voltage', 'value' => BWACHLogik::KIND_VOLTAGE],
+                            ['caption' => 'Text: low if it contains …', 'value' => BWACHLogik::KIND_TEXT],
                         ]]],
-                        ['caption' => BWACHText::t('Text (comma = or)'), 'name' => 'Text', 'width' => '220px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Text (comma = or)', 'name' => 'Text', 'width' => '220px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                     ],
                 ],
-                ['type' => 'Label', 'caption' => BWACHText::t('"Text" is for variables that report a state as a word (e.g. "ok", "low", "critical"): if one of the words is in the value, the battery counts as low. Without an entered word the row is not used. Upper and lower case do not matter.')],
+                ['type' => 'Label', 'caption' => '"Text" is for variables that report a state as a word (e.g. "ok", "low", "critical"): if one of the words is in the value, the battery counts as low. Without an entered word the row is not used. Upper and lower case do not matter.'],
                 [
-                    'type' => 'List', 'name' => 'IgnoredVariables', 'caption' => BWACHText::t('Ignore variables'), 'rowCount' => 3, 'add' => true, 'delete' => true,
+                    'type' => 'List', 'name' => 'IgnoredVariables', 'caption' => 'Ignore variables', 'rowCount' => 3, 'add' => true, 'delete' => true,
                     'columns' => [
-                        ['caption' => BWACHText::t('Variable'), 'name' => 'Variable', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                        ['caption' => 'Variable', 'name' => 'Variable', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                     ],
                 ],
                 [
-                    'type' => 'List', 'name' => 'OwnCells', 'caption' => BWACHText::t('Own cell types'), 'rowCount' => 3, 'add' => true, 'delete' => true,
+                    'type' => 'List', 'name' => 'OwnCells', 'caption' => 'Own cell types', 'rowCount' => 3, 'add' => true, 'delete' => true,
                     'columns' => [
-                        ['caption' => BWACHText::t('Name'), 'name' => 'Name', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                        ['caption' => BWACHText::t('Name on shopping list (empty = name)'), 'name' => 'Shop', 'width' => '230px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                        ['caption' => BWACHText::t('Voltage full (V)'), 'name' => 'VFull', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'digits' => 2, 'minimum' => 0, 'maximum' => 60]],
-                        ['caption' => BWACHText::t('Voltage empty (V)'), 'name' => 'VEmpty', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'digits' => 2, 'minimum' => 0, 'maximum' => 60]],
+                        ['caption' => 'Name', 'name' => 'Name', 'width' => '160px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Name on shopping list (empty = name)', 'name' => 'Shop', 'width' => '230px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                        ['caption' => 'Voltage full (V)', 'name' => 'VFull', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'digits' => 2, 'minimum' => 0, 'maximum' => 60]],
+                        ['caption' => 'Voltage empty (V)', 'name' => 'VEmpty', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'NumberSpinner', 'digits' => 2, 'minimum' => 0, 'maximum' => 60]],
                     ],
                 ],
-                ['type' => 'Label', 'caption' => BWACHText::t('"Own cell types": if a battery type is missing from the selection, enter it here. It then appears under "Cell type" in "Device settings", "Groups" and "Stock" and goes into the shopping list. If "Voltage full" and "Voltage empty" (per cell) are filled in, the monitor calculates a state of charge linearly from the voltage in between (a rough approximation); otherwise the type only serves the shopping list. Changing a name or deleting the row sets the devices with this type to "unknown". The types are available after "Apply".')],
-                ['type' => 'Label', 'caption' => BWACHText::t('"Ignore variables" removes single variables from detection without excluding the whole device (e.g. the load of a UPS if the state of charge is next to it). They then appear in the dry run under "Excluded".')],
+                ['type' => 'Label', 'caption' => '"Own cell types": if a battery type is missing from the selection, enter it here. It then appears under "Cell type" in "Device settings", "Groups" and "Stock" and goes into the shopping list. If "Voltage full" and "Voltage empty" (per cell) are filled in, the monitor calculates a state of charge linearly from the voltage in between (a rough approximation); otherwise the type only serves the shopping list. Changing a name or deleting the row sets the devices with this type to "unknown". The types are available after "Apply".'],
+                ['type' => 'Label', 'caption' => '"Ignore variables" removes single variables from detection without excluding the whole device (e.g. the load of a UPS if the state of charge is next to it). They then appear in the dry run under "Excluded".'],
             ],
         ];
     }
@@ -3699,12 +3713,12 @@ class Batteriewaechter extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
-            'caption' => BWACHText::t('💬  Feedback'),
+            'caption' => '💬  Feedback',
             'items' => [
-                ['type' => 'Label', 'caption' => BWACHText::t('🧪 The Battery Monitor is new — questions, wishes or bugs are welcome in the forum thread. Especially wanted: experience with Zigbee2MQTT, Matter and HomeMatic, which the developer cannot test himself. If you try them, press "Diagnostics for the forum" under "Devices found" and post the output there.')],
-                ['type' => 'Button', 'caption' => BWACHText::t('To the forum thread'), 'onClick' => "echo '" . self::FORUM_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => BWACHText::t('To the repository'), 'onClick' => "echo '" . self::REPO_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => BWACHText::t('Got it – do not show again'), 'onClick' => 'BWACH_AckForumHint($id);'],
+                ['type' => 'Label', 'caption' => '🧪 The Battery Monitor is new — questions, wishes or bugs are welcome in the forum thread. Especially wanted: experience with Zigbee2MQTT, Matter and HomeMatic, which the developer cannot test himself. If you try them, press "Diagnostics for the forum" under "Devices found" and post the output there.'],
+                ['type' => 'Button', 'caption' => 'To the forum thread', 'onClick' => "echo '" . self::FORUM_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'To the repository', 'onClick' => "echo '" . self::REPO_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Got it – do not show again', 'onClick' => 'BWACH_AckForumHint($id);'],
             ],
         ];
     }
@@ -3714,14 +3728,14 @@ class Batteriewaechter extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => BWACHText::t('🧡  About this module'),
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => BWACHText::t('Born from real enthusiasm for my own installation — and a few evenings of typing. Still: hobby software or not, this is intellectual property and real work went into it.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use; commercial use requires a separate license from the rights holder.')],
-                ['type' => 'Button', 'caption' => BWACHText::t('View license text'), 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => BWACHText::t('Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu')],
-                ['type' => 'Label', 'caption' => BWACHText::t('Do you like the module and would still like to leave something? I am happy about a small donation — completely voluntary, nothing required in return.')],
-                ['type' => 'Button', 'caption' => BWACHText::t('☕  Donate via PayPal'), 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born from real enthusiasm for my own installation — and a few evenings of typing. Still: hobby software or not, this is intellectual property and real work went into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use; commercial use requires a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Do you like the module and would still like to leave something? I am happy about a small donation — completely voluntary, nothing required in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -3767,7 +3781,8 @@ class Batteriewaechter extends IPSModule
         $rows   = [];
         $hidden = [];
         foreach ($layout as $key => $l) {
-            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$key]['caption'] ?? $key)));
+            // Panel-Überschriften stehen englisch im Formular (die Konsole übersetzt sie); hier landen sie in Listenwerten, die die Konsole nicht übersetzt
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', BWACHText::t((string)($free[$key]['caption'] ?? $key))));
             $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
                 'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
             if ($l['open'] === 'hidden') {
@@ -3781,22 +3796,22 @@ class Batteriewaechter extends IPSModule
             'type' => 'ExpansionPanel', 'expanded' => false,
             'caption' => $hidden ? BWACHText::t('🪟  Form: layout (%s hidden)', count($hidden)) : BWACHText::t('🪟  Form: layout'),
             'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => BWACHText::t('Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing itself, so the setting here applies every time the form opens. It takes effect after "Apply" the next time the form is opened.')],
-                ['type' => 'Label', 'caption' => BWACHText::t('No tick means "default": as the module intends (e.g. "Device settings" expanded when there is something new). If you choose "Collapsed", you will not see new things there right away. The position is a number; with equal numbers the default order stays. "Hidden" removes a section from the display without losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick at "Hidden" or click "Reset to default". If several ticks are set, "Hidden" beats "Collapsed" beats "Expanded". The sections at the top (purpose, documentation, first steps) and at the bottom (feedback, about this module) stay where they are and cannot be hidden.')],
+                ['type' => 'Label', 'caption' => 'Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing itself, so the setting here applies every time the form opens. It takes effect after "Apply" the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => 'No tick means "default": as the module intends (e.g. "Device settings" expanded when there is something new). If you choose "Collapsed", you will not see new things there right away. The position is a number; with equal numbers the default order stays. "Hidden" removes a section from the display without losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick at "Hidden" or click "Reset to default". If several ticks are set, "Hidden" beats "Collapsed" beats "Expanded". The sections at the top (purpose, documentation, first steps) and at the bottom (feedback, about this module) stay where they are and cannot be hidden.'],
                 [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => BWACHText::t('Sections'), 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Sections', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
-                        ['caption' => BWACHText::t('Section'), 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => BWACHText::t('Key'), 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => BWACHText::t('Expanded'), 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Collapsed'), 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('🙈 Hidden'), 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => BWACHText::t('Position'), 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
+                        ['caption' => 'Section', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
-                ['type' => 'Button', 'caption' => BWACHText::t('↩️ Reset to default'), 'onClick' => 'echo BWACH_ResetFormLayout($id);'],
+                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo BWACH_ResetFormLayout($id);'],
             ]),
         ];
     }

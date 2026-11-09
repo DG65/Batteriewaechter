@@ -7,6 +7,10 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ### Fixed
 - **Prüfung wieder schnell (SUITE.md Stolperstein 24):** Symcons `Translate()` liest bei jedem Aufruf die `locale.json`. Eine Prüfung übersetzt hunderte Texte und dauerte live 2,5 Sekunden, das Formular gut 1 Sekunde. Jetzt wird jeder Text höchstens einmal je Prozess bei Symcon erfragt und gemerkt (Merkliste, Verbund-Muster nach WPModbusHub). Der Wächter liest dafür keine eigene Datei, die Store-Richtlinien erlauben Dateizugriffe nur als Ausnahme. Neue Prüfungen im Prüfstand begrenzen die `Translate()`-Aufrufe.
+- **Formular nicht mehr selbst übersetzt (Store-Review, SUITE.md Punkt 25):** Feste Beschriftungen, Hinweise und Auswahltexte stehen englisch im Formular, die Konsole übersetzt sie über `locale.json` selbst. Der Wächter übersetzt nur noch, was die Konsole nicht sieht: Texte mit eingesetzten Werten, Rückmeldungen, Meldungen, Tabellen, Kachel und Variablennamen. Der Prüfstand bildet die Konsole nach; `check-locale.php` prüft auch die festen Formulartexte.
+
+### Added
+- **Wechselerkennung einstellbar** (Forum: bei HomeMatic flackert das „schwach“-Flag und füllt das Tagebuch mit Scheinwechseln): Unter „Quittieren und Batterietagebuch“ wählt „Batteriewechsel automatisch erkennen“ zwischen „am Prozentsprung und am Flag“ (Standard wie bisher), „nur am Prozentsprung“ und „aus“. Bereits eingetragene Fehleinträge entfernt „Automatisch erkannte Wechsel löschen“.
 
 ## [0.20.1] - 2026-11-04
 

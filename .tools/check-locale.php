@@ -46,6 +46,26 @@ foreach ($files as $file) {
             }
             continue;
         }
+        // Feste Formulartexte ('caption' => 'English') übersetzt die Konsole über locale.json (Store-Punkt 25)
+        if ($t[0] === T_CONSTANT_ENCAPSED_STRING && in_array(eval('return ' . $t[1] . ';'), ['caption', 'label'], true)) {
+            $j = $i + 1;
+            while ($j < $n && is_array($tokens[$j]) && $tokens[$j][0] === T_WHITESPACE) { $j++; }
+            if ($j < $n && is_array($tokens[$j]) && $tokens[$j][0] === T_DOUBLE_ARROW) {
+                $j++;
+                while ($j < $n && is_array($tokens[$j]) && $tokens[$j][0] === T_WHITESPACE) { $j++; }
+                $next = $j + 1;
+                while ($next < $n && is_array($tokens[$next]) && $tokens[$next][0] === T_WHITESPACE) { $next++; }
+                if ($j < $n && is_array($tokens[$j]) && $tokens[$j][0] === T_CONSTANT_ENCAPSED_STRING && $next < $n && ($tokens[$next] === ',' || $tokens[$next] === ']')) {
+                    $lit = eval('return ' . $tokens[$j][1] . ';');
+                    if ($lit !== '' && !array_key_exists($lit, $loc) && preg_match('/[A-Za-z]{2}/', $lit)) {
+                        echo basename($file) . ':' . $tokens[$j][2] . "  FEHLT in locale.json (Formular): " . $lit . "\n";
+                        $fehlt++;
+                    }
+                    $i = $j;
+                    continue;
+                }
+            }
+        }
         if ($t[0] === T_CONSTANT_ENCAPSED_STRING && preg_match($wortRx, $t[1])) {
             $prev = $i - 1;
             while ($prev >= 0 && is_array($tokens[$prev]) && $tokens[$prev][0] === T_WHITESPACE) { $prev--; }

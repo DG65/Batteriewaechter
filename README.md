@@ -66,7 +66,7 @@ Unter „🔔 Meldungen“ einschalten. Gemeldet werden „Batterie leer“, „
 
 ## Quittieren und Batterietagebuch
 
-Unter „✅ Quittieren und Batterietagebuch“ Gerät und Aktion wählen: **Habe ich getauscht** (kommt mit Datum ins Tagebuch, 3 Tage Wartezeit bis das Gerät den neuen Stand meldet), **Erinnere mich später** oder **Gerät ist außer Betrieb** (wird nicht mehr überwacht, jederzeit wieder aufnehmbar). Das Tagebuch erkennt Wechsel auch selbst: der Prozentwert steigt um mindestens 25 Punkte (einstellbar) oder das „schwach“-Flag wird zurückgesetzt. Die Tabelle liegt als Variable „Batterietagebuch“ unter der Instanz.
+Unter „✅ Quittieren und Batterietagebuch“ Gerät und Aktion wählen: **Habe ich getauscht** (kommt mit Datum ins Tagebuch, 3 Tage Wartezeit bis das Gerät den neuen Stand meldet), **Erinnere mich später** oder **Gerät ist außer Betrieb** (wird nicht mehr überwacht, jederzeit wieder aufnehmbar). Das Tagebuch erkennt Wechsel auch selbst: der Prozentwert steigt um mindestens 25 Punkte (einstellbar) oder das „schwach“-Flag wird zurückgesetzt. Flackert das Flag (z. B. bei HomeMatic), lässt sich die Erkennung unter „Batteriewechsel automatisch erkennen“ auf den Prozentsprung beschränken oder ganz abschalten. Die Tabelle liegt als Variable „Batterietagebuch“ unter der Instanz.
 
 ## Unterstützte Systeme
 
