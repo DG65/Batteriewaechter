@@ -51,6 +51,7 @@ function IPS_GetVariable(int $id): array { $v = $GLOBALS['OBJ'][$id]['var']; uns
 function IPS_GetInstance(int $id): array { return ['ModuleInfo' => ['ModuleName' => $GLOBALS['OBJ'][$id]['module'], 'ModuleID' => 'GUID-' . $GLOBALS['OBJ'][$id]['module']], 'InstanceStatus' => 102]; }
 function IPS_GetInstanceList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 1) { $o[] = $id; } } return $o; }
 function IPS_GetConfiguration(int $id): string { return json_encode($GLOBALS['OBJ'][$id]['config'] ?? []); }
+function IPS_ObjectExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]); }
 function IPS_InstanceExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 1; }
 function IPS_VariableExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 2; }
 function IPS_GetName(int $id): string { return $GLOBALS['OBJ'][$id]['name'] ?? ''; }
@@ -71,6 +72,7 @@ function IPS_GetVariableProfile(string $p): array { return $GLOBALS['PROFILES'][
 function IPS_GetInstanceListByModuleID(string $g): array { return $GLOBALS['INSTS'][$g] ?? []; }
 function IPS_LogMessage(string $s, string $m): bool { $GLOBALS['LOG'][] = "$s: $m"; return true; }
 if (!defined('KL_WARNING')) { define('KL_WARNING', 103); }
+if (!defined('KL_MESSAGE')) { define('KL_MESSAGE', 10206); }
 function VISU_PostNotificationEx($id, $t, $x, $icon, $sound, $target) { $GLOBALS['SENT'][] = ['visu', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
 function WFC_PushNotification($id, $t, $x, $sound, $target) { $GLOBALS['SENT'][] = ['wfc', $id, $t, $x, $sound]; return $GLOBALS['SEND_OK']; }
 function SMTP_SendMailEx($id, $to, $subj, $body) { if (!empty($GLOBALS['SMTP_WARN'])) { trigger_error($GLOBALS['SMTP_WARN'], E_USER_WARNING); } if (!empty($GLOBALS['SMTP_THROW'])) { throw new RuntimeException($GLOBALS['SMTP_THROW']); } $GLOBALS['SENT'][] = ['mailex', $id, $subj, $body, $to]; return $GLOBALS['SEND_OK']; }
@@ -2055,6 +2057,7 @@ $GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 504, 505, 506]];
 check('Matter-Hinweis nennt die angekündigte Besserung mit Symcon 9.1', strpos($hint, '9.1') !== false);
 check('Alle Matter-Knoten haben Endpunkt 0: kein Hinweis', strpos($mn->Search(), 'Matter: Für') === false);
 
+
 // Geräteliste: Zelltyp vom Gerät vorbelegt
 $GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502, 504, 505, 506]];
 mkvar(5071, 506, 'PowerSource_BatReplacementDescription', 'Ersatz Beschreibung', 3, 'CR2032', $GLOBALS['CLOCK'] - 60);
@@ -3083,6 +3086,59 @@ $u2 = reachDev($mU2, 'Fensterkontakt Bad');
 check('Eine Variable mit ähnlichem Namen (UNREACHABLE_COUNT) bleibt ein Lebenszeichen', $u2['funk'] === 'aktiv');
 $GLOBALS['OBJ'][9303]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] - 20;
 check('UNREACH2 wird nicht automatisch als Erreichbarkeit ausgewertet (wahr = nicht erreichbar gilt nur bei gewählter Variable)', (function () use ($mU2) { $GLOBALS['OBJ'][9303]['var']['value'] = true; $GLOBALS['OBJ'][9303]['var']['VariableChanged'] = $GLOBALS['CLOCK'] - 3600; return strpos(reachDev($mU2, 'Fensterkontakt Bad')['headline'], 'Nicht erreichbar') !== 0; })());
+
+// Symcon 9.1: Matter Composite Device (ein Gerät je Instanz) neben und statt der Instanzen je Endpunkt
+$cr = ['devices' => ['502' => ['name' => 'Alt', 'module' => 'Matter Device', 'node' => '14', 'signals' => ['percent' => [['vid' => 5021, 'label' => 'Batteriestand']]]], '600' => ['name' => 'Neu', 'module' => 'Matter Composite Device', 'node' => '14', 'signals' => []], '700' => ['name' => 'Fremd', 'module' => 'Matter Device', 'node' => '8', 'signals' => []]], 'excluded' => [], 'suggestions' => []];
+$cp = BWACHLogik::matterPreferComposite($cr, 'Matter Composite Device');
+check('Composite-Vorrang: altes Gerät desselben Knotens fällt heraus, begründet; andere Knoten bleiben', array_keys($cp['devices']) === [600, 700] && strpos($cp['excluded'][0]['reason'] ?? '', 'Composite') !== false && strpos($cp['excluded'][0]['reason'], '#600') !== false, json_encode($cp, JSON_UNESCAPED_UNICODE));
+check('Composite-Zuordnung: ein altes Gerät desselben Knotens → neuer Schlüssel zeigt auf den alten', BWACHLogik::matterAdoption([$cr], $cp, 'Matter Composite Device') === ['600' => '502']);
+check('Composite-Zuordnung: zwei alte Geräte desselben Knotens → keine Zuordnung (nicht raten)', BWACHLogik::matterAdoption([['devices' => ['502' => ['node' => '14', 'module' => 'Matter Device'], '503' => ['node' => '14', 'module' => 'Matter Device']]]], $cp, 'Matter Composite Device') === []);
+check('Composite-Zuordnung: ohne altes Gerät nichts', BWACHLogik::matterAdoption([['devices' => []]], $cp, 'Matter Composite Device') === []);
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Öffnungskontakte');
+mkinst(501, 'Badfenster Senkrecht', 'Matter Device', 900); $GLOBALS['OBJ'][501]['config'] = ['NodeId' => 14, 'EndpointId' => 1];
+mkvar(5011, 501, 'BooleanState_State', 'Kontakt', 0, true, $GLOBALS['CLOCK'] - 3600);
+mkinst(502, 'Badfenster Senkrecht Stromversorgung', 'Matter Device', 900); $GLOBALS['OBJ'][502]['config'] = ['NodeId' => 14, 'EndpointId' => 0];
+mkvar(5021, 502, 'PowerSource_BatPercentRemaining', 'Batteriestand', 1, 160, $GLOBALS['CLOCK'] - 3600);
+$GLOBALS['INSTS'] = ['GUID-Matter Device' => [501, 502]];
+$mc = new BWTest(); $mc->Create(); $mc->props['DeviceSettings'] = json_encode([['Instance' => 502, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aaa_nimh', 'Cells' => 2, 'Poll' => true]]); $mc->ApplyChanges();
+$mc->SetValue('Diary', json_encode([['t' => $GLOBALS['CLOCK'] - 86400, 'key' => '502', 'name' => 'Badfenster Senkrecht', 'type' => 'manuell', 'note' => 'x']]));
+mkinst(600, 'Badfenster Senkrecht', 'Matter Composite Device', 900); $GLOBALS['OBJ'][600]['config'] = ['NodeId' => 14, 'EndpointId' => 0];
+mkvar(6001, 600, 'E0_PowerSource_BatPercentRemaining', 'Batteriestand', 1, 160, $GLOBALS['CLOCK'] - 60);
+mkvar(6002, 600, 'E1_BooleanState_State', 'Kontakt', 0, true, $GLOBALS['CLOCK'] - 30);
+$GLOBALS['INSTS']['GUID-Matter Composite Device'] = [600];
+$mc->Search();
+$fd = json_decode($mc->attrs['Found'], true)['devices'];
+check('Composite neben alter Instanz: das Gerät steht genau einmal in der Liste (Composite)', array_keys($fd) === [600] || array_keys($fd) === ['600'], json_encode(array_keys($fd)));
+$dc = json_decode(end($mc->visUpdates), true)['devices'][0] ?? [];
+check('Composite: E0_PowerSource_BatPercentRemaining 160 (Halbprozent) = 80 %', ($dc['percent'] ?? null) == 80, json_encode($dc, JSON_UNESCAPED_UNICODE));
+check('Composite: Einstellungen der alten Instanz gelten weiter (Zelltyp 2× AAA Akku NiMH)', strpos($dc['cellText'] ?? '', '2× AAA Akku NiMH') === 0, $dc['cellText'] ?? '');
+check('Composite: Tagebucheintrag zieht auf das neue Gerät um', (json_decode($mc->GetValue('Diary'), true)[0]['key'] ?? '') === '600');
+$GLOBALS['OBJ'] = array_filter($GLOBALS['OBJ'], function ($k) { return !in_array($k, [501, 502, 5011, 5021], true); }, ARRAY_FILTER_USE_KEY);
+$GLOBALS['INSTS']['GUID-Matter Device'] = [];
+$warn = 0; set_error_handler(function () use (&$warn) { $warn++; return true; });
+$GLOBALS['CLOCK'] += 3600; $mc->Check(); $formC = json_decode($mc->GetConfigurationForm(), true);
+restore_error_handler();
+check('Alte Instanz gelöscht: Prüfung und Formular ohne PHP-Warnung', $warn === 0, (string)$warn);
+$rowsC = []; array_walk_recursive($formC, function ($v, $k) use (&$rowsC) { if ($k === 'Effect') { $rowsC[] = $v; } });
+check('Geräte-Einstellungen: verwaiste Zeile sagt, dass sie für das neue Gerät gilt', (bool)array_filter($rowsC, function ($v) { return strpos((string)$v, 'Instanz gelöscht') !== false && strpos((string)$v, '#600') !== false; }), json_encode($rowsC, JSON_UNESCAPED_UNICODE));
+$newRow = null; array_walk_recursive($formC, function () {}); foreach (($formC['elements'] ?? []) as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { foreach ($it['values'] as $v) { if ((int)$v['Instance'] === 600) { $newRow = $v; } } } } }
+check('Geräte-Einstellungen: neue Zeile übernimmt die Werte der alten (Zelltyp, Zellen, Abfragen)', $newRow !== null && $newRow['Cell'] === 'aaa_nimh' && (int)$newRow['Cells'] === 2 && $newRow['Poll'] === true, json_encode($newRow, JSON_UNESCAPED_UNICODE));
+mkinst(610, 'Anderes Gerät', 'Matter Composite Device', 900); $GLOBALS['OBJ'][610]['config'] = ['NodeId' => 20, 'EndpointId' => 0];
+mkvar(6101, 610, 'E0_PowerSource_BatPercentRemaining', 'Batteriestand', 1, 200, $GLOBALS['CLOCK'] - 60);
+$mc->attrs['Found'] = json_encode(['devices' => ['999' => ['name' => 'Weg', 'module' => 'Matter Device', 'signals' => []]] + json_decode($mc->attrs['Found'], true)['devices'], 'excluded' => [], 'suggestions' => []]);
+$mc->attrs['LastDiscoveryTs'] = $GLOBALS['CLOCK'] - 700;
+$mc->Check();
+check('Gemerkte Instanz verschwunden: die Prüfung sucht neu (höchstens alle 10 Minuten)', !isset(json_decode($mc->attrs['Found'], true)['devices']['999']) && $mc->attrs['LastDiscoveryTs'] === $GLOBALS['CLOCK']);
+check('Matter-Hinweis „ohne Endpunkt 0“: Composite-Geräte lösen ihn nicht aus', strpos($mc->Search(), 'Matter: Für') === false);
+$GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); mkcat(900, 'Öffnungskontakte');
+mkinst(801, 'Sensor Stromversorgung', 'Matter Device', 900); $GLOBALS['OBJ'][801]['config'] = ['NodeId' => 30, 'EndpointId' => 0];
+mkvar(8011, 801, 'PowerSource_BatPercentRemaining', 'Batteriestand', 1, 180, $GLOBALS['CLOCK'] - 60);
+$GLOBALS['INSTS'] = ['GUID-Matter Device' => [801, 9999]];
+$ms = new BWTest(); $ms->Create(); $ms->ApplyChanges();
+$warn = 0; set_error_handler(function () use (&$warn) { $warn++; return true; }); $ms->Check(); $ms->GetConfigurationForm(); restore_error_handler();
+check('Instanzliste des Moduls nennt eine gelöschte Instanz: keine PHP-Warnung (Matter-Knoten still übergangen)', $warn === 0, (string)$warn);
+$GLOBALS['MT'] = []; $GLOBALS['ZW'] = []; $mcp = pollWorld(30, true, 'Matter Composite Device');
+check('Abfrage bei Matter Composite Device: MATTER_RequestStatus an der Instanz', $GLOBALS['MT'] === [301] && $GLOBALS['ZW'] === [], json_encode($GLOBALS['MT']));
 
 // Sprachprobe (nur mit BWACH_EN=1): Formular, Diagnose, Trockenlauf, Kachel und Tabellen eines frischen Moduls in eine Datei
 if (getenv('BWACH_EN')) {

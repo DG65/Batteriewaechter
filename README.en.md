@@ -75,7 +75,7 @@ Under "Acknowledge and battery log" choose a device and an action: **I replaced 
 | Z-Wave, Symcon profiles `~Battery*` | profile, ident | tested on a real installation |
 | CometWiFi, Shelly (percentage and voltage), Froggit (each sensor at the gateway is its own entry), Botvac | profile, ident | tested on a real installation |
 | HomeMatic (`LOWBAT`, `LOW_BAT`, `OPERATING_VOLTAGE`, `UNREACH`) | ident | confirmed by forum feedback |
-| Matter (`BatPercentRemaining`, `BatReplacementNeeded`, replacement description) | ident | seen on an IKEA contact; battery voltage via Matter not yet seen |
+| Matter (`BatPercentRemaining`; from Symcon 9.1 also "Matter Composite Device" with `E0_PowerSource_…`, settings and log move over from the old instances; `BatReplacementNeeded`, replacement description) | ident | seen on an IKEA contact; battery voltage via Matter not yet seen |
 | Netatmo (level 0 to 5 with profile) | profile, ident | confirmed by feedback |
 | Blink (levels from a Symcon presentation) | presentation, ident | built from an exported variable, feedback pending |
 | Zigbee2MQTT (`battery`, `battery_low`) | ident | **according to documentation, not tested with a real device** |

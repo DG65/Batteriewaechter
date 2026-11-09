@@ -75,7 +75,7 @@ Unter „✅ Quittieren und Batterietagebuch“ Gerät und Aktion wählen: **Hab
 | Z-Wave (`BatteryVariable`, `BatteryLowVariable`), Symcon-Profile `~Battery*` | Profil, Ident | an einer echten Anlage geprüft |
 | CometWiFi, Shelly (Prozent und Spannung), Froggit (jeder Funksensor am Gateway ein eigener Eintrag, das Gateway selbst keiner), Botvac | Profil, Ident | an einer echten Anlage geprüft |
 | HomeMatic (`LOWBAT`, `LOW_BAT`, `OPERATING_VOLTAGE`, `UNREACH`), zusammengeführte Kanäle eines Geräts | Ident | durch Rückmeldungen aus dem Forum bestätigt |
-| Matter (`BatPercentRemaining`, Halbprozent; `BatReplacementNeeded`; Ersatz-Beschreibung), zusammengesetzter Wert ab Symcon 9.1 | Ident | an einem IKEA-Kontakt gesehen, Matter 9.1 durch Rückmeldung bestätigt; die Batteriespannung über Matter noch an keinem Gerät gesehen |
+| Matter (`BatPercentRemaining`, Halbprozent; ab Symcon 9.1 auch „Matter Composite Device“ mit `E0_PowerSource_…`, Einstellungen und Tagebuch ziehen von den alten Instanzen um; `BatReplacementNeeded`; Ersatz-Beschreibung), zusammengesetzter Wert ab Symcon 9.1 | Ident | an einem IKEA-Kontakt gesehen, Matter 9.1 durch Rückmeldung bestätigt; die Batteriespannung über Matter noch an keinem Gerät gesehen |
 | Netatmo (Stufenanzeige 0 bis 5 mit Profil) | Profil, Ident | durch Rückmeldung bestätigt |
 | Blink (Stufen aus den Intervallen einer Symcon-Darstellung, 0 = Unbekannt) | Darstellung, Ident | nach dem Export einer Variable gebaut, Rückmeldung steht aus |
 | Zigbee2MQTT (`battery`, `battery_low`) | Ident | **nach Dokumentation, nicht an echtem Gerät geprüft** |

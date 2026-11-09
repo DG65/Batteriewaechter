@@ -263,6 +263,73 @@ final class BWACHLogik
         return $names;
     }
 
+    /**
+     * Symcon 9.1 legt für ein Matter-Gerät eine „Matter Composite Device“-Instanz an; die alten Instanzen je Endpunkt
+     * („Matter Device“) können daneben weiter bestehen. Gibt es für einen Knoten ein Composite-Gerät, fallen die alten
+     * Geräte desselben Knotens heraus (sonst stünde dieselbe Batterie doppelt in der Liste). Sie landen begründet bei den
+     * Ausgeschlossenen.
+     *
+     * @param array $result Ergebnis von classify()
+     */
+    public static function matterPreferComposite(array $result, string $compositeModule): array
+    {
+        $compNodes = [];
+        foreach ($result['devices'] ?? [] as $key => $d) {
+            if (($d['module'] ?? '') === $compositeModule && ($d['node'] ?? '') !== '') {
+                $compNodes[(string)$d['node']] = (string)($d['parent'] ?? $key);
+            }
+        }
+        if (!$compNodes) {
+            return $result;
+        }
+        foreach ($result['devices'] as $key => $d) {
+            $node = (string)($d['node'] ?? '');
+            if ($node === '' || !isset($compNodes[$node]) || ($d['module'] ?? '') === $compositeModule) {
+                continue;
+            }
+            foreach ($d['signals'] ?? [] as $list) {
+                foreach ($list as $sig) {
+                    $result['excluded'][] = ['vid' => (int)$sig['vid'], 'name' => (string)($sig['label'] ?? $d['name']),
+                        'reason' => BWACHText::t('replaced by the Matter composite device #%s (same node %s)', $compNodes[$node], $node)];
+                }
+            }
+            unset($result['devices'][$key]);
+        }
+        return $result;
+    }
+
+    /**
+     * Zuordnung nach der Matter-Umstellung: neuer Schlüssel (Composite-Gerät) => alter Schlüssel (Gerät je Endpunkt mit
+     * demselben Knoten). Quelle sind die Geräte der vorigen Suche und die der aktuellen vor dem Composite-Vorrang, denn die
+     * alte Instanz kann noch bestehen oder schon gelöscht sein. Gibt es für einen Knoten mehrere alte Geräte, wird nichts
+     * zugeordnet (keine Wahl raten).
+     *
+     * @param array $sources Liste von Ergebnissen (je ['devices'=>…])
+     * @return array<string,string>
+     */
+    public static function matterAdoption(array $sources, array $new, string $compositeModule): array
+    {
+        $oldByNode = [];
+        foreach ($sources as $src) {
+            foreach ($src['devices'] ?? [] as $key => $d) {
+                $node = (string)($d['node'] ?? '');
+                if ($node === '' || ($d['module'] ?? '') === $compositeModule) {
+                    continue;
+                }
+                $oldByNode[$node][(string)$key] = true;
+            }
+        }
+        $map = [];
+        foreach ($new['devices'] ?? [] as $key => $d) {
+            $node = (string)($d['node'] ?? '');
+            if (($d['module'] ?? '') !== $compositeModule || $node === '' || count($oldByNode[$node] ?? []) !== 1) {
+                continue;
+            }
+            $map[(string)$key] = (string)array_key_first($oldByNode[$node]);
+        }
+        return $map;
+    }
+
     /** Eine CSV-Zeile mit Semikolon (deutsches Excel); Felder mit Semikolon, Anführungszeichen oder Zeilenumbruch werden gequotet. */
     public static function csvRow(array $cells): string
     {

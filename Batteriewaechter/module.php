@@ -249,6 +249,11 @@ class Batteriewaechter extends IPSModule
             'manual'          => $this->manualVariables(),
             'ignored'         => $this->ignoredVariables(),
         ]);
+        // Symcon 9.1: „Matter Composite Device“ ersetzt die Instanzen je Endpunkt. Gibt es für einen Knoten beides,
+        // zählt nur die Composite-Instanz; wer umgestellt hat, behält Einstellungen, Tagebuch und Verlauf.
+        $raw    = $result;
+        $result = BWACHLogik::matterPreferComposite($result, self::MATTER_COMPOSITE);
+        $this->adoptMatterKeys([$this->found() ?? [], $raw], $result);
         $this->WriteAttributeString('Found', json_encode($result));
         $this->WriteAttributeInteger('LastDiscoveryTs', $this->now());
         $this->syncMessages($result);
@@ -259,12 +264,74 @@ class Batteriewaechter extends IPSModule
         return $line;
     }
 
+    /**
+     * Übernahme nach der Umstellung auf „Matter Composite Device“: Ein Gerät je Endpunkt (alte Instanz, noch vorhanden
+     * oder schon gelöscht) und ein Composite-Gerät desselben Knotens sind dasselbe Gerät. Die Zustände (Tagebuch, Verlauf,
+     * Meldezustand …) ziehen auf den neuen Schlüssel um; die Geräte-Einstellungen sind eine Eigenschaft und bleiben dort,
+     * wo sie stehen, gelten über die Zuordnung in „Meta“ aber für das neue Gerät, bis der Nutzer sie übernimmt.
+     */
+    private function adoptMatterKeys(array $sources, array $new): void
+    {
+        $known = $this->loadJson('Meta')['adopted'] ?? [];
+        $map   = array_diff_assoc(BWACHLogik::matterAdoption($sources, $new, self::MATTER_COMPOSITE), array_map('strval', $known));
+        if (!$map) {
+            return;
+        }
+        foreach (['LastSeen', 'History', 'LifeObs', 'Poll', 'NotifyState', 'Retired', 'FcLog'] as $ident) {
+            $data = $this->loadJson($ident);
+            $hit  = false;
+            foreach ($map as $newKey => $oldKey) {
+                if (array_key_exists($oldKey, $data) && !array_key_exists($newKey, $data)) {
+                    $data[$newKey] = $data[$oldKey];
+                    unset($data[$oldKey]);
+                    $hit = true;
+                }
+            }
+            if ($hit) {
+                $this->saveJson($ident, $data);
+            }
+        }
+        $diary = $this->loadJson('Diary');
+        $hit   = false;
+        foreach ($diary as $i => $e) {
+            $k = array_search((string)($e['key'] ?? ''), array_map('strval', $map), true);
+            if ($k !== false) {
+                $diary[$i]['key'] = (string)$k;
+                $hit = true;
+            }
+        }
+        if ($hit) {
+            $this->saveJson('Diary', $diary);
+        }
+        $meta = $this->loadJson('Meta');
+        $meta['adopted'] = $map + ($meta['adopted'] ?? []);   // + statt array_merge: Instanz-IDs sind Zahlenschlüssel
+        $this->saveJson('Meta', $meta);
+        $this->LogMessage(BWACHText::t('Matter composite devices: settings and history of %s device(s) taken over from the deleted instances per endpoint.', count($map)), KL_MESSAGE);
+    }
+
+    /** Steht in der gemerkten Geräteliste eine Instanz, die es nicht mehr gibt? */
+    private function hasMissingInstance(array $found): bool
+    {
+        foreach ($found['devices'] ?? [] as $key => $d) {
+            $id = (int)($d['parent'] ?? $key);
+            if ($id > 0 && IPS_ObjectExists($id) === false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Bewertet alle gefundenen Geräte und schreibt Kennzahlen und Tabellen. */
     public function Check(): string
     {
         $found = $this->found();
         if ($found === null) {
             return BWACHText::t('ℹ️ Not searched yet — first click "Search again now".');
+        }
+        // Eine gemerkte Instanz ist verschwunden (gelöscht, ersetzt, z. B. Matter Composite ab Symcon 9.1): neu suchen,
+        // höchstens alle 10 Minuten, damit eine dauerhaft fehlende Instanz keine Suchschleife auslöst
+        if ($this->now() - $this->ReadAttributeInteger('LastDiscoveryTs') > 600 && $this->hasMissingInstance($found)) {
+            return $this->Search();
         }
         $rows = $this->evaluateAll($found);
         if ($this->pollDevices($rows, $this->now())) {
@@ -1813,15 +1880,21 @@ class Batteriewaechter extends IPSModule
      */
     private function matterNode(int $inst, ?string $module = null): ?array
     {
+        // Eine gelöschte Instanz (z. B. nach der Umstellung auf „Matter Composite Device“ mit Symcon 9.1) still übergehen
+        if ($inst <= 0 || !IPS_InstanceExists($inst)) {
+            return null;
+        }
         $module = $module ?? (string)(IPS_GetInstance($inst)['ModuleInfo']['ModuleName'] ?? '');
-        if ($module !== 'Matter Device') {
+        if (!in_array($module, self::MATTER_MODULES, true)) {
             return null;
         }
         $cfg = json_decode((string)IPS_GetConfiguration($inst), true);
         if (!is_array($cfg) || !isset($cfg['NodeId'])) {
             return null;
         }
-        return ['node' => (string)$cfg['NodeId'], 'endpoint' => (int)($cfg['EndpointId'] ?? 0)];
+        // Composite: alle Endpunkte eines Geräts in einer Instanz, die Stromversorgung (E0_…) eingeschlossen
+        $composite = $module === self::MATTER_COMPOSITE;
+        return ['node' => (string)$cfg['NodeId'], 'endpoint' => $composite ? 0 : (int)($cfg['EndpointId'] ?? 0), 'composite' => $composite];
     }
 
     /**
@@ -1847,8 +1920,8 @@ class Batteriewaechter extends IPSModule
     private function matterSiblings(int $inst): array
     {
         $m = $this->matterNode($inst);
-        if ($m === null) {
-            return [];
+        if ($m === null || $m['composite']) {
+            return [];   // Composite: Funktionen und Stromversorgung liegen schon in derselben Instanz
         }
         $guid = (string)(IPS_GetInstance($inst)['ModuleInfo']['ModuleID'] ?? '');
         $out  = [];
@@ -2114,6 +2187,12 @@ class Batteriewaechter extends IPSModule
                 }
             }
         }
+        // Nach der Matter-Umstellung: Einstellungen der gelöschten Instanz gelten für das neue Gerät, bis es eigene hat
+        foreach ($this->loadJson('Meta')['adopted'] ?? [] as $newKey => $oldKey) {
+            if (!isset($out[$newKey]) && isset($out[$oldKey])) {
+                $out[$newKey] = $out[$oldKey];
+            }
+        }
         return $out;
     }
 
@@ -2280,7 +2359,12 @@ class Batteriewaechter extends IPSModule
      * Warteschlange der Z-Wave-Instanz.
      */
     /** Systeme, für die es eine Statusanfrage gibt: Modulname der Instanz => Symcon-Funktion. */
-    private const POLL_FUNCTIONS = ['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction'];
+    private const POLL_FUNCTIONS = ['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'Matter Composite Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction'];
+
+    /** Matter-Module: ein Endpunkt je Instanz (bis Symcon 9.0) und ein Gerät je Instanz (ab Symcon 9.1). */
+    private const MATTER_DEVICE    = 'Matter Device';
+    private const MATTER_COMPOSITE = 'Matter Composite Device';
+    private const MATTER_MODULES   = [self::MATTER_DEVICE, self::MATTER_COMPOSITE];
 
     /**
      * Zusätzliche Argumente nach der Instanz-ID. Comet: Der Batteriestand (Register A6) kommt nur mit „alle Felder“; das weckt
@@ -2290,7 +2374,7 @@ class Batteriewaechter extends IPSModule
     private const POLL_ARGS = ['CometWiFiThermostat' => ['AllFields']];
 
     /** Wie lange auf eine Antwort gewartet wird, bevor „keine Antwort“ gilt: schlafende Z-Wave-Geräte antworten erst beim Aufwachen. */
-    private const POLL_WAIT = ['Z-Wave Module' => 14 * 86400, 'Matter Device' => 6 * 3600, 'CometWiFiThermostat' => 6 * 3600];
+    private const POLL_WAIT = ['Z-Wave Module' => 14 * 86400, 'Matter Device' => 6 * 3600, 'Matter Composite Device' => 6 * 3600, 'CometWiFiThermostat' => 6 * 3600];
 
     private function pollDevices(array $rows, int $now): bool
     {
@@ -3207,7 +3291,12 @@ class Batteriewaechter extends IPSModule
     {
         $rowKey = $sensor > 0 ? $id . '-' . $sensor : (string)$id;
         if ($id <= 0 || !IPS_InstanceExists($id)) {
-            return ['Name' => BWACHText::t('(instance missing)'), 'SensorName' => '', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => '', 'Change' => '', 'ChangeSort' => 0, 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
+            // Verwaiste Zeile: Instanz gelöscht. Nach der Matter-Umstellung gelten die Werte für das neue Gerät weiter.
+            $to = array_search($rowKey, array_map('strval', $this->loadJson('Meta')['adopted'] ?? []), true);
+            $effect = $to !== false
+                ? BWACHText::t('⚠️ Instance deleted; these settings apply to #%s until that row is saved', $to)
+                : BWACHText::t('⚠️ Instance deleted: delete this row');
+            return ['Name' => BWACHText::t('(instance missing)'), 'SensorName' => '', 'Place' => '', 'Module' => '', 'Percent' => '—', 'PercentSort' => 1000.0, 'Effect' => $effect, 'Change' => '', 'ChangeSort' => 0, 'effectiveCell' => BWACHZelle::UNKNOWN, 'effectiveExcluded' => true];
         }
         $label = $labels[$id] ?? ['name' => IPS_GetName($id), 'place' => '', 'module' => (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? '')];
         if ($sensor > 0) {
@@ -3361,6 +3450,7 @@ class Batteriewaechter extends IPSModule
         $retD   = $this->loadJson('Retired');
         $open   = [];
         $instRows = [];   // gespeicherte Zeilen „Instanz als Ganzes“: Vorbild für neue Sensor-Zeilen derselben Instanz
+        $adopted  = $this->loadJson('Meta')['adopted'] ?? [];   // neues Matter-Composite-Gerät => gelöschte alte Instanz
         if (is_array($saved)) {
             foreach ($saved as $r) {
                 $id  = (int)($r['Instance'] ?? 0);
@@ -3437,6 +3527,11 @@ class Batteriewaechter extends IPSModule
                     $filled += $cell !== BWACHZelle::UNKNOWN ? 1 : 0;
                     $row  = ['Instance' => $id, 'Group' => BWACHLogik::GROUP_STANDARD, 'Critical' => false, 'IgnoreAge' => false,
                         'NoStill' => false, 'Excluded' => false, 'Cell' => $cell, 'Cells' => 1, 'Poll' => false, 'StillDays' => 0, 'Alias' => '', 'Sensor' => 0, 'PlaceOwn' => '', 'ReachVar' => 0, 'ReachInv' => false];
+                    // Nach der Matter-Umstellung: die Zeile der gelöschten Instanz als Vorlage, damit „Übernehmen“ nichts verliert
+                    $from = (int)($adopted[$hk] ?? 0);
+                    if ($from > 0 && isset($instRows[$from])) {
+                        $row = array_merge($instRows[$from], ['Instance' => $id, 'Sensor' => 0]);
+                    }
                     $info = $this->deviceInfo($id, $pcts, $row, $labels, $rules, $diaryD, $retD);
                     if ($info['effectiveCell'] === BWACHZelle::UNKNOWN && !$info['effectiveExcluded']) { $open[] = $info['Name']; }
                     unset($info['effectiveCell'], $info['effectiveExcluded']);

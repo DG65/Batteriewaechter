@@ -19,5 +19,9 @@
     "Detect battery replacements automatically": "Batteriewechsel automatisch erkennen",
     "By percentage jump and \"low\" flag": "Am Prozentsprung und am „schwach“-Flag",
     "By percentage jump only (for flickering \"low\" flags, e.g. HomeMatic)": "Nur am Prozentsprung (bei flackerndem „schwach“-Flag, z. B. HomeMatic)",
-    "Off (enter replacements by hand only)": "Aus (Wechsel nur von Hand eintragen)"
+    "Off (enter replacements by hand only)": "Aus (Wechsel nur von Hand eintragen)",
+    "replaced by the Matter composite device #%s (same node %s)": "ersetzt durch das Matter-Composite-Gerät #%s (derselbe Knoten %s)",
+    "Matter composite devices: settings and history of %s device(s) taken over from the deleted instances per endpoint.": "Matter-Composite-Geräte: Einstellungen und Verlauf von %s Gerät(en) aus den gelöschten Instanzen je Endpunkt übernommen.",
+    "⚠️ Instance deleted; these settings apply to #%s until that row is saved": "⚠️ Instanz gelöscht; die Einstellungen gelten für #%s, bis dessen Zeile gespeichert ist",
+    "⚠️ Instance deleted: delete this row": "⚠️ Instanz gelöscht: diese Zeile löschen"
 }

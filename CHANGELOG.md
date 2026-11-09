@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.3] - 2026-11-09
+
+### Added
+- **Matter Composite Device (Symcon 9.1):** Symcon 9.1 legt für ein Matter-Gerät eine Instanz „Matter Composite Device“ an (alle Endpunkte in einer Instanz, Batteriewerte `E0_PowerSource_…`). Der Wächter erkennt sie, fragt sie mit `MATTER_RequestStatus` ab und nennt sie nicht im Hinweis „Matter ohne Endpunkt 0“. Bestehen für einen Knoten noch die alten Instanzen je Endpunkt, zählt nur das Composite-Gerät; die alten stehen begründet bei den Ausgeschlossenen.
+- **Übernahme nach der Umstellung:** Tagebuch, Verlauf, Meldezustand, „außer Betrieb“ und Abfragen ziehen vom alten Gerät auf das Composite-Gerät desselben Knotens um. Die Geräte-Einstellungen (Zelltyp, Zellen, Abfragen …) gelten für das neue Gerät weiter; dessen neue Zeile in „Geräte-Einstellungen“ ist mit den alten Werten vorbelegt und wird mit „Übernehmen“ dauerhaft. Bei mehreren alten Geräten desselben Knotens wird nichts geraten.
+
+### Fixed
+- **Warnung bei gelöschter Instanz** (live gesehen nach der Matter-Umstellung: „Instanz #… existiert nicht“ bei jedem Lauf): Gelöschte Instanzen werden still übergangen. Verschwindet eine gemerkte Instanz, sucht die Prüfung von selbst neu (höchstens alle 10 Minuten). Eine verwaiste Zeile in „Geräte-Einstellungen“ sagt jetzt, dass die Instanz gelöscht ist und ob ihre Werte für ein neues Gerät weitergelten.
+
 ## [0.20.2] - 2026-11-05
 
 ### Fixed

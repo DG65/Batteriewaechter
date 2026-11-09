@@ -24,6 +24,14 @@ $src  = $root . '/Batteriewaechter';
 // Bewusst NICHT aufgenommen (gleichwertig): Flag-Reset mit Anstieg genau 40 Punkte (≥ → >); der Prozentsprung-Zweig davor meldet den Wechsel schon.
 // Bewusst NICHT aufgenommen (gleichwertig): Wartezeit 0 ohne Prüfung im Suchzweig für UNREACH (die Wartezeit wird danach nochmals geprüft).
 $mutations = [
+    ['module.php', "        if (\$inst <= 0 || !IPS_InstanceExists(\$inst)) {\n            return null;\n        }\n        \$module = \$module ??", "        \$module = \$module ??", 'Matter: gelöschte Instanz erzeugt Warnungen'],
+    ['module.php', "\$result = BWACHLogik::matterPreferComposite(\$result, self::MATTER_COMPOSITE);", "", 'Composite: Gerät steht doppelt in der Liste'],
+    ['module.php', "\$this->adoptMatterKeys([\$this->found() ?? [], \$raw], \$result);", "", 'Composite: Tagebuch und Einstellungen ziehen nicht um'],
+    ['module.php', "            if (!isset(\$out[\$newKey]) && isset(\$out[\$oldKey])) {", "            if (false) {", 'Composite: Einstellungen der alten Instanz gelten nicht'],
+    ['module.php', "        if (\$from > 0 && isset(\$instRows[\$from])) {", "        if (false) {", 'Composite: neue Zeile ohne Werte der alten'],
+    ['module.php', "&& \$this->hasMissingInstance(\$found)) {", "&& false) {", 'Verschwundene Instanz löst keine Neusuche aus'],
+    ['module.php', "'Matter Composite Device' => 'MATTER_RequestStatus', ", "", 'Composite wird nicht abgefragt'],
+    ['BWACHLogik.php', "count(\$oldByNode[\$node] ?? []) !== 1", "count(\$oldByNode[\$node] ?? []) < 1", 'Composite-Zuordnung rät bei mehreren alten Geräten'],
     ['module.php', "if (\$mode > 0 && \$prev !== null) {", "if (\$prev !== null) {", 'Wechselerkennung „aus“ wirkt nicht'],
     ['module.php', "\$p = \$mode === 1 ? ['p' => \$prev['p'], 'f' => null] : \$prev;\n                \$c = \$mode === 1 ? ['p' => \$cur['p'], 'f' => null] : \$cur;", "\$p = \$prev;\n                \$c = \$cur;", 'Wechselerkennung „nur Prozentsprung“ wertet das Flag doch aus'],
     ['BWACHText.php', "if (!isset(self::\$gemerkt[\$text])) {", "if (true) {", 'Stolperstein 24: Merkliste wird nie genutzt'],
@@ -290,8 +298,8 @@ $mutations = [
     ['module.html', "if ((a === '') !== (b === '')) { return a === '' ? 1 : -1; }", "if ((a === '') !== (b === '')) { return a === '' ? -1 : 1; }", 'Nach Ort: „ohne Ort“ steht vorn'],
     ['module.html', "{ id: 'prevent',  label: '🗓 ' + T('Preventive'),      test: function (d) { return d.preventive; } },", "", 'Kachel: Filter „Vorsorge“ fehlt'],
     ['module.html', "bwGroup = !bwGroup;", "bwGroup = bwGroup;", 'Kachel: „Nach Ort“ lässt sich nicht umschalten'],
-    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", "['Z-Wave Module' => 'ZW_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", 'Abfrage: Matter wird nicht abgefragt'],
-    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'ZW_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", 'Abfrage: Matter ruft die Z-Wave-Funktion auf'],
+    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'Matter Composite Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Composite Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", 'Abfrage: Matter wird nicht abgefragt'],
+    ['module.php', "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'MATTER_RequestStatus', 'Matter Composite Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", "['Z-Wave Module' => 'ZW_RequestStatus', 'Matter Device' => 'ZW_RequestStatus', 'Matter Composite Device' => 'MATTER_RequestStatus', 'CometWiFiThermostat' => 'CWIFI_SendAction']", 'Abfrage: Matter ruft die Z-Wave-Funktion auf'],
     ['module.php', "'caption' => 'Query (Z-Wave, Matter, Comet)'", "'caption' => 'Query'", 'Spalte „Abfragen“ nennt die Systeme nicht'],
     ['BWACHPrognose.php', "\$slope >= 0 || !in_array(\$confidence, ['hoch', 'mittel'], true)", "\$slope >= 0", 'Prognose-Protokoll: auch bei geringer Sicherheit'],
     ['BWACHPrognose.php', "if (\$pct === null || \$slope === null || \$slope >= 0", "if (\$pct === null || \$slope === null || \$slope > 0", 'Prognose-Protokoll: auch ohne Entladung (Steigung 0)'],
