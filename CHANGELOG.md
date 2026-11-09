@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.6] - 2026-11-09
+
+### Changed
+- **„💾 Liste zum Speichern vorbereiten“ ist immer sichtbar** (Dietmar): Der Knopf schaltet „Übernehmen“ jederzeit frei, nicht nur bei neuen oder verwaisten Zeilen. Live bestätigt am 09.11.2026: Nach dem Klick erscheint „Übernehmen“, gespeichert werden die gesetzten Zeilen.
+
 ## [0.20.5] - 2026-11-09
 
 ### Fixed

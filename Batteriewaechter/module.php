@@ -3760,8 +3760,8 @@ class Batteriewaechter extends IPSModule
                     ['type' => 'Label', 'caption' => $this->deviceHelp()],
                 ]],
                 ...$this->retiredItems($this->found(), 'Settings'),
-                ['type' => 'Button', 'caption' => '💾 Prepare list for saving', 'visible' => $dr['added'] > 0 || $dr['filled'] > 0 || $this->orphanRowCount($dr['rows']) > 0,
-                    'onClick' => 'echo BWACH_PrepareDeviceSettings($id);'],
+                // Immer sichtbar (Dietmar, 09.11.2026): schaltet „Übernehmen“ frei, auch ohne neue oder verwaiste Zeilen
+                ['type' => 'Button', 'caption' => '💾 Prepare list for saving', 'onClick' => 'echo BWACH_PrepareDeviceSettings($id);'],
                 [
                     'type' => 'List', 'name' => 'DeviceSettings', 'caption' => 'Devices', 'rowCount' => max(5, min(60, count($dr['rows']))), 'add' => true, 'delete' => true,
                     'loadValuesFromConfiguration' => false,

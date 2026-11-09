@@ -736,7 +736,7 @@ $lp = $listOf($mp, 'DeviceSettings');
 check('Geräte-Einstellungen: Listenhöhe folgt der Zahl der Zeilen (5 bis 60)', $lp !== null && $lp['rowCount'] === max(5, min(60, count($lp['values']))) && count($lp['values']) > 5, json_encode([$lp['rowCount'] ?? null, count($lp['values'] ?? [])]));
 check('Geräte-Einstellungen: ohne Geräte mindestens 5 Zeilen hoch', (function () { $save = $GLOBALS['OBJ']; $GLOBALS['OBJ'] = []; mkinst(12345, 'Batteriewächter', 'Batteriewaechter'); $m = new BWTest(); $m->Create(); $m->ApplyChanges(); $ok = false; foreach (json_decode($m->GetConfigurationForm(), true)['elements'] as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { $ok = $it['rowCount'] === 5; } } } $GLOBALS['OBJ'] = $save; return $ok; })());
 check('Gruppen-Regeln: Listenhöhe folgt der Zahl der Regeln (mindestens 4)', ($listOf($mp, 'GroupRules')['rowCount'] ?? null) === 4);
-check('Knopf „Liste zum Speichern vorbereiten“ sichtbar bei neuen oder verwaisten Zeilen', strpos($mp->GetConfigurationForm(), '"caption":"💾 Liste zum Speichern vorbereiten","visible":true') !== false);
+check('Knopf „Liste zum Speichern vorbereiten“ immer sichtbar (auch ohne neue oder verwaiste Zeilen)', strpos($mp->GetConfigurationForm(), '"caption":"💾 Liste zum Speichern vorbereiten","onClick"') !== false && strpos($mp->GetConfigurationForm(), '"caption":"💾 Liste zum Speichern vorbereiten","visible"') === false);
 $mp->fieldUpdates = []; $msgP = $mp->PrepareDeviceSettings();
 $upd = array_values(array_filter($mp->fieldUpdates, function ($u) { return $u[0] === 'DeviceSettings' && $u[1] === 'values'; }));
 $vals = json_decode($upd[0][2] ?? '[]', true);
