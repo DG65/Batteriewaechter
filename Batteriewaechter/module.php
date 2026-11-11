@@ -1359,6 +1359,42 @@ class Batteriewaechter extends IPSModule
         return $msg;
     }
 
+    /**
+     * Wie DeleteDetectedChanges, aber nur für ein Gerät (Forum: Scheinwechsel eines flackernden Flags gezielt entfernen).
+     * $Key ist der Geräteschlüssel aus der Auswahl unter „Quittieren“; bei einer Instanz zählen ihre Sensor-Einträge mit.
+     */
+    public function DeleteDetectedChangesOf(string $Key): string
+    {
+        if ($Key === '') {
+            return BWACHText::t('ℹ️ Please choose a device first.');
+        }
+        $mine  = function (string $k) use ($Key): bool { return $k === $Key || strpos($k, $Key . '-') === 0; };
+        $diary = $this->loadJson('Diary');
+        $keep  = array_values(array_filter($diary, function ($e) use ($mine) { return !((string)($e['type'] ?? '') === 'erkannt' && $mine((string)($e['key'] ?? ''))); }));
+        $n     = count($diary) - count($keep);
+        if ($n === 0) {
+            $msg = BWACHText::t('ℹ️ There are no automatically detected replacements for this device in the log.');
+            $this->UpdateFormField('AckStatus', 'caption', $msg);
+            return $msg;
+        }
+        $this->saveJson('Diary', $keep);
+        $this->saveJson('Undo', []);
+        $fc = $this->loadJson('FcLog');
+        foreach (array_keys($fc) as $k) {
+            if ($mine((string)$k)) {
+                unset($fc[$k]);   // der Vergleich mit der Prognose hing an den gelöschten Wechseln
+            }
+        }
+        $this->saveJson('FcLog', $fc);
+        $this->Check();
+        $msg = $n === 1
+            ? BWACHText::t('✅ %s automatically detected replacement of this device deleted. Manually entered ones remain.', $n)
+            : BWACHText::t('✅ %s automatically detected replacements of this device deleted. Manually entered ones remain.', $n);
+        $this->UpdateFormField('AckStatus', 'caption', $msg);
+        $this->UpdateFormField('DiaryLine', 'caption', $this->diaryLine());
+        return $msg;
+    }
+
     /** Nimmt alle außer Betrieb gesetzten Geräte wieder auf. */
     public function UnretireAll(): string
     {
@@ -3187,6 +3223,13 @@ class Batteriewaechter extends IPSModule
                     ],
                 ]],
                 ['type' => 'Label', 'name' => 'DiaryLine', 'caption' => $this->diaryLine()],
+                ['type' => 'PopupButton', 'caption' => 'Detected replacements of this device …', 'width' => '320px', 'popup' => [
+                    'caption' => 'Delete detected replacements of this device?',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => '⚠️ This deletes the AUTOMATICALLY detected entries of the device chosen above under "Device" from the battery log. Replacements entered by hand or added later remain.'],
+                        ['type' => 'Button', 'caption' => '🗑️ Yes, delete for this device', 'onClick' => 'echo BWACH_DeleteDetectedChangesOf($id, $AckDevice);'],
+                    ],
+                ]],
                 ['type' => 'PopupButton', 'caption' => 'Delete automatically detected replacements …', 'width' => '320px', 'popup' => [
                     'caption' => 'Delete detected replacements?',
                     'items' => [

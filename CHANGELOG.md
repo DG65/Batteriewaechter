@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.7] - 2026-11-11
+
+### Added
+- **Erkannte Wechsel je Gerät löschen** (Forum: Scheinwechsel eines einzelnen Geräts gezielt entfernen, bisher nur für alle Geräte auf einmal): Im Panel „Quittieren und Batterietagebuch“ löscht „Erkannte Wechsel dieses Geräts …“ (mit Rückfrage) die automatisch erkannten Einträge des oben gewählten Geräts; bei einer Instanz auch die ihrer Sensoren. Von Hand eingetragene und nachgetragene Wechsel bleiben. Für Skripte: `BWACH_DeleteDetectedChangesOf(<InstanzID>, '<Schlüssel>')`.
+
 ## [0.20.6] - 2026-11-09
 
 ### Changed

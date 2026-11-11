@@ -37,5 +37,13 @@
     "✅ All detected devices are in the list, not yet saved. %s To save, click \"💾 Prepare list for saving\" and then \"Apply\" below.": "✅ Alle erkannten Geräte stehen in der Liste, noch nicht gespeichert. %s Zum Speichern „💾 Liste zum Speichern vorbereiten“ und danach unten „Übernehmen“ klicken.",
     "💾 Prepare list for saving": "💾 Liste zum Speichern vorbereiten",
     "💾 List prepared: %s devices, %s row of a deleted instance removed. Now click \"Apply\" below to save.": "💾 Liste vorbereitet: %s Geräte, %s Zeile einer gelöschten Instanz entfernt. Jetzt unten „Übernehmen“ klicken, um zu speichern.",
-    "💾 List prepared: %s devices, %s rows of deleted instances removed. Now click \"Apply\" below to save.": "💾 Liste vorbereitet: %s Geräte, %s Zeilen gelöschter Instanzen entfernt. Jetzt unten „Übernehmen“ klicken, um zu speichern."
+    "💾 List prepared: %s devices, %s rows of deleted instances removed. Now click \"Apply\" below to save.": "💾 Liste vorbereitet: %s Geräte, %s Zeilen gelöschter Instanzen entfernt. Jetzt unten „Übernehmen“ klicken, um zu speichern.",
+    "ℹ️ Please choose a device first.": "ℹ️ Bitte zuerst ein Gerät wählen.",
+    "ℹ️ There are no automatically detected replacements for this device in the log.": "ℹ️ Für dieses Gerät gibt es keine automatisch erkannten Wechsel im Tagebuch.",
+    "✅ %s automatically detected replacement of this device deleted. Manually entered ones remain.": "✅ %s automatisch erkannter Wechsel dieses Geräts gelöscht. Von Hand eingetragene bleiben.",
+    "✅ %s automatically detected replacements of this device deleted. Manually entered ones remain.": "✅ %s automatisch erkannte Wechsel dieses Geräts gelöscht. Von Hand eingetragene bleiben.",
+    "Delete detected replacements of this device?": "Erkannte Wechsel dieses Geräts löschen?",
+    "⚠️ This deletes the AUTOMATICALLY detected entries of the device chosen above under \"Device\" from the battery log. Replacements entered by hand or added later remain.": "⚠️ Das löscht die AUTOMATISCH erkannten Einträge des oben unter „Gerät“ gewählten Geräts aus dem Batterietagebuch. Von Hand eingetragene und nachgetragene Wechsel bleiben.",
+    "🗑️ Yes, delete for this device": "🗑️ Ja, für dieses Gerät löschen",
+    "Detected replacements of this device …": "Erkannte Wechsel dieses Geräts …"
 }
