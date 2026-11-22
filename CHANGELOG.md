@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.8] - 2026-11-22
+
+### Fixed
+- **Alkalizellen aus der Spannung zu niedrig berechnet** (Forum: neuer HomeMatic-Fensterkontakt mit 2× AAA meldet 3,0 V, der Wächter zeigte 85 %): Die Kurve für Alkalizellen (AA, AAA, C, D, LR44) ging von der Leerlaufspannung aus (100 % erst bei 1,6 V je Zelle). Geräte messen aber im Betrieb unter Last, eine neue Zelle liegt dort um 1,5 V. Neu: 1,5 V je Zelle = 100 %, 1,4 V = 80 %, 1,3 V = 55 %, 1,2 V = 30 %, 1,1 V = 10 %, 1,0 V = 0 % (wie bisher). Lithium-, Knopfzellen- und NiMH-Kurven unverändert. Es bleibt eine Näherung.
+
 ## [0.20.7] - 2026-11-11
 
 ### Added

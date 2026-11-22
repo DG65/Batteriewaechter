@@ -371,6 +371,7 @@ $mutations = [
     ['module.php', "\$parts[] = \$this->kindLabel((string)\$kind) . ' ' . implode(', ', array_map(function (\$v) { return '#' . \$v; }, \$vids));", "", 'Kachel nennt die IDs der Batterie-Variablen nicht'],
     ['module.php', "\$parts = [BWACHText::t(count(\$inst) > 1 ? 'Instances %s' : 'Instance %s', implode(', ', array_map(function (\$i) { return '#' . \$i; }, \$inst)))];", "\$parts = [];", 'Kachel nennt die Instanz-ID nicht'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
+    ['BWACHZelle.php', "[[1.50, 100], [1.40, 80]", "[[1.60, 100], [1.50, 85], [1.40, 80]", 'Alkali: 100 % erst bei Leerlaufspannung 1,6 V (Forum 144608/148)'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],
     ['module.php', "\$o !== null && \$o['node'] === \$m['node'] && \$o['endpoint'] > 0", "\$o !== null && \$o['endpoint'] > 0", 'Matter: Instanzen anderer Knoten gelten als zugehörig'],

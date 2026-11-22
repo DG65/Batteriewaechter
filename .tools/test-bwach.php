@@ -1642,9 +1642,10 @@ check('Meldung ohne Zustellweg: Meldungslog nennt auch den E-Mail-Grund', (bool)
 heading('10 Zelltypen und Spannungskurven');
 // ===========================================================================
 check('Frische Alkali-AA (1,6 V) = 100 %, leere (1,0 V) = 0 %', BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.6) === 100.0 && BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.0) === 0.0);
-check('Kurve interpoliert zwischen Stützpunkten (1,35 V Alkali = 52,5 %)', BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.35) === 52.5);
-check('Mehrere Zellen in Reihe: 3× AA bei 4,71 V = 1,57 V je Zelle = 95,5 %, bei 4,8 V = 100 %', BWACHZelle::percentFromVoltage('aa_alkali', 3, 4.71) === 95.5 && BWACHZelle::percentFromVoltage('aa_alkali', 3, 4.8) === 100.0);
-check('3× AA bei 3,9 V (1,3 V je Zelle) = 40 %', BWACHZelle::percentFromVoltage('aa_alkali', 3, 3.9) === 40.0);
+check('Kurve interpoliert zwischen Stützpunkten (1,35 V Alkali = 67,5 %)', BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.35) === 67.5);
+check('Alkali im Betrieb (Forum 144608/148): 2× AAA neu bei 3,0 V = 100 %, 1,45 V je Zelle = 90 %, 2,9 V = 90 %', BWACHZelle::percentFromVoltage('aaa_alkali', 2, 3.0) === 100.0 && BWACHZelle::percentFromVoltage('aa_alkali', 1, 1.45) === 90.0 && BWACHZelle::percentFromVoltage('aaa_alkali', 2, 2.9) === 90.0);
+check('Mehrere Zellen in Reihe: 3× AA bei 4,35 V = 1,45 V je Zelle = 90 %, bei 4,71 V = 100 %', BWACHZelle::percentFromVoltage('aa_alkali', 3, 4.35) === 90.0 && BWACHZelle::percentFromVoltage('aa_alkali', 3, 4.71) === 100.0);
+check('3× AA bei 3,9 V (1,3 V je Zelle) = 55 %', BWACHZelle::percentFromVoltage('aa_alkali', 3, 3.9) === 55.0);
 check('CR2032: 3,0 V = 100 %, 2,7 V = 40 %, 2,0 V = 0 %', BWACHZelle::percentFromVoltage('cr2032', 1, 3.0) === 100.0 && BWACHZelle::percentFromVoltage('cr2032', 1, 2.7) === 40.0 && BWACHZelle::percentFromVoltage('cr2032', 1, 2.0) === 0.0);
 check('Li-Ion: 4,2 V = 100 %, 3,7 V = 35 %', BWACHZelle::percentFromVoltage('liion', 1, 4.2) === 100.0 && BWACHZelle::percentFromVoltage('liion', 1, 3.7) === 35.0);
 check('Spannung passt nicht zum Typ → null (4,7 V an einer CR2032, 1 Zelle)', BWACHZelle::percentFromVoltage('cr2032', 1, 4.7) === null);
@@ -1670,9 +1671,9 @@ check('Auswahlliste beginnt mit „unbekannt“ und enthält alle Typen', BWACHZ
 $n = $NOW;
 $volt = ['voltage' => ['value' => 4.71, 'updated' => $n - 60]];
 $r = ev($volt, $n - 60, ['cell' => 'aa_alkali', 'cells' => 3]);
-check('Nur Spannung + Zelltyp: Ladezustand berechnet, als „aus Spannung berechnet“ gekennzeichnet', $r['percent'] === 95.5 && $r['derived'] === true && $r['status'] === 'ok');
+check('Nur Spannung + Zelltyp: Ladezustand berechnet, als „aus Spannung berechnet“ gekennzeichnet', $r['percent'] === 100.0 && $r['derived'] === true && $r['status'] === 'ok');
 $r = ev(['voltage' => ['value' => 3.4, 'updated' => $n - 60]], $n - 60, ['cell' => 'aa_alkali', 'cells' => 3]);
-check('3× AA bei 3,4 V (≈1,13 V je Zelle, 12 %) → schwach, Grund nennt „≈“ und „aus Spannung berechnet“', $r['status'] === 'schwach' && strpos($r['reasons'][0], '≈') !== false && strpos($r['reasons'][0], 'aus Spannung berechnet') !== false, implode(' | ', $r['reasons']));
+check('3× AA bei 3,4 V (≈1,13 V je Zelle, ≈17 %) → schwach, Grund nennt „≈“ und „aus Spannung berechnet“', $r['status'] === 'schwach' && strpos($r['reasons'][0], '≈') !== false && strpos($r['reasons'][0], 'aus Spannung berechnet') !== false, implode(' | ', $r['reasons']));
 $r = ev(['voltage' => ['value' => 4.71, 'updated' => $n - 60]], $n - 60, ['cell' => 'cr2032', 'cells' => 1]);
 check('Spannung passt nicht zum gewählten Zelltyp: Status unbekannt, Hinweis, Dringlichkeit 400', $r['status'] === 'unbekannt' && in_array('zelltyp_passt_nicht', $r['quality'], true) && $r['urgency'] === 400 && strpos(implode(' ', $r['reasons']), 'passt nicht zum gewählten Zelltyp') !== false);
 $r = ev($volt, $n - 60);
@@ -1890,7 +1891,7 @@ mkvar(1602, 160, 'temp', 'Temperatur', 2, 20.0, $GLOBALS['CLOCK'] - 60);
 $GLOBALS['INSTS'] = []; $GLOBALS['SENT'] = [];
 $mv = new BWTest(); $mv->Create(); $mv->props['DeviceSettings'] = json_encode([['Instance' => 160, 'Group' => 'standard', 'Critical' => false, 'IgnoreAge' => false, 'Excluded' => false, 'Cell' => 'aa_alkali', 'Cells' => 3]]); $mv->ApplyChanges();
 $pl = json_decode(end($mv->visUpdates), true);
-check('Nur-Spannungsgerät mit Zelltyp 3× AA: schwach, ≈12 %, „aus Spannung berechnet“ in der Kachel', $pl['devices'][0]['status'] === 'schwach' && $pl['devices'][0]['derived'] === true && $pl['devices'][0]['percentText'] === '12 %' && strpos($pl['devices'][0]['headline'], 'aus Spannung berechnet') !== false, json_encode($pl['devices'][0], JSON_UNESCAPED_UNICODE));
+check('Nur-Spannungsgerät mit Zelltyp 3× AA: schwach, ≈16,7 %, „aus Spannung berechnet“ in der Kachel', $pl['devices'][0]['status'] === 'schwach' && $pl['devices'][0]['derived'] === true && $pl['devices'][0]['percentText'] === '16,7 %' && strpos($pl['devices'][0]['headline'], 'aus Spannung berechnet') !== false, json_encode($pl['devices'][0], JSON_UNESCAPED_UNICODE));
 check('Berechneter Ladezustand kommt in den Verlauf (Prognose-Grundlage)', isset(json_decode($mv->GetValue('History'), true)['160']));
 $mv->props['DeviceSettings'] = '[]'; $mv->Check();
 $pl = json_decode(end($mv->visUpdates), true);

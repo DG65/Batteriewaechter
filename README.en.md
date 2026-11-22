@@ -42,7 +42,7 @@ The module follows the language of your Symcon (English or German): forms, varia
 
 ## Honest limits
 
-- The **discharge curves** are typical approximations, not measured and not manufacturer-specific.
+- The **discharge curves** are typical approximations, not measured and not manufacturer-specific. They apply to the voltage in operation as a device measures it under load (a new alkaline cell counts as full from 1.5 V), not to the open-circuit voltage.
 - The **forecast** needs weeks of history and devices that report the state of charge finely enough. Z-Wave sensors that show "100 %" until shortly before empty get none; there only "empty/low" and the radio silence detection help.
 - **Lifetime, influence of cold and the comparison with similar devices** need data that only builds up over months. In the test bench they are covered with simulated histories, not with long-term data of real devices.
 - There is deliberately **no cell type library by device model**: without a reliable, maintained source it would guess models.

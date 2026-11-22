@@ -37,17 +37,19 @@ final class BWACHZelle
             'curve' => [[3.00, 100], [2.90, 90], [2.80, 70], [2.70, 40], [2.50, 15], [2.20, 5], [2.00, 0]]],
         'rcr123a' => ['label' => 'RCR123A / 16340 rechargeable (Li-ion, 3.7 V)', 'shop' => 'RCR123A (Akku)',
             'curve' => [[4.20, 100], [4.10, 90], [3.95, 70], [3.80, 50], [3.70, 35], [3.60, 20], [3.50, 10], [3.30, 3], [3.00, 0]]],
+        // Alkali: Spannung im Betrieb (unter Last), nicht Leerlauf. Eine neue Zelle liegt im Gerät um 1,5 V
+        // (Forum 144608/148: HomeMatic meldet 3,0 V für 2× AAA neu), 1,6 V misst man nur ohne Last.
         'aa_alkali' => ['label' => 'AA alkaline (1.5 V)', 'shop' => 'AA',
-            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+            'curve' => [[1.50, 100], [1.40, 80], [1.30, 55], [1.20, 30], [1.10, 10], [1.00, 0]]],
         'aaa_alkali' => ['label' => 'AAA alkaline (1.5 V)', 'shop' => 'AAA',
-            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+            'curve' => [[1.50, 100], [1.40, 80], [1.30, 55], [1.20, 30], [1.10, 10], [1.00, 0]]],
         // C (Baby) und D (Mono): dieselbe typische Alkali-Spannungskurve wie AA/AAA, nur die Kapazität ist größer
         'c_alkali' => ['label' => 'C alkaline (1.5 V)', 'shop' => 'C (Baby)',
-            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+            'curve' => [[1.50, 100], [1.40, 80], [1.30, 55], [1.20, 30], [1.10, 10], [1.00, 0]]],
         'd_alkali' => ['label' => 'D alkaline (1.5 V)', 'shop' => 'D (Mono)',
-            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+            'curve' => [[1.50, 100], [1.40, 80], [1.30, 55], [1.20, 30], [1.10, 10], [1.00, 0]]],
         'lr44' => ['label' => 'LR44 / AG13 (alkaline coin cell, 1.5 V)', 'shop' => 'LR44',
-            'curve' => [[1.60, 100], [1.50, 85], [1.40, 65], [1.30, 40], [1.20, 20], [1.10, 8], [1.00, 0]]],
+            'curve' => [[1.50, 100], [1.40, 80], [1.30, 55], [1.20, 30], [1.10, 10], [1.00, 0]]],
         // Silberoxid hält die Spannung lange flach und fällt zum Ende steil: aus der Spannung nur eine grobe Näherung
         'sr44' => ['label' => 'SR44 (silver oxide coin cell, 1.55 V)', 'shop' => 'SR44',
             'curve' => [[1.62, 100], [1.55, 90], [1.50, 60], [1.40, 20], [1.30, 5], [1.20, 0]]],

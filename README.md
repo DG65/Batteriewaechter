@@ -43,7 +43,7 @@ Das Modul folgt der Sprache deines Symcon (Deutsch oder Englisch): Formulare, Va
 
 ## Ehrliche Grenzen
 
-- Die **Entladekurven** sind typische Näherungen, nicht gemessen und nicht herstellerspezifisch.
+- Die **Entladekurven** sind typische Näherungen, nicht gemessen und nicht herstellerspezifisch. Sie gelten für die Spannung im Betrieb, wie ein Gerät sie unter Last misst (eine neue Alkalizelle zählt ab 1,5 V als voll), nicht für die Leerlaufspannung.
 - Die **Prognose** braucht Wochen Verlauf und Geräte, die den Ladezustand fein genug melden. Z-Wave-Sensoren, die bis kurz vor leer „100 %“ zeigen, bekommen keine; dort hilft nur „leer/schwach“ und die Funkstille-Erkennung.
 - **Lebensdauer, Kälteeinfluss und der Gleichartigen-Vergleich** brauchen Daten, die erst über Monate entstehen. Im Prüfstand sind sie mit simulierten Verläufen belegt, nicht mit Langzeitdaten echter Geräte.
 - Eine **Zelltyp-Bibliothek nach Gerätemodell** gibt es bewusst nicht: Ohne eine belastbare, gepflegte Quelle würde sie Modelle raten. Der Wächter nennt Kandidaten aus der Spannung, der Zelltyp wird je Gerät von Hand gewählt.
