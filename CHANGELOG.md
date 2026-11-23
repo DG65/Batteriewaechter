@@ -3,6 +3,11 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.9] - 2026-11-23
+
+### Fixed
+- **Warnung „InstanceInterface is not available“** (Forum: bei jedem Lauf je eine Warnung für HomeMatic-Instanzen, deren Modul nicht geladen ist): Der Wächter liest die Konfiguration fremder Instanzen (HomeMatic-Adresse, Matter-Knoten, Import aus BY_BatterieMonitor, Kachel-Visualisierungen) jetzt ohne Warnung. Fehlt das Modul, gilt die Instanz als ohne Adresse; am Ergebnis der Prüfung ändert sich nichts.
+
 ## [0.20.8] - 2026-11-22
 
 ### Fixed

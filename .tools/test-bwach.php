@@ -50,7 +50,7 @@ function IPS_GetObject(int $id): array { $x = $GLOBALS['OBJ'][$id]; return ['Obj
 function IPS_GetVariable(int $id): array { $v = $GLOBALS['OBJ'][$id]['var']; unset($v['value']); return $v; }
 function IPS_GetInstance(int $id): array { return ['ModuleInfo' => ['ModuleName' => $GLOBALS['OBJ'][$id]['module'], 'ModuleID' => 'GUID-' . $GLOBALS['OBJ'][$id]['module']], 'InstanceStatus' => 102]; }
 function IPS_GetInstanceList(): array { $o = []; foreach ($GLOBALS['OBJ'] as $id => $x) { if ($x['type'] === 1) { $o[] = $id; } } return $o; }
-function IPS_GetConfiguration(int $id): string { return json_encode($GLOBALS['OBJ'][$id]['config'] ?? []); }
+function IPS_GetConfiguration(int $id): string { if (!empty($GLOBALS['OBJ'][$id]['noInterface'])) { trigger_error('InstanceInterface is not available', E_USER_WARNING); return ''; } return json_encode($GLOBALS['OBJ'][$id]['config'] ?? []); }
 function IPS_ObjectExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]); }
 function IPS_InstanceExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 1; }
 function IPS_VariableExists($id): bool { return isset($GLOBALS['OBJ'][(int)$id]) && $GLOBALS['OBJ'][(int)$id]['type'] === 2; }
@@ -3147,6 +3147,14 @@ $warn = 0; set_error_handler(function () use (&$warn) { $warn++; return true; })
 $GLOBALS['CLOCK'] += 3600; $mc->Check(); $formC = json_decode($mc->GetConfigurationForm(), true);
 restore_error_handler();
 check('Alte Instanz gelöscht: Prüfung und Formular ohne PHP-Warnung', $warn === 0, (string)$warn);
+// Forum 144608/150: Instanz, deren Modul nicht geladen ist („InstanceInterface is not available“)
+mkinst(700, 'HM Kontakt ohne Modul', 'HomeMatic Device'); $GLOBALS['OBJ'][700]['noInterface'] = true;
+mkvar(7001, 700, 'LOWBAT', 'LOWBAT', 0, false, $GLOBALS['CLOCK'] - 60);
+$warn = 0; set_error_handler(function () use (&$warn) { $warn++; return true; });
+$mc->Search(); $GLOBALS['CLOCK'] += 3600; $mc->Check(); $mc->GetConfigurationForm();
+restore_error_handler();
+check('Instanz ohne geladenes Modul: Suche, Prüfung und Formular ohne PHP-Warnung', $warn === 0, (string)$warn);
+unset($GLOBALS['OBJ'][700], $GLOBALS['OBJ'][7001]);
 $rowsC = []; array_walk_recursive($formC, function ($v, $k) use (&$rowsC) { if ($k === 'Effect') { $rowsC[] = $v; } });
 check('Geräte-Einstellungen: verwaiste Zeile sagt, dass sie für das neue Gerät gilt', (bool)array_filter($rowsC, function ($v) { return strpos((string)$v, 'Instanz gelöscht') !== false && strpos((string)$v, '#600') !== false; }), json_encode($rowsC, JSON_UNESCAPED_UNICODE));
 $newRow = null; array_walk_recursive($formC, function () {}); foreach (($formC['elements'] ?? []) as $p) { foreach ($p['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'DeviceSettings') { foreach ($it['values'] as $v) { if ((int)$v['Instance'] === 600) { $newRow = $v; } } } } }

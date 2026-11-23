@@ -1289,7 +1289,7 @@ class Batteriewaechter extends IPSModule
             return BWACHText::t('ℹ️ No BY_BatterieMonitor instance found — there is nothing to import.');
         }
         $id  = array_key_first($old);
-        $cfg = json_decode((string)IPS_GetConfiguration($id), true);
+        $cfg = $this->foreignConfig($id);
         if (!is_array($cfg)) {
             return BWACHText::t('⛔ The settings of the old instance #%s cannot be read.', $id);
         }
@@ -1926,7 +1926,7 @@ class Batteriewaechter extends IPSModule
         if (!in_array($module, self::MATTER_MODULES, true)) {
             return null;
         }
-        $cfg = json_decode((string)IPS_GetConfiguration($inst), true);
+        $cfg = $this->foreignConfig($inst);
         if (!is_array($cfg) || !isset($cfg['NodeId'])) {
             return null;
         }
@@ -1946,12 +1946,29 @@ class Batteriewaechter extends IPSModule
         if (stripos($module, 'homematic') === false) {
             return null;
         }
-        $cfg  = json_decode((string)IPS_GetConfiguration($inst), true);
+        $cfg  = $this->foreignConfig($inst);
         $addr = is_array($cfg) ? (string)($cfg['Address'] ?? '') : '';
         if (!preg_match('/^([^:\s]+):(\d+)$/', $addr, $m) && !preg_match('/([A-Za-z0-9]{6,}):(\d+)\s*$/', $name, $m)) {
             return null;
         }
         return ['group' => 'HM:' . $m[1], 'chan' => $m[2]];
+    }
+
+    /**
+     * Konfiguration einer fremden Instanz, ohne Warnung. Ist das Modul der Instanz nicht geladen
+     * (Forum 144608/150: „InstanceInterface is not available“ bei jedem Lauf), gibt es null statt einer Warnung.
+     */
+    private function foreignConfig(int $id): ?array
+    {
+        set_error_handler(function () { return true; });
+        try {
+            $cfg = json_decode((string)IPS_GetConfiguration($id), true);
+        } catch (\Throwable $e) {
+            $cfg = null;
+        } finally {
+            restore_error_handler();
+        }
+        return is_array($cfg) ? $cfg : null;
     }
 
     /** Die übrigen Instanzen desselben Matter-Knotens (ohne Endpunkt 0), nach Endpunkt sortiert. */
@@ -3628,7 +3645,7 @@ class Batteriewaechter extends IPSModule
             }
         }
         foreach ($visus as $v) {
-            $cfg = json_decode((string)IPS_GetConfiguration((int)$v), true);
+            $cfg = $this->foreignConfig((int)$v);
             if (!is_array($cfg) || !array_key_exists('BaseID', $cfg)) {
                 continue;
             }
