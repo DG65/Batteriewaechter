@@ -372,6 +372,7 @@ $mutations = [
     ['module.php', "\$parts = [BWACHText::t(count(\$inst) > 1 ? 'Instances %s' : 'Instance %s', implode(', ', array_map(function (\$i) { return '#' . \$i; }, \$inst)))];", "\$parts = [];", 'Kachel nennt die Instanz-ID nicht'],
     ['BWACHZelle.php', "'CR123A' => 'cr123a', 'RCR123A' => 'rcr123a'", "'CR123A' => 'rcr123a', 'RCR123A' => 'cr123a'", 'Gerätebeschreibung: CR123A und RCR123A vertauscht'],
     ['module.php', "set_error_handler(function () { return true; });\n        try {\n            \$cfg = json_decode((string)IPS_GetConfiguration(\$id), true);", "try {\n            \$cfg = json_decode((string)IPS_GetConfiguration(\$id), true);\n            set_error_handler(function () { return true; });", 'Fremde Konfiguration: Warnung bei Instanz ohne geladenes Modul (Forum 144608/150)'],
+    ['module.php', "if (isset(\$state[\$key]) && \$state[\$key]['ans'] !== true) {", "if (isset(\$state[\$key]) && \$state[\$key]['ans'] === null) {", 'Abfrage: nach „keine Antwort“ wird eine spätere Meldung nicht mehr bewertet'],
     ['BWACHZelle.php', "[[1.50, 100], [1.40, 80]", "[[1.60, 100], [1.50, 85], [1.40, 80]", 'Alkali: 100 % erst bei Leerlaufspannung 1,6 V (Forum 144608/148)'],
     ['BWACHZelle.php', "'AA' => 'aa_alkali', 'AAA' => 'aaa_alkali'", "'AA' => 'aaa_alkali', 'AAA' => 'aa_alkali'", 'Gerätebeschreibung: AA und AAA vertauscht'],
     ['BWACHLogik.php', "preg_match('/(^|_)batreplacementneeded\$/i', \$ident)", "preg_match('/(^|_)batreplacementneededX\$/i', \$ident)", 'Matter „Ersatz erforderlich“ nicht erkannt'],

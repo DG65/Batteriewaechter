@@ -2568,6 +2568,10 @@ $GLOBALS['OBJ'][3012]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] + 5; $GLOBAL
 check('Funkstille-Abfrage: ein neues Lebenszeichen nach der Anfrage zählt als Antwort („schläft nur“)', json_decode($sw->GetValue('Poll'), true)['301']['ans'] === true && strpos(json_decode(end($sw->visUpdates), true)['devices'][0]['pollText'], 'Gerät hat geantwortet') !== false);
 $sw2 = $stillWorld(true); $GLOBALS['CLOCK'] += 7 * 3600; $GLOBALS['MT'] = []; $sw2->Check();
 check('Funkstille-Abfrage bei Matter: nach 6 Stunden ohne Antwort „keine Antwort“ (Z-Wave wartet 14 Tage), Befund erscheint', json_decode($sw2->GetValue('Poll'), true)['301']['ans'] === false && in_array('keine_antwort', json_decode(end($sw2->visUpdates), true)['devices'][0]['quality'], true));
+// Forum/live 27.11.2026: nach „keine Antwort“ meldet sich das Gerät wieder (Netzausfall behoben) → Befund verschwindet
+$GLOBALS['OBJ'][3011]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] + 5; $GLOBALS['OBJ'][3012]['var']['VariableUpdated'] = $GLOBALS['CLOCK'] + 5; $GLOBALS['CLOCK'] += 10; $GLOBALS['MT'] = []; $sw2->Check();
+$pd = json_decode(end($sw2->visUpdates), true)['devices'][0];
+check('Nach „keine Antwort“ meldet sich das Gerät wieder: gilt als beantwortet, Befund „Reagiert nicht“ verschwindet', json_decode($sw2->GetValue('Poll'), true)['301']['ans'] === true && (int)json_decode($sw2->GetValue('Poll'), true)['301']['miss'] === 0 && !in_array('keine_antwort', $pd['quality'], true), json_encode($pd['quality']));
 $sw3 = $stillWorld(true, 'Z-Wave Module'); $GLOBALS['CLOCK'] += 7 * 3600; $GLOBALS['ZW'] = []; $sw3->Check();
 check('Funkstille-Abfrage bei Z-Wave: nach 7 Stunden noch Wartezeit (schlafende Geräte antworten beim Aufwachen)', $GLOBALS['ZW'] === [] && array_key_exists('ans', json_decode($sw3->GetValue('Poll'), true)['301']) && json_decode($sw3->GetValue('Poll'), true)['301']['ans'] === null);
 $stillWorld(false);

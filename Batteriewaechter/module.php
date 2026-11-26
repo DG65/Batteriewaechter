@@ -2442,15 +2442,16 @@ class Batteriewaechter extends IPSModule
         foreach ($rows as $row) {
             $key = $row['id'];
             $age = $row['r']['valueAge'];
-            // Antwort auswerten: der Batteriewert wurde seit der Anfrage aktualisiert
-            if (isset($state[$key]) && $state[$key]['ans'] === null) {
+            // Antwort auswerten: der Batteriewert wurde seit der Anfrage aktualisiert. Auch nach „keine Antwort“ weiter prüfen:
+            // meldet sich das Gerät später doch (z. B. nach einem Netzausfall), verschwindet der Befund (Matter, 27.11.2026)
+            if (isset($state[$key]) && $state[$key]['ans'] !== true) {
                 $t = (int)$state[$key]['t'];
                 // Antwort = der Batteriewert ist nach der Anfrage neu; bei einer Anfrage wegen Funkstille zählt jedes Lebenszeichen
                 $byLife = ($state[$key]['why'] ?? 'alt') === 'still' && (int)$row['life'] > $t;
                 if (($age !== null && $now - $age > $t) || $byLife) {
                     $state[$key]['ans']  = true;
                     $state[$key]['miss'] = 0;
-                } elseif ($now - $t > (self::POLL_WAIT[$row['module']] ?? 14 * 86400)) {
+                } elseif ($state[$key]['ans'] === null && $now - $t > (self::POLL_WAIT[$row['module']] ?? 14 * 86400)) {
                     $state[$key]['ans'] = false;
                 }
             }

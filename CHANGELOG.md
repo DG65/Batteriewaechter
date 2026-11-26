@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an diesem Modul werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
+## [0.20.10] - 2026-11-27
+
+### Fixed
+- **„Reagiert nicht auf Abfragen“ blieb stehen, obwohl das Gerät wieder sendet** (live gesehen nach einem Matter-Netzausfall: sieben Kontakte wieder aktiv, Befund blieb in „Handlungsbedarf“): Nach „keine Antwort“ wurde eine spätere Meldung nicht mehr ausgewertet. Jetzt gilt die Abfrage als beantwortet, sobald der Batteriewert nach der Anfrage neu ist (bei einer Anfrage wegen Funkstille: jedes Lebenszeichen), und der Befund verschwindet beim nächsten Lauf.
+
+### Changed
+- **Typ-Spalte:** Die Instanzliste von Symcon zeigt den Modultyp als „DG65-Toolkit Batteriewächter“ (Verbund-Regel, lesbarer Modulname über `locale.json`).
+
 ## [0.20.9] - 2026-11-23
 
 ### Fixed
