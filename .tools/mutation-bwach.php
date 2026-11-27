@@ -186,7 +186,7 @@ $mutations = [
     ['module.php', "\$fn = self::POLL_FUNCTIONS[\$row['module']] ?? null;", "\$fn = self::POLL_FUNCTIONS[\$row['module']] ?? 'ZW_RequestStatus';", 'Abfrage auch an anderen Systemen'],
     ['module.php', "\$old   = \$age !== null && \$age > \$after;", "\$old   = \$age !== null && \$age > 0;", 'Abfrage unabhängig vom Alter des Werts'],
     ['module.php', "if (isset(\$state[\$key]) && \$now - (int)\$state[\$key]['t'] < \$every) {", "if (false) {", 'Abfrage ohne Mindestabstand'],
-    ['module.php', "} elseif (\$now - \$t > (self::POLL_WAIT[\$row['module']] ?? 14 * 86400)) {", "} elseif (false) {", 'Keine Antwort wird nie festgestellt'],
+    ['module.php', "} elseif (\$state[\$key]['ans'] === null && \$now - \$t > (self::POLL_WAIT[\$row['module']] ?? 14 * 86400)) {", "} elseif (false) {", 'Keine Antwort wird nie festgestellt'],
     ['module.php', "\$state[\$key] = ['t' => \$now, 'ans' => null, 'miss' => \$miss, 'why'", "\$state[\$key] = ['t' => \$now, 'ans' => null, 'miss' => 0, 'why'", 'Unbeantworteter Stand geht bei neuer Anfrage verloren'],
     ['module.php', "\$rates[\$i] = ['rate' => -\$slope, 'group' => \$row['module'] . '|' . (BWACHZelle::isKnown(\$row['cell']) ? \$row['cell'] : 'ohne Zelltyp')];", "\$rates[\$i] = ['rate' => -\$slope, 'group' => 'alle'];", 'Vergleich mischt Systeme und Zelltypen'],
     ['module.php', "return (is_int(\$val) || is_float(\$val)) && \$age <= 12 * 3600 ? (float)\$val : null;", "return (is_int(\$val) || is_float(\$val)) ? (float)\$val : null;", 'Veraltete Außentemperatur wird verwendet'],
